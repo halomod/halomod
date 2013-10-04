@@ -9,7 +9,7 @@ import scipy.special as sp
 class HOD_models(object):
 
     def __init__(self, hod_model, M_1=10 ** 12.851, alpha=1.049, M_min=10 ** 11.6222,
-                 gauss_width=0.26, M_c=10 ** 12.0, M_0=10 ** 11.5047, fca=0.5, fcb=0, fs=1, delta=None, x=1,
+                 gauss_width=0.26, M_0=10 ** 11.5047, fca=0.5, fcb=0, fs=1, delta=None, x=1,
                  central=True):
 
         #Save parameters to self. Many of these are used in multiple models.
@@ -24,7 +24,6 @@ class HOD_models(object):
         self.fs = fs
         self.delta = delta
         self.x = x
-        self.M_c = M_c
         self.central = central
 
         if hod_model == 'zheng':
@@ -62,7 +61,7 @@ class HOD_models(object):
         """
         Defines the central galaxy number for 9-param model of Contreras (2012)
         """
-        return self.fcb * (1 - self.fca) * np.exp(np.log10(M / self.M_c) ** 2 / (2 * (self.x * self.gauss_width) ** 2)) + self.fca * (1 + sp.erf(np.log10(M / self.M_c) / self.x / self.gauss_width))
+        return self.fcb * (1 - self.fca) * np.exp(np.log10(M / self.M_min) ** 2 / (2 * (self.x * self.gauss_width) ** 2)) + self.fca * (1 + sp.erf(np.log10(M / self.M_min) / self.x / self.gauss_width))
 
     def _ns_zheng(self, M):
         """

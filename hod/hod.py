@@ -60,16 +60,17 @@ class HOD(object):
         **kwargs: anything that can be used in the Perturbations class
     
     '''
-    def __init__(self, M=np.linspace(8, 18, 1001), M_1=10 ** 12.851,
+    def __init__(self, M=np.linspace(8, 18, 1001), r=np.linspace(1, 200, 200),
+                  M_1=10 ** 12.851,
                  M_c=10 ** 12.0, alpha=1.049, M_min=10 ** 11.6222,
                  gauss_width=0.26, M_0=10 ** 11.5047, fca=0.5, fcb=0, fs=1,
                  delta=None, x=1, hod_model='zehavi',
                  halo_profile='nfw', cm_relation='duffy', bias_model='tinker',
-                 r=np.linspace(1, 200, 200), central=False, ** pert_kwargs):
+                 central=False, nonlinear=False, scale_dependent_bias=True,
+                 halo_exclusion=None, ** pert_kwargs):
 
         #A dictionary of all HOD parameters
         self.hodmod_params = {"M_1":M_1,
-                              "M_c":M_c,
                               'alpha': alpha,
                               "M_min":M_min,
                               'gauss_width':gauss_width,
@@ -86,7 +87,8 @@ class HOD(object):
 
         self.update(M=M, halo_profile=halo_profile,
                     cm_relation=cm_relation, bias_model=bias_model,
-                    r=r, **combined_dict)
+                    r=r, nonlinear=nonlinear, scale_dependent_bias=scale_dependent_bias,
+                    halo_exclusion=halo_exclusion, **combined_dict)
 
 
     def update(self, **kwargs):
@@ -121,6 +123,14 @@ class HOD(object):
                 self.bias_model = kwargs.pop(k)
             elif k == 'r':
                 self.r = kwargs.pop(k)
+            elif k == 'nonlinear':
+                self.nonlinear = kwargs.pop(k)
+                del self.matter_power
+            elif k == "halo_exclusion":
+                self.halo_exclusion = kwargs.pop(k)
+            elif k == "scale_dependent_bias":
+                self.scale_dependent_bias = kwargs.pop(k)
+                del self.corr_gal_2h
 
         #All that's left should be Perturbations() args
         #However, we don't want to call a new class each time,
@@ -135,6 +145,8 @@ class HOD(object):
                 del self.profile
                 del self.mean_gal_den
                 del self.dm_corr
+                del self.n_gal
+                del self.matter_power
 
 #===============================================================================
 # Set Properties
@@ -177,6 +189,18 @@ class HOD(object):
             self.__bias_model = val
             del self.bias
 
+    @property
+    def halo_exclusion(self):
+        return self.__halo_exclusion
+
+    @halo_exclusion.setter
+    def halo_exclusion(self, val):
+        available = [None, "sphere_zheng", "ellipsoid", "ng_matched"]
+        if val not in available:
+            raise ValueError("halo_exclusion not acceptable: " + str(val))
+        else:
+            self.__halo_exclusion = val
+            del self.corr_gal_2h
     @property
     def r(self):
         return self.__r
@@ -283,9 +307,27 @@ class HOD(object):
         try:
             del self.__n_tot
             del self.mean_gal_den
+            del self.n_gal
         except:
             pass
 
+    @property
+    def n_gal(self):
+        """
+        An array of the same length as M giving number density of galaxies at M
+        """
+        try:
+            return self.__n_gal
+        except:
+            self.__n_gal = self.pert.dndm * self.n_tot
+            return self.__n_gal
+
+    @n_gal.deleter
+    def n_gal(self):
+        try:
+            del self.__n_gal
+        except:
+            pass
     @property
     def mean_gal_den(self):
         """
@@ -312,6 +354,34 @@ class HOD(object):
             pass
 
     @property
+    def matter_power(self):
+        """The matter power used in calculations -- can be linear or nonlinear
+        Has the same k-vector as linear power in pert
+        
+        Linear power is always available through self.pert.power
+        """
+        try:
+            return self.__matter_power
+        except:
+            if self.nonlinear:
+                lnk, self.__matter_power = tools.non_linear_power(self.pert.lnk,
+                                                                  **self.pert.camb_params)
+                #Now we need to normalise
+                self.__matter_power += self.pert.power[0] - self.__matter_power[0]
+            else:
+                self.__matter_power = self.pert.power
+            return self.__matter_power
+
+    @matter_power.deleter
+    def matter_power(self):
+        try:
+            del self.__matter_power
+            del self.power_gal_2h
+            del self.dm_corr
+        except:
+            pass
+
+    @property
     def dm_corr(self):
         """
         The dark-matter-only two-point correlation function of the given cosmology
@@ -319,7 +389,7 @@ class HOD(object):
         try:
             return self.__dm_corr
         except:
-            self.__dm_corr = tools.power_to_corr(self.pert.power,
+            self.__dm_corr = tools.power_to_corr(self.matter_power,
                                                  self.pert.lnk, self.r)
             return self.__dm_corr
 
@@ -336,7 +406,8 @@ class HOD(object):
         try:
             return self.__power_gal_2h
         except:
-            #TODO: add scale-dependent bias, non-linear power, finite max M, weird ng
+            #TODO: add scale-dependent bias,finite max M, weird ng
+            #FIXME: nonlinear power is odd??
             self.__power_gal_2h = np.zeros_like(self.pert.lnk)
             for i, lnk in enumerate(self.pert.lnk):
                 u = self.profile.u(np.exp(lnk), self.pert.M , self.pert.z)
@@ -344,8 +415,9 @@ class HOD(object):
 
                 self.__power_gal_2h[i] = intg.simps(integrand, self.pert.M)
 
-            self.__power_gal_2h = np.exp(self.pert.power) * \
-                                  self.__power_gal_2h ** 2 / self.mean_gal_den ** 2
+            self.__power_gal_2h = np.exp(self.matter_power) * \
+                              self.__power_gal_2h ** 2 / self.mean_gal_den ** 2
+
             return self.__power_gal_2h
 
     @power_gal_2h.deleter
@@ -356,6 +428,87 @@ class HOD(object):
         except:
             pass
 
+    def _power_gal_2h_scale_dep(self, r_index):
+        """The 2-halo term of the galaxy power spectrum, dependent on scale - NOT LOGGED"""
+        #TODO: add scale-dependent bias,finite max M, weird ng
+        #FIXME: nonlinear power is odd??
+        pg2h = np.zeros_like(self.pert.lnk)
+        xi = self.dm_corr[r_index]
+        if self.scale_dependent_bias:
+            bias = self.bias.bias_scale(xi)
+        else:
+            bias = self.bias.bias
+
+        if self.halo_exclusion is not None:
+            integrand_m = self.pert.dndm * self.n_tot
+
+        for i, lnk in enumerate(self.pert.lnk):
+            u = self.profile.u(np.exp(lnk), self.pert.M , self.pert.z)
+            integrand = self.n_tot * u * self.pert.dndm * bias
+
+            if self.halo_exclusion is None:
+                m = self.pert.M
+
+            elif self.halo_exclusion == "sphere_zheng":
+                mlim = tools.virial_mass(self.r[r_index],
+                                         self.pert.cosmo_params['mean_dens'],
+                                         self.pert.delta_halo)
+                integrand = integrand[self.pert.M < mlim]
+                m = self.pert.M[self.pert.M < mlim]
+
+#                integrand_m = integrand_m[self.pert.M < mlim]
+#                m = self.pert.M[self.pert.M < mlim]
+#                ng = intg.simps(integrand_m, m)
+
+            elif self.halo_exclusion == "ng_matched":
+                mmin = np.log(self.pert.M[integrand_m > 0][0])
+                integrand_ms = spline(np.log(self.pert.M[integrand_m > 0]),
+                                     np.log(integrand_m[integrand_m > 0]), k=1)
+                def integ(m1, m2, r):
+                    rv1, rv2 = tools.virial_radius(np.exp(np.array([m1, m2])),
+                                                  self.pert.cosmo_params['mean_dens'],
+                                                  self.pert.delta_halo)
+
+                    return np.exp(m1 + m2) * np.exp(integrand_ms(m1) + integrand_ms(m2)) * tools.overlapping_halo_prob(r, rv1, rv2)
+
+                ng, err = intg.dblquad(integ, mmin, np.log(self.pert.M[-1]),
+                                       lambda x: mmin, lambda x: np.log(self.pert.M[-1]),
+                                       args=(self.r[r_index],), epsrel=1e-3)
+
+                cumint_ng = intg.cumtrapz(integrand_m, self.pert.M)
+                print cumint_ng[-1], ng
+                index = np.where(cumint_ng > ng)[0][0]
+                print index
+                mlim = self.pert.M[index - 1] + (self.pert.M[index] -
+                                                 self.pert.M[index - 1]) * \
+                       (ng - cumint_ng[index - 1]) / (cumint_ng[index] -
+                                                     cumint_ng[index - 1])
+
+                integrand = integrand[self.pert.M < mlim]
+                m = self.pert.M[self.pert.M < mlim]
+
+            elif self.halo_exclusion == "ellipsoid":
+                m = self.pert.M[integrand > 0]
+                integrand = integrand[integrand > 0]
+                integrand = spline(np.log(m), np.log(integrand), k=1)
+
+                def integ(m1, m2, r):
+                    rv1, rv2 = tools.virial_radius(np.exp(np.array([m1, m2])),
+                                                  self.pert.cosmo_params['mean_dens'],
+                                                  self.pert.delta_halo)
+
+                    return np.exp(m1 + m2) * np.exp(integrand(m1) + integrand(m2)) * tools.overlapping_halo_prob(r, rv1, rv2)
+
+                pg2h[i], err = intg.dblquad(integ, np.log(m[0]), np.log(m[-1]),
+                                       lambda x: np.log(m[0]), lambda x: np.log(m[-1]),
+                                       args=(self.r[r_index],), epsrel=1e-3)
+
+            if self.halo_exclusion != "ellipsoid":
+                pg2h[i] = intg.simps(integrand, m)
+
+        pg2h = np.exp(self.matter_power) * pg2h ** 2 / self.mean_gal_den ** 2
+
+        return pg2h
 
     @property
     def _power_gal_1h_ss(self):
@@ -431,8 +584,11 @@ class HOD(object):
                 rho = self.profile.rho(r, self.pert.M , self.pert.z)
 
                 integrand = self.pert.dndm * 2 * self.n_cen * self.n_sat * rho
-
-                self.__corr_gal_1h_cs[i] = intg.simps(integrand, self.pert.M)
+                m_min = tools.virial_mass(r, self.pert.cosmo_params['mean_dens'],
+                                          self.pert.delta_halo)
+                mask = self.pert.M > m_min
+                self.__corr_gal_1h_cs[i] = intg.simps(integrand[mask],
+                                                      self.pert.M[mask])
             self.__corr_gal_1h_cs /= self.mean_gal_den ** 2
             return self.__corr_gal_1h_cs
 
@@ -467,7 +623,14 @@ class HOD(object):
         try:
             return self.__corr_gal_2h
         except:
-            self.__corr_gal_2h = tools.power_to_corr(np.log(self.power_gal_2h),
+            if self.scale_dependent_bias or self.halo_exclusion:
+                self.__corr_gal_2h = np.zeros_like(self.r)
+                for i, r in enumerate(self.r):
+                    power = self._power_gal_2h_scale_dep(i)
+                    self.__corr_gal_2h[i] = tools.power_to_corr(np.log(power),
+                                                                self.pert.lnk, r)[0]
+            else:
+                self.__corr_gal_2h = tools.power_to_corr(np.log(self.power_gal_2h),
                                                      self.pert.lnk, self.r)
             return self.__corr_gal_2h
 

@@ -70,5 +70,4 @@ class Bias(object):
         """
         Scale-dependent bias
         """
-
-        return self.bias ** 2 * (1 + 1.17 * xi_dm) ** 1.49 / (1 + 0.69 * xi_dm) ** 2.09
+        return np.sqrt(self.bias ** 2 * (1 + 1.17 * xi_dm) ** 1.49 / (1 + 0.69 * xi_dm) ** 2.09)
