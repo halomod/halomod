@@ -99,6 +99,9 @@ class HOD(object):
         #We first update all simple HOD parameters, then whatever is left
         #is sent to Perturbations(), which will weed out stupid values.
 
+        #EVERYTHING affects corr_gal_2h, but its tricky because there's a loophole,
+        #so we just delete it here for now.
+        del self.corr_gal_2h
         #First do hod_model parameters
         hodmod_p = {k:v for k, v in kwargs.iteritems() if k in self.hodmod_params}
         if hodmod_p:
@@ -141,12 +144,11 @@ class HOD(object):
             except AttributeError:
                 self.pert = Perturbations(cut_fit=False, **kwargs)
 
-                del self.bias
-                del self.profile
-                del self.mean_gal_den
-                del self.dm_corr
-                del self.n_gal
-                del self.matter_power
+            del self.bias
+            del self.profile
+            del self.mean_gal_den
+            del self.n_gal
+            del self.matter_power
 
 #===============================================================================
 # Set Properties
@@ -195,12 +197,13 @@ class HOD(object):
 
     @halo_exclusion.setter
     def halo_exclusion(self, val):
-        available = [None, "sphere_zheng", "ellipsoid", "ng_matched"]
+        available = [None, "sphere_zheng", "ellipsoid", "ng_matched", 'schneider']
         if val not in available:
             raise ValueError("halo_exclusion not acceptable: " + str(val))
         else:
             self.__halo_exclusion = val
             del self.corr_gal_2h
+            del self.power_gal_2h
     @property
     def r(self):
         return self.__r
@@ -222,6 +225,7 @@ class HOD(object):
 #===============================================================================
     @property
     def bias(self):
+        """Scale-independent bias"""
         try:
             return self.__bias
         except:
@@ -364,10 +368,13 @@ class HOD(object):
             return self.__matter_power
         except:
             if self.nonlinear:
-                lnk, self.__matter_power = tools.non_linear_power(self.pert.lnk,
+                lnk, self.__matter_power = tools.non_linear_power(self.pert.lnkh,
                                                                   **self.pert.camb_params)
                 #Now we need to normalise
-                self.__matter_power += self.pert.power[0] - self.__matter_power[0]
+                #FIXME: get index of self.lnkh which is above -5.3
+                ind = np.where(self.pert.lnkh > -5.3)[0][0]
+                self.__matter_power += self.pert.power[ind] - self.__matter_power[0]
+                self.__matter_power = np.concatenate((self.pert.power[:ind], self.__matter_power))
             else:
                 self.__matter_power = self.pert.power
             return self.__matter_power
@@ -389,7 +396,7 @@ class HOD(object):
         try:
             return self.__dm_corr
         except:
-            self.__dm_corr = tools.power_to_corr(self.matter_power,
+            self.__dm_corr = tools.power_to_corr(np.exp(self.matter_power),
                                                  self.pert.lnk, self.r)
             return self.__dm_corr
 
@@ -404,8 +411,10 @@ class HOD(object):
     def power_gal_2h(self):
         """The 2-halo term of the galaxy power spectrum - NOT LOGGED"""
         try:
+            print "Just returning it"
             return self.__power_gal_2h
         except:
+            print "yup i'm getting power2h"
             #TODO: add scale-dependent bias,finite max M, weird ng
             #FIXME: nonlinear power is odd??
             self.__power_gal_2h = np.zeros_like(self.pert.lnk)
@@ -417,6 +426,10 @@ class HOD(object):
 
             self.__power_gal_2h = np.exp(self.matter_power) * \
                               self.__power_gal_2h ** 2 / self.mean_gal_den ** 2
+
+            if self.halo_exclusion == "schneider":
+                self.__power_gal_2h *= tools.exclusion_window(np.exp(self.pert.lnk),
+                                                              r=2)
 
             return self.__power_gal_2h
 
@@ -446,7 +459,7 @@ class HOD(object):
             u = self.profile.u(np.exp(lnk), self.pert.M , self.pert.z)
             integrand = self.n_tot * u * self.pert.dndm * bias
 
-            if self.halo_exclusion is None:
+            if self.halo_exclusion is None or self.halo_exclusion == 'schneider':
                 m = self.pert.M
 
             elif self.halo_exclusion == "sphere_zheng":
@@ -508,6 +521,10 @@ class HOD(object):
 
         pg2h = np.exp(self.matter_power) * pg2h ** 2 / self.mean_gal_den ** 2
 
+        if self.halo_exclusion == 'schneider':
+            if r_index == 1:
+                #should be k,r/h, but we use k/h and r (which gives the same)
+                pg2h *= tools.exclusion_window(np.exp(self.pert.lnk), r=2)
         return pg2h
 
     @property
@@ -560,7 +577,7 @@ class HOD(object):
                 self.__corr_gal_1h_ss /= self.mean_gal_den ** 2
             #Otherwise we just convert the power
             else:
-                self.__corr_gal_1h_ss = tools.power_to_corr(np.log(self._power_gal_1h_ss),
+                self.__corr_gal_1h_ss = tools.power_to_corr(self._power_gal_1h_ss,
                                                             self.pert.lnk, self.r)
             return self.__corr_gal_1h_ss
 
@@ -586,9 +603,9 @@ class HOD(object):
                 integrand = self.pert.dndm * 2 * self.n_cen * self.n_sat * rho
                 m_min = tools.virial_mass(r, self.pert.cosmo_params['mean_dens'],
                                           self.pert.delta_halo)
-                mask = self.pert.M > m_min
-                self.__corr_gal_1h_cs[i] = intg.simps(integrand[mask],
-                                                      self.pert.M[mask])
+                integrand[self.pert.M < m_min] = 0
+                self.__corr_gal_1h_cs[i] = intg.simps(integrand,
+                                                      self.pert.M)
             self.__corr_gal_1h_cs /= self.mean_gal_den ** 2
             return self.__corr_gal_1h_cs
 
@@ -623,14 +640,16 @@ class HOD(object):
         try:
             return self.__corr_gal_2h
         except:
-            if self.scale_dependent_bias or self.halo_exclusion:
+            if self.scale_dependent_bias or (self.halo_exclusion and self.halo_exclusion != 'schneider'):
                 self.__corr_gal_2h = np.zeros_like(self.r)
                 for i, r in enumerate(self.r):
                     power = self._power_gal_2h_scale_dep(i)
-                    self.__corr_gal_2h[i] = tools.power_to_corr(np.log(power),
+
+                    self.__corr_gal_2h[i] = tools.power_to_corr(power,
                                                                 self.pert.lnk, r)[0]
+
             else:
-                self.__corr_gal_2h = tools.power_to_corr(np.log(self.power_gal_2h),
+                self.__corr_gal_2h = tools.power_to_corr(self.power_gal_2h,
                                                      self.pert.lnk, self.r)
             return self.__corr_gal_2h
 

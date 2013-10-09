@@ -9,7 +9,7 @@ import pycamb
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 import matplotlib.pyplot as plt
 
-def power_to_corr(lnP, lnk, R):
+def power_to_corr(P, lnk, R):
     """
     Calculates the correlation function given a power spectrum
     
@@ -17,15 +17,12 @@ def power_to_corr(lnP, lnk, R):
           before you enter the arguments.
     
     INPUT
-        lnP: vector of values for the log power spectrum
-        lnk: vector of values (same length as lnP) giving the log wavenumbers 
+        P: vector of values for the power spectrum
+        k: vector of values (same length as lnP) giving the log wavenumbers 
              for the power (EQUALLY SPACED)
         r:   radi(us)(i) at which to calculate the correlation
     """
-
     k = np.exp(lnk)
-    P = np.exp(lnP)
-
     if not np.iterable(R):
         R = [R]
 
@@ -54,11 +51,11 @@ def non_linear_power(lnk_out=None, **camb_kwargs):
     
     INPUT
     lnk_out: [None] The values of ln(k) at which the power spectrum should be output
-    normalization: [1] Normalization constant for power (P = P*norm^2)
     **camb_kwargs: any argument for CAMB
     
     OUTPUT
-    lnk: The lnk values at which the power is evaluated
+    lnk: The lnk values at which the power is evaluated (k in units of k/h)
+         If lnk_out is given, will be equivalent to lnk_out
     lnp: The log of the nonlinear power from halofit. 
     """
     #Must set scalar_amp small for it to work...
@@ -66,9 +63,11 @@ def non_linear_power(lnk_out=None, **camb_kwargs):
 
     k, P = pycamb.matter_power(NonLinear=1, **camb_kwargs)
     if lnk_out is not None:
+        #FIXME: I have to put this disgusting cut (lnk>-5.3), because sometimes P comes
+        #out with a massive drop below some k
         power_func = spline(np.log(k), np.log(P), k=1)
-        P = np.exp(power_func(lnk_out))
-        k = np.exp(lnk_out)
+        P = np.exp(power_func(lnk_out[lnk_out > -5.3]))
+        k = np.exp(lnk_out[lnk_out > -5.3])
 
     return np.log(k), np.log(P)
 
@@ -97,5 +96,8 @@ def overlapping_halo_prob(r, rv1, rv2):
     else:
         return 3 * y ** 2 - 2 * y ** 3
 
-
+def exclusion_window(k, r):
+    """Top hat window function"""
+    x = k * r
+    return 3 * (np.sin(x) - x * np.cos(x)) / x ** 3
 

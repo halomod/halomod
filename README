@@ -55,6 +55,9 @@ given parameters through the pert attribute of HOD:
 
 HISTORY
 ---------------------------------------------------------------------------------------
+0.6.1 - 
+		Added scheider halo_exclusion option
+		
 0.6.0 - October 4, 2013
 		Added halo exclusion options (Most Buggy)
 		Added scale-dependent bias
