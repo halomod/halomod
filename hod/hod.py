@@ -411,10 +411,8 @@ class HOD(object):
     def power_gal_2h(self):
         """The 2-halo term of the galaxy power spectrum - NOT LOGGED"""
         try:
-            print "Just returning it"
             return self.__power_gal_2h
         except:
-            print "yup i'm getting power2h"
             #TODO: add scale-dependent bias,finite max M, weird ng
             #FIXME: nonlinear power is odd??
             self.__power_gal_2h = np.zeros_like(self.pert.lnk)

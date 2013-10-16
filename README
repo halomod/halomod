@@ -55,8 +55,11 @@ given parameters through the pert attribute of HOD:
 
 HISTORY
 ---------------------------------------------------------------------------------------
-0.6.1 - 
-		Added scheider halo_exclusion option
+0.7.0 - October 16, 2013
+		Added ability to get HOD, cosmo params from given xi(r) data using mcmc
+		
+0.6.1 - October 10, 2013
+		Added schneider halo_exclusion option
 		
 0.6.0 - October 4, 2013
 		Added halo exclusion options (Most Buggy)
