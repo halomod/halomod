@@ -8,16 +8,15 @@ import scipy.special as sp
 
 class HOD_models(object):
 
-    def __init__(self, hod_model, M_1=10 ** 12.851, alpha=1.049, M_min=10 ** 11.6222,
-                 gauss_width=0.26, M_0=10 ** 11.5047, fca=0.5, fcb=0, fs=1, delta=None, x=1,
+    def __init__(self, hod_model, M_1=12.851, alpha=1.049, M_min=11.6222,
+                 gauss_width=0.26, M_0=11.5047, fca=0.5, fcb=0, fs=1, delta=None, x=1,
                  central=True):
 
         #Save parameters to self. Many of these are used in multiple models.
-        self.M_1 = M_1
-        self.M_min = M_min
-        self.M_0 = M_0
+        self.M_1 = 10 ** M_1
+        self.M_min = 10 ** M_min
+        self.M_0 = 10 ** M_0
         self.alpha = alpha
-        self.M_min = M_min
         self.gauss_width = gauss_width
         self.fca = fca
         self.fcb = fcb
@@ -26,22 +25,42 @@ class HOD_models(object):
         self.x = x
         self.central = central
 
-        if hod_model == 'zheng':
-            self.nc = self._nc_zheng
-            self.ns = self._ns_zheng
+        self._hod_model = hod_model
 
-        elif hod_model == 'zehavi':
-            self.nc = self._nc_zehavi
-            self.ns = self._ns_zehavi
+    #===========================================================================
+    # DEFINE WRAPPERS - THE ONLY ONES THE USER CALLS
+    #===========================================================================
+    #It would be 'simpler' to set eg. self.rho = self.rho_nfw etc (for relevant
+    # profile parameter), but we CANNOT do this because then the class can't
+    #be pickled, which then means we can't go parallel!!
+    def nc(self, M):
+        if self._hod_model == "zheng":
+            return self._nc_zheng(M)
+        elif self._hod_model == "zehavi":
+            return self._nc_zehavi(M)
+        elif self._hod_model == "contreras":
+            return self._nc_contreras(M)
+        elif self._hod_model == "geach":
+            return self._nc_geach(M)
 
-        elif hod_model == 'contreras':
-            self.nc = self._nc_contreras
-            self.ns = self._ns_contreras
+    def ns(self, M):
+        if self._hod_model == "zheng":
+            return self._ns_zheng(M)
+        elif self._hod_model == "zehavi":
+            return self._ns_zehavi(M)
+        elif self._hod_model == "contreras":
+            return self._ns_contreras(M)
+        elif self._hod_model == "geach":
+            return self._ns_geach(M)
 
-        elif hod_model == 'geach':
-            self.nc = self._nc_geach
-            self.ns = self._ns_geach
-
+    def ntot(self, M):
+        if self.central:
+            return self.nc(M) * (1.0 + self.ns(M))
+        else:
+            return self.nc(M) + self.ns(M)
+    #===========================================================================
+    # DEFINE BASE FUNCTIONS
+    #===========================================================================
     def _nc_zheng(self, M):
         """
         Defines the central galaxy number for 3-param model of Zheng (2005)
@@ -85,8 +104,4 @@ class HOD_models(object):
         return self.fs * (1 + sp.erf(np.log10(M / self.M_1) / self.delta)) * (M / self.M_1) ** self.alpha
 
 
-    def ntot(self, M):
-        if self.central:
-            return self.nc(M) * (1.0 + self.ns(M))
-        else:
-            return self.nc(M) + self.ns(M)
+

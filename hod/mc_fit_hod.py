@@ -13,102 +13,114 @@ import numpy as np
 import emcee
 from hod import HOD
 from scipy.stats import norm
+import sys
+from scipy.optimize import minimize
+import copy
 
-class HODFit(object):
+#===============================================================================
+# The Model
+#===============================================================================
+def get_cg(inst):
+    return inst.corr_gal
+
+def model(parm, initial, h, attrs, data, sd):
     """
-    A class that gets a fit for a HOD model. Accepts same keywords as HOD, but
-    also data,var,r which are the r,xi and var(xi) for the observed data
-    
-    The idea here is that we are given some data points for xi(r) -- both r 
-    and xi. Attached to each point is a standard deviation sd from the data (we
-    treat each point as independent for now at least). Then each point may be
-    represented as the model, HOD_xi(r) plus a contribution from a normal dist.
-    
-    INPUT
-    r    -- array-like float, the scales at which the data is given
-    data -- array-like float, the values of the galaxy correlation function from data
-    sd   -- array-like float, the uncertainty on each point of the data
-    initial - dict, a series of HOD() class parameters that are to be fitted,
-            with their initial guesses supplied, and a prior
-            
-            Example: initial = {"alpha":[1.049,"norm",1.049,0.01], #normal prior with mean,sd = 1.049,0.01
-                                "omegab":[0.05,"unif",0,0.2]}      #Uniform prior with limits 0,0.2
-            
-    **hodkwargs - any other parameters that are sent to HOD (these won't be fit)
+    Given a HOD() object and an arbitrary set of parameters/priors, 
+    returns log prob of position (parm)
+    """
+    print "parm before: ", parm
+    ll = 0
+
+    #First check all values are inside boundaries (if bounds given), and
+    #Get the logprob of the priors-- uniform priors don't count here
+    #We reflect the variables off the edge if we need to
+    i = 0
+    for k, v in initial.iteritems():
+        j = 0
+        if v[1] == "norm":
+
+            ll += norm.logpdf(parm[i], loc=v[2], scale=v[3])
+            print ll
+        elif v[1] == "unif":
+            while parm[i] < v[2] or parm[i] > v[3]:
+                j += 1
+                if j > 10:
+                    parm[i] = np.random.rand() * (v[3] - v[2]) + v[2]
+                if parm[i] < v[2]:
+                    parm[i] = 2 * v[2] - parm[i]
+                elif parm[i] > v[3]:
+                    parm[i] = 2 * v[3] - parm[i]
+        i += 1
+
+    print "parm after:", parm
+    #First rebuild the hod dict from given vals
+    hoddict = {attr:val for attr, val in zip(attrs, parm)}
+
+    #print h.__dict__
+
+    h.update(**hoddict)
+
+    #print h.__dict__
+    #The logprob of the model
+    model = get_cg(h)  #data + np.random.normal(scale=0.1)
+    ll += np.sum(norm.logpdf(data, loc=model, scale=sd))
+
+    print "got here"
+    return ll, parm
+
+def fit_hod(r, data, sd, initial={}, nwalkers=100, nsamples=100, burnin=10,
+           thin=50, nthreads=8, filename=None, **hodkwargs):
+    """
+    Runs the mcmc procedure to fit HOD() continuous params to data
     """
 
-    def __init__(self, r, data, sd, initial={}, **hodkwargs):
-        #SAVE THE OBSERVED DATA TO THE CLASS
-        self.r = r
-        self.data = data
-        self.sd = sd
-        self.initial = initial
 
-        if len(initial) == 0:
-            raise ValueError("initial must be at least length 1")
+    if len(initial) == 0:
+        raise ValueError("initial must be at least length 1")
 
-        #Get the number of variables for MCMC
-        self.ndim = len(initial)
-        #Save which attributes are updatable for HOD as a list
-        self.attrs = [k for k in initial]
-        #Update the kwargs for HOD with initial (which is just a dict with
-        #HOD parameters that are subject to change in MCMC).
-        hodkwargs.update(initial)
+    ###NOW TRY A LAPLACE APPROXIMATION TO FIND THE MODE
+    #res = minimize()
 
-        #Initialise the HOD object
-        self.h = HOD(r=self.r, **hodkwargs)
+    #Get the number of variables for MCMC
+    ndim = len(initial)
+    #Save which attributes are updatable for HOD as a list
+    attrs = [k for k in initial]
 
-    def _logprob(self, vals):
-        """
-        Creates a HOD object and gets the logp value compared to data
-        """
-        ll = 0
+    #Make sure hodkwargs is ok
+    if nthreads > 1:
+        numthreads = 1
+    else:
+        numthreads = 0
+    if 'NumThreads' in hodkwargs:
+        del hodkwargs['NumThreads']
+    if 'r' in hodkwargs:
+        del hodkwargs['r']
 
-        #First check all values are inside boundaries (if bounds given), and
-        #Get the logprob of the priors-- uniform priors don't count here
-        i = 0
-        for k, v in self.initial.iteritems():
-            if v[1] == "norm":
+    #Initialise the HOD object - use all available cpus for this
+    h = HOD(r=r, ThreadNum=0, **hodkwargs)
+    #It's better to get a corr_gal instance now and then the updates are faster
+    h.corr_gal
 
-                ll += norm.logpdf(vals[i], loc=v[2], scale=v[3])
-            elif v[1] == "unif":
-                if vals[i] < v[2]:
-                    vals[i] = v[2]
-                elif vals[i] > v[3]:
-                    vals[i] = v[3]
-            i += 1
+    #Now update numthreads for MCMC parallelisation
+    h.update(ThreadNum=numthreads)
 
-        #First rebuild the hod dict from given vals
-        hoddict = {attr:val for attr, val in zip(self.attrs, vals)}
+    #Get an array of initial values
+    initial_val = np.array([val[0] for k, val in initial.iteritems()])
+    #Get an initial value for all walkers, around a small ball near the initial guess
+    stacked_val = initial_val
+    for i in range(nwalkers - 1):
+        stacked_val = np.vstack((initial_val, stacked_val))
+    p0 = stacked_val * np.random.normal(loc=1.0, scale=0.2, size=ndim * nwalkers).reshape((nwalkers, ndim))
 
-        self.h.update(**hoddict)
+    sampler = emcee.EnsembleSampler(nwalkers, ndim, model,
+                                    args=[initial, h, attrs, data, sd],
+                                    threads=nthreads)
 
-        #The logprob of the model
-        model = self.h.corr_gal
-        ll += np.sum(norm.logpdf(self.data, loc=model, scale=self.sd))
+    #Run a burn-in
+    pos, prob, state = sampler.run_mcmc(p0, burnin)
+    sampler.reset()
 
-        return ll
+    #Run the actual run
+    sampler.run_mcmc(pos, nsamples, thin=thin)
 
-    def run_mc(self, nwalkers=100, nsamples=100, burnin=10, thin=50, filename=None):
-        """
-        Does the heavy lifting of the MCMC algorithm using emcee
-        """
-        #Get an array of initial values
-        initial = np.array([val[0] for k, val in self.initial.iteritems()])
-
-        #Get an initial value for all walkers, around a small ball near the initial guess
-        p0 = (np.repeat(initial, nwalkers) * np.random.normal(loc=1.0, scale=0.2, size=self.ndim * nwalkers)).reshape((nwalkers, self.ndim))
-
-
-        sampler = emcee.EnsembleSampler(nwalkers, self.ndim, self._logprob)
-
-        #Run a burn-in
-        pos, prob, state = sampler.run_mcmc(p0, burnin)
-        sampler.reset()
-
-        #Run the actual run
-        sampler.run_mcmc(pos, nsamples, thin=thin)
-
-        return sampler.flatchain, np.mean(sampler.acceptance_fraction)
-
-
+    return sampler.flatchain, np.mean(sampler.acceptance_fraction)

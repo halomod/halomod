@@ -6,7 +6,9 @@ Created on Aug 5, 2013
 '''
 A class containing the methods to do HOD modelling
 '''
-#TODO: figure out what to do when M<M_0 -- is it just 0?? I'd say so...
+
+USE_FORT = True
+
 ###############################################################################
 # Some Imports
 ###############################################################################
@@ -19,8 +21,9 @@ from hmf import Perturbations
 import hmf.tools as ht
 import tools
 from profiles import profiles
-from hod_models import HOD_models as hm
+from hod_models import HOD_models
 from bias import Bias as bias
+from fort.routines import hod_routines as fort
 #===============================================================================
 # The class itself
 #===============================================================================
@@ -60,10 +63,9 @@ class HOD(object):
         **kwargs: anything that can be used in the Perturbations class
     
     '''
-    def __init__(self, M=np.linspace(8, 18, 1001), r=np.linspace(1, 200, 200),
-                  M_1=10 ** 12.851,
-                 M_c=10 ** 12.0, alpha=1.049, M_min=10 ** 11.6222,
-                 gauss_width=0.26, M_0=10 ** 11.5047, fca=0.5, fcb=0, fs=1,
+    def __init__(self, M=np.linspace(8, 18, 500), r=np.linspace(1, 200, 200),
+                  M_1=12.851, alpha=1.049, M_min=11.6222,
+                 gauss_width=0.26, M_0=11.5047, fca=0.5, fcb=0, fs=1,
                  delta=None, x=1, hod_model='zehavi',
                  halo_profile='nfw', cm_relation='duffy', bias_model='tinker',
                  central=False, nonlinear=False, scale_dependent_bias=True,
@@ -106,16 +108,12 @@ class HOD(object):
         hodmod_p = {k:v for k, v in kwargs.iteritems() if k in self.hodmod_params}
         if hodmod_p:
             self.hodmod_params.update(hodmod_p)
-            #Completely re-do hodmod as it is trivial.
-            self.hodmod = hm(**self.hodmod_params)
 
             #Delete the entries we've used from kwargs
             for k in hodmod_p:
                 del kwargs[k]
 
-            del self.n_cen
-            del self.n_sat
-            del self.n_tot
+
 
         for k in kwargs.keys():
             if k == 'halo_profile':
@@ -223,6 +221,23 @@ class HOD(object):
 #===============================================================================
 # Start the actual calculations
 #===============================================================================
+    @property
+    def hodmod(self):
+        try:
+            return self.__hodmod
+        except:
+            self.__hodmod = HOD_models(**self.hodmod_params)
+            return self.__hodmod
+    @hodmod.deleter
+    def hodmod(self):
+        try:
+            del self.__hodmod
+            del self.n_cen
+            del self.n_sat
+            del self.n_tot
+        except:
+            pass
+
     @property
     def bias(self):
         """Scale-independent bias"""
@@ -396,8 +411,15 @@ class HOD(object):
         try:
             return self.__dm_corr
         except:
-            self.__dm_corr = tools.power_to_corr(np.exp(self.matter_power),
-                                                 self.pert.lnk, self.r)
+            if USE_FORT:
+                self.__dm_corr = fort.power_to_corr(nlnk=len(self.pert.lnk),
+                                                    nr=len(self.r),
+                                                    lnk=self.pert.lnk,
+                                                    r=self.r,
+                                                    power=np.exp(self.matter_power))
+            else:
+                self.__dm_corr = tools.power_to_corr(np.exp(self.matter_power),
+                                                     self.pert.lnk, self.r)
             return self.__dm_corr
 
     @dm_corr.deleter
@@ -413,14 +435,23 @@ class HOD(object):
         try:
             return self.__power_gal_2h
         except:
-            #TODO: add scale-dependent bias,finite max M, weird ng
-            #FIXME: nonlinear power is odd??
-            self.__power_gal_2h = np.zeros_like(self.pert.lnk)
-            for i, lnk in enumerate(self.pert.lnk):
-                u = self.profile.u(np.exp(lnk), self.pert.M , self.pert.z)
-                integrand = self.n_tot * u * self.pert.dndm * self.bias.bias
+            if USE_FORT:
+                u = self.profile.u(np.exp(self.pert.lnk), self.pert.M, self.pert.z)
+                self.__power_gal_2h = fort.power_gal_2h(nlnk=len(self.pert.lnk),
+                                                        nm=len(self.pert.M),
+                                                        u=np.asfortranarray(u),
+                                                        bias=self.bias.bias,
+                                                        ntot=self.n_tot,
+                                                        dndm=self.pert.dndm,
+                                                        mass=self.pert.M)
+            else:
+                self.__power_gal_2h = np.zeros_like(self.pert.lnk)
 
-                self.__power_gal_2h[i] = intg.simps(integrand, self.pert.M)
+                for i, lnk in enumerate(self.pert.lnk):
+                    u = self.profile.u(np.exp(lnk), self.pert.M , self.pert.z)
+                    integrand = self.n_tot * u * self.pert.dndm * self.bias.bias
+
+                    self.__power_gal_2h[i] = intg.simps(integrand, self.pert.M)
 
             self.__power_gal_2h = np.exp(self.matter_power) * \
                               self.__power_gal_2h ** 2 / self.mean_gal_den ** 2
@@ -441,8 +472,6 @@ class HOD(object):
 
     def _power_gal_2h_scale_dep(self, r_index):
         """The 2-halo term of the galaxy power spectrum, dependent on scale - NOT LOGGED"""
-        #TODO: add scale-dependent bias,finite max M, weird ng
-        #FIXME: nonlinear power is odd??
         pg2h = np.zeros_like(self.pert.lnk)
         xi = self.dm_corr[r_index]
         if self.scale_dependent_bias:
@@ -533,17 +562,29 @@ class HOD(object):
         try:
             return self.__power_gal_1h_ss
         except:
-            self.__power_gal_1h_ss = np.zeros_like(self.pert.lnk)
-            for i, lnk in enumerate(self.pert.lnk):
-                u = self.profile.u(np.exp(lnk), self.pert.M , self.pert.z)
-                if self.hodmod_params['central']:
-                    integrand = self.n_cen * self.n_sat ** 2 * u ** 2 * self.pert.dndm
-                else:
-                    integrand = self.n_sat ** 2 * u ** 2 * self.pert.dndm
+            if USE_FORT:
+                u = self.profile.u(np.exp(self.pert.lnk), self.pert.M, self.pert.z)
+                self.__power_gal_1h_ss = fort.power_gal_1h_ss(nlnk=len(self.pert.lnk),
+                                                              nm=len(self.pert.M),
+                                                              u=np.asfortranarray(u),
+                                                              dndm=self.pert.dndm,
+                                                              nsat=self.n_sat,
+                                                              ncen=self.n_cen,
+                                                              mass=self.pert.M,
+                                                              central=self.hodmod_params['central'])
+            else:
+                self.__power_gal_1h_ss = np.zeros_like(self.pert.lnk)
+                for i, lnk in enumerate(self.pert.lnk):
+                    u = self.profile.u(lnk, self.pert.M, self.pert.z)
+                    if self.hodmod_params['central']:
+                        integrand = self.n_cen * self.n_sat ** 2 * u ** 2 * self.pert.dndm
+                    else:
+                        integrand = self.n_sat ** 2 * u ** 2 * self.pert.dndm
+                    self.__power_gal_1h_ss[i] = intg.simps(integrand, self.pert.M, even='first')
 
-                self.__power_gal_1h_ss[i] = intg.simps(integrand, self.pert.M)
+                self.__power_gal_1h_ss /= self.mean_gal_den ** 2
 
-            self.__power_gal_1h_ss /= self.mean_gal_den ** 2
+
             return self.__power_gal_1h_ss
 
     @_power_gal_1h_ss.deleter
@@ -560,20 +601,12 @@ class HOD(object):
         try:
             return self.__corr_gal_1h_ss
         except:
-            #If profile is nfw we can skip power and go straight to corr
-            if self.halo_profile == 'nfw':
-                self.__corr_gal_1h_ss = np.zeros_like(self.r)
-                for i, r in enumerate(self.r):
-                    lam = self.profile.lam(r, self.pert.M , self.pert.z)
-
-                    if self.hodmod_params['central']:
-                        integrand = self.pert.dndm * self.n_cen * self.n_sat ** 2\
-                                    * lam / self.pert.M ** 2
-                    else:
-                        integrand = self.pert.dndm * self.n_sat ** 2 * lam / self.pert.M ** 2
-                    self.__corr_gal_1h_ss[i] = intg.simps(integrand, self.pert.M)
-                self.__corr_gal_1h_ss /= self.mean_gal_den ** 2
-            #Otherwise we just convert the power
+            if USE_FORT:
+                self.__corr_gal_1h_ss = fort.power_to_corr(nlnk=len(self.pert.lnk),
+                                                           nr=len(self.r),
+                                                           lnk=self.pert.lnk,
+                                                           r=self.r,
+                                                           power=self._power_gal_1h_ss)
             else:
                 self.__corr_gal_1h_ss = tools.power_to_corr(self._power_gal_1h_ss,
                                                             self.pert.lnk, self.r)
@@ -593,17 +626,31 @@ class HOD(object):
         try:
             return self.__corr_gal_1h_cs
         except:
-            self.__corr_gal_1h_cs = np.zeros_like(self.r)
-            for i, r in enumerate(self.r):
+            if USE_FORT:
+                rho = self.profile.rho(self.r, self.pert.M, self.pert.z)
+                print rho.shape
+                self.__corr_gal_1h_cs = fort.corr_gal_1h_cs(nr=len(self.r),
+                                                       nm=len(self.pert.M),
+                                                       r=self.r,
+                                                       mass=self.pert.M,
+                                                       dndm=self.pert.dndm,
+                                                       ncen=self.n_cen,
+                                                       nsat=self.n_sat,
+                                                       rho=np.asfortranarray(rho),
+                                                       mean_dens=self.pert.cosmo_params['mean_dens'],
+                                                       delta_halo=self.pert.delta_halo)
+            else:
+                self.__corr_gal_1h_cs = np.zeros_like(self.r)
+                for i, r in enumerate(self.r):
 
-                rho = self.profile.rho(r, self.pert.M , self.pert.z)
+                    rho = self.profile.rho(r, self.pert.M , self.pert.z)
 
-                integrand = self.pert.dndm * 2 * self.n_cen * self.n_sat * rho
-                m_min = tools.virial_mass(r, self.pert.cosmo_params['mean_dens'],
-                                          self.pert.delta_halo)
-                integrand[self.pert.M < m_min] = 0
-                self.__corr_gal_1h_cs[i] = intg.simps(integrand,
-                                                      self.pert.M)
+                    integrand = self.pert.dndm * 2 * self.n_cen * self.n_sat * rho
+                    m_min = tools.virial_mass(r, self.pert.cosmo_params['mean_dens'],
+                                              self.pert.delta_halo)
+                    integrand[self.pert.M < m_min] = 0
+                    self.__corr_gal_1h_cs[i] = intg.simps(integrand,
+                                                          self.pert.M)
             self.__corr_gal_1h_cs /= self.mean_gal_den ** 2
             return self.__corr_gal_1h_cs
 
@@ -621,7 +668,48 @@ class HOD(object):
         try:
             return self.__corr_gal_1h
         except:
-            self.__corr_gal_1h = self._corr_gal_1h_cs + self._corr_gal_1h_ss
+            if self.profile == "nfw":
+                if USE_FORT:
+                    rho = self.profile.rho(self.r, self.pert.M, self.pert.z)
+                    lam = self.profile.lam(self.r, self.pert.M, self.pert.z)
+                    self.__corr_gal_1h = fort.corr_gal_1h(nr=len(self.r),
+                                                          nm=len(self.pert.M),
+                                                          r=self.r,
+                                                          mass=self.pert.M,
+                                                          dndm=self.pert.dndm,
+                                                          ncen=self.n_cen,
+                                                          nsat=self.n_sat,
+                                                          rho=np.asfortranarray(rho),
+                                                          lam=np.asfortranarray(lam),
+                                                          central=self.hodmod_params['central'],
+                                                          mean_dens=self.pert.cosmo_params['mean_dens'],
+                                                          delta_halo=self.pert.delta_halo)
+                else:
+                    self.__corr_gal_1h = np.zeros_like(self.r)
+                    for i, r in enumerate(self.r):
+                        rho = self.profile.rho(r, self.pert.M , self.pert.z)
+                        lam = self.profile.lam(r, self.pert.M , self.pert.z)
+                        if self.hodmod_params['central']:
+                            integrand = self.pert.dndm * self.n_cen * self.n_sat ** 2\
+                                        * lam / self.pert.M ** 2
+                        else:
+                            integrand = self.pert.dndm * self.n_sat ** 2 * lam / self.pert.M ** 2
+
+                        integrand2 = self.pert.dndm * 2 * self.n_cen * self.n_sat * rho
+                        m_min = tools.virial_mass(r, self.pert.cosmo_params['mean_dens'],
+                                                  self.pert.delta_halo)
+                        integrand2[self.pert.M < m_min] = 0
+                        integrand += integrand2
+                        self.__corr_gal_1h_cs[i] = intg.simps(integrand,
+                                                              self.pert.M)
+
+                        self.__corr_gal_1h_ss[i] = intg.simps(integrand, self.pert.M)
+
+                self.__corr_gal_1h_ss /= self.mean_gal_den ** 2
+
+            else:
+                self.__corr_gal_1h = self._corr_gal_1h_cs + self._corr_gal_1h_ss
+
             return self.__corr_gal_1h
 
     @corr_gal_1h.deleter
@@ -643,12 +731,26 @@ class HOD(object):
                 for i, r in enumerate(self.r):
                     power = self._power_gal_2h_scale_dep(i)
 
-                    self.__corr_gal_2h[i] = tools.power_to_corr(power,
+                    if USE_FORT:
+                        self.__corr_gal_2h[i] = fort.power_to_corr(nlnk=len(self.pert.lnk),
+                                                           nr=len(self.r),
+                                                           lnk=self.pert.lnk,
+                                                           r=self.r,
+                                                           power=power)[0]
+                    else:
+                        self.__corr_gal_2h[i] = tools.power_to_corr(power,
                                                                 self.pert.lnk, r)[0]
 
             else:
-                self.__corr_gal_2h = tools.power_to_corr(self.power_gal_2h,
-                                                     self.pert.lnk, self.r)
+                if USE_FORT:
+                    self.__corr_gal_2h = fort.power_to_corr(nlnk=len(self.pert.lnk),
+                                                           nr=len(self.r),
+                                                           lnk=self.pert.lnk,
+                                                           r=self.r,
+                                                           power=self.power_gal_2h)
+                else:
+                    self.__corr_gal_2h = tools.power_to_corr(self.power_gal_2h,
+                                                             self.pert.lnk, self.r)
             return self.__corr_gal_2h
 
     @corr_gal_2h.deleter

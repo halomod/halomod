@@ -1,42 +1,101 @@
 """
-A few halo density profiles and their normalised  fourier-transform pairs, along with concentration-mass relations.
+A few halo density profiles and their normalised  fourier-transform pairs, 
+along with concentration-mass relations.
 
-Each density profile is a function of r,m,z. each fourier pair is a function of k,m,z and each mass relation is a function of mass, and outputs r_s as well if you want it to.
+Each density profile is a function of r,m,z. each fourier pair is a function of
+k,m,z and each mass relation is a function of mass, and outputs r_s as well if 
+you want it to.
 """
 import numpy as np
 import scipy.special as sp
 
 class profiles(object):
 
-    def __init__(self, mean_dens, delta_halo, profile='nfw', cm_relation='zehavi'):
+    def __init__(self, mean_dens=2.775E11, delta_halo=200.0, profile='nfw',
+                 cm_relation='zehavi'):
 
         self.mean_dens = mean_dens
         self.delta_halo = delta_halo
-
-        if profile == 'nfw':
-            self.rho = self.rho_nfw
-            self.u = self.u_nfw
-            self.lam = self.lam_nfw
-
-        if cm_relation == 'duffy':
-            self.cm_relation = self.cm_duffy
-        elif cm_relation == 'zehavi':
-            self.cm_relation = self.cm_zehavi
+        self._profile = profile
+        self._cm_relation = cm_relation
 
     def mvir_to_rvir(self, m):
 
         return (3 * m / (4 * np.pi * self.delta_halo * self.mean_dens)) ** (1. / 3.)
 
 
+    #===========================================================================
+    # THE WRAPPING FUNCTIONS - THE ONLY ONES EVER CALLED
+    #===========================================================================
+    #It would be 'simpler' to set eg. self.rho = self.rho_nfw etc (for relevant
+    # profile parameter), but we CANNOT do this because then the class can't
+    #be pickled, which then means we can't go parallel!!
+    def rho(self, r, m, z):
+        """
+        The density at radius r of a halo of mass m and redshift z
+        """
+        #First treat case in which r AND m are arrays - return a matrix
+        if np.iterable(r) and np.iterable(m):
+            print "yup it's iterable"
+            result = np.zeros((len(r), len(m)))
+            for i, rr in enumerate(r):
+                if self._profile == "nfw":
+                    result[i, :] = self.rho_nfw(rr, m, z)
+
+            return result
+        #Now the obvious case in which either one or none is an array
+        else:
+            if self._profile == 'nfw':
+                return self.rho_nfw(r, m, z)
+
+
+    def u(self, k, m, z):
+        """
+        The normalised fourier-transform of the density profile 
+        """
+        if np.iterable(k) and np.iterable(m):
+            result = np.zeros((len(k), len(m)))
+            for i, kk in enumerate(k):
+                if self._profile == "nfw":
+                    result[i, :] = self.u_nfw(kk, m, z)
+
+            return result
+        else:
+            if self._profile == "nfw":
+                return self.u_nfw(k, m, z)
+
+    def lam(self, r, m, z):
+        """
+        The density profile convolved with itself
+        """
+        if np.iterable(r) and np.iterable(m):
+            result = np.zeros((len(r), len(m)))
+            for i, rr in enumerate(r):
+                if self._profile == "nfw":
+                    result[i, :] = self.lam_nfw(rr, m, z)
+
+            return result
+        else:
+            if self._profile == "nfw":
+                return self.lam_nfw(r, m, z)
+
+    def cm_relation(self, m, z, get_rs):
+        """
+        The concentration-mass relation
+        """
+        if self._cm_relation == "duffy":
+            return self.cm_duffy(m, z, get_rs)
+        elif self._cm_relation == "zehavi":
+            return self.cm_zehavi(m, z, get_rs)
+
+    #===========================================================================
+    # DEFINE NFW FUNCTIONS
+    #===========================================================================
     def rho_nfw(self, r, m, z):
 
         c, r_s = self.cm_relation(m, z, get_rs=True)
 
         x = r / r_s
-#        if r <= 0.08 or r >= 5.0 and r <= 5.5:
-#            for i, M in enumerate(m):
-#                if (M < 2 * 10 ** 16 and M > 1.8E16) or (M < 1.5E12 and M > 1.0E12):
-#                    print r, M , r_s[i], c[i], x[i], (self._dc_nfw(c) * 4 * np.pi / c ** 3)[i]
 
         r = x / c
 
@@ -120,6 +179,9 @@ class profiles(object):
         #We tentatively follow charles here...
         return c ** 3 / (4 * np.pi) / (np.log(1 + c) - c / (1 + c))
 
+    #===========================================================================
+    # CONCENTRATION-MASS RELATIONS
+    #===========================================================================
     def cm_duffy(self, m, z, get_rs=True):
         c = 6.71 * (m / (2.0 * 10 ** 12)) ** -0.091 * (1 + z) ** -0.44
 
