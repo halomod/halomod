@@ -20,8 +20,8 @@ class profiles(object):
         self._cm_relation = cm_relation
 
     def mvir_to_rvir(self, m):
-
-        return (3 * m / (4 * np.pi * self.delta_halo * self.mean_dens)) ** (1. / 3.)
+        #FIXME: the 0.3 indicates omegam -- but why should we divide by this???
+        return (3 * m / (4 * np.pi * self.delta_halo * self.mean_dens / 0.3)) ** (1. / 3.)
 
 
     #===========================================================================
@@ -94,21 +94,20 @@ class profiles(object):
     def rho_nfw(self, r, m, z):
 
         c, r_s = self.cm_relation(m, z, get_rs=True)
-
         x = r / r_s
-
-        r = x / c
+        rn = x / c
 
         if np.iterable(x):
             result = np.zeros_like(x)
-            try:
-                result[r <= 1] = self._dc_nfw(c) / (c * r_s) ** 3 / (x[r <= 1] * (1 + x[r <= 1]) ** 2)
-                return result
-            except:
-                result[r <= 1] = self._dc_nfw(c)[r <= 1] / ((c * r_s) ** 3)[r <= 1] / (x[r <= 1] * (1 + x[r <= 1]) ** 2)
-                return result
+            result[rn <= 1] = (self._dc_nfw(c) / (c * r_s) ** 3 / (x * (1 + x) ** 2))[rn <= 1]
+
+            if r > 0.183 and r < 0.185:
+                for i, mm in enumerate(m):
+                    if mm > 10 ** 13 and mm < 1.1 * 10 ** 13:
+                        print mm, r, c[i], r_s[i], x[i], rn[i], self._dc_nfw(c[i]) / (c[i] * r_s[i]) ** 3 , (x[i] * (1 + x[i]) ** 2), result[i]
+            return result
         else:
-            if r <= 1.0:
+            if rn <= 1.0:
                 return self._dc_nfw(c) / (c * r_s) ** 3 / (x * (1 + x) ** 2)
             else:
                 return 0.0
@@ -193,7 +192,7 @@ class profiles(object):
             return c
 
     def cm_zehavi(self, m, z, get_rs=True):
-        c = ((0.7 * m / 1.5E13) ** -0.13) * 9.0 / (1 + z)
+        c = ((m / 1.5E13) ** -0.13) * 9.0 / (1 + z)
         rvir = self.mvir_to_rvir(m)
 
         if get_rs:
