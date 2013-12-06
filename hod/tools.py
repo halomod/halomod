@@ -34,10 +34,10 @@ def power_to_corr(P, lnk, R):
 
         corr_cum = (0.5 / np.pi ** 2) * intg.cumtrapz(integ, dx=lnk[1] - lnk[0])
 
-        #Try this: we cut off the integral when we can no longer fit 5 steps between zeros.
+        # Try this: we cut off the integral when we can no longer fit 5 steps between zeros.
         max_k = np.pi / (5 * r * (np.exp(lnk[1] - lnk[0]) - 1))
         max_index = np.where(k < max_k)[-1][-1]
-        #Take average of last 20 values before the max_index
+        # Take average of last 20 values before the max_index
         corr[i] = np.mean(corr_cum[max_index - 20:max_index])
 
 
@@ -58,13 +58,11 @@ def non_linear_power(lnk_out=None, **camb_kwargs):
          If lnk_out is given, will be equivalent to lnk_out
     lnp: The log of the nonlinear power from halofit. 
     """
-    #Must set scalar_amp small for it to work...
-    camb_kwargs['scalar_amp'] = 1E-9
 
     k, P = pycamb.matter_power(NonLinear=1, **camb_kwargs)
     if lnk_out is not None:
-        #FIXME: I have to put this disgusting cut (lnk>-5.3), because sometimes P comes
-        #out with a massive drop below some k
+        # FIXME: I have to put this disgusting cut (lnk>-5.3), because sometimes P comes
+        # out with a massive drop below some k
         power_func = spline(np.log(k), np.log(P), k=1)
         P = np.exp(power_func(lnk_out[lnk_out > -5.3]))
         k = np.exp(lnk_out[lnk_out > -5.3])

@@ -16,8 +16,8 @@ class Bias(object):
         Picks a bias function for you :)
         '''
         self.hmf = hmf
-        self.dc = hmf.cosmo_params['delta_c']
-        self.nu = (hmf.cosmo_params['delta_c'] / hmf.sigma) ** 2
+        self.dc = hmf.cosmo_params.delta_c
+        self.nu = (hmf.cosmo_params.delta_c / hmf.sigma) ** 2
 
         if bias_model == "ST":
             self.bias = self._bias_st()
@@ -46,7 +46,7 @@ class Bias(object):
         return 1 + (self.nu - 1) / self.dc + 0.6 / (self.dc * (1 + (0.707 * self.nu) ** 0.3))
 
     def _bias_ma(self):
-        return (1 + (self.nu - 1) / self.dc) * (1 / (2 * self.nu ** 2) + 1) ** (0.06 - 0.02 * self.hmf.cosmo_params['n'])
+        return (1 + (self.nu - 1) / self.dc) * (1 / (2 * self.nu ** 2) + 1) ** (0.06 - 0.02 * self.hmf.cosmo_params.n)
 
     def _bias_sw(self):
         raise ValueError("Seljak-Warren Not Implemented Yet")

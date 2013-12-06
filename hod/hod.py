@@ -6,12 +6,9 @@ Created on Aug 5, 2013
 '''
 A class containing the methods to do HOD modelling
 '''
-
-USE_FORT = True
-
-###############################################################################
+#===============================================================================
 # Some Imports
-###############################################################################
+#===============================================================================
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 import scipy.integrate as intg
 import numpy as np
@@ -24,6 +21,8 @@ from profiles import profiles
 from hod_models import HOD_models
 from bias import Bias as bias
 from fort.routines import hod_routines as fort
+
+# TODO: make hankel transform better -- its pretty wobbly.
 #===============================================================================
 # The class itself
 #===============================================================================
@@ -71,7 +70,7 @@ class HOD(object):
                  central=False, nonlinear=False, scale_dependent_bias=True,
                  halo_exclusion=None, ** pert_kwargs):
 
-        #A dictionary of all HOD parameters
+        # A dictionary of all HOD parameters
         self.hodmod_params = {"M_1":M_1,
                               'alpha': alpha,
                               "M_min":M_min,
@@ -88,9 +87,9 @@ class HOD(object):
                                a, [self.hodmod_params, pert_kwargs], {})
 
 
-        #Initially save parameters to the class.
-        #We must do this because update() checks if values are different,
-        #which doesn't work if there are no values there to begin with
+        # Initially save parameters to the class.
+        # We must do this because update() checks if values are different,
+        # which doesn't work if there are no values there to begin with
         self.halo_profile = halo_profile
         self.cm_relation = cm_relation
         self.bias_model = bias_model
@@ -115,26 +114,26 @@ class HOD(object):
         basically just deletes everything. We only keep properties that 
         may be used more than once or called more than once.
         """
-        #We use a somewhat tiered approach here.
-        #We first update all simple HOD parameters, then whatever is left
-        #is sent to Perturbations(), which will weed out stupid values.
+        # We use a somewhat tiered approach here.
+        # We first update all simple HOD parameters, then whatever is left
+        # is sent to Perturbations(), which will weed out stupid values.
 
-        startfresh = False  #Get's set to true if anything is actually updated
+        startfresh = False  # Get's set to true if anything is actually updated
 
-        #First do hod_model parameters - update them and delete entries from kwargs.
+        # First do hod_model parameters - update them and delete entries from kwargs.
         hodmod_p = {k:v for k, v in kwargs.iteritems() if k in self.hodmod_params}
         if hodmod_p:
             self.hodmod_params.update(hodmod_p)
 
-            #Delete the entries we've used from kwargs
+            # Delete the entries we've used from kwargs
             for k in hodmod_p:
                 del kwargs[k]
 
-            #Now actually update the hodmod class
+            # Now actually update the hodmod class
             self._hodmod = HOD_models(**self.hodmod_params)
             startfresh = True
 
-        #Now go through the rest of the keys and set values
+        # Now go through the rest of the keys and set values
         for k in kwargs.keys():
             if k == 'halo_profile':
                 new = kwargs.pop(k)
@@ -178,9 +177,9 @@ class HOD(object):
                     self.scale_dependent_bias = new
                     startfresh = True
 
-        #All that's left should be Perturbations() args
-        #However, we don't want to call a new class each time,
-        #we usually want to update.
+        # All that's left should be Perturbations() args
+        # However, we don't want to call a new class each time,
+        # we usually want to update.
         if kwargs:
             try:
                 self.pert.update(cut_fit=False, **kwargs)
@@ -189,8 +188,8 @@ class HOD(object):
 
             startfresh = True
 
-        ##Now that we've updated the base parameters, we will need to
-        ##re-calculate basically everything.
+        # #Now that we've updated the base parameters, we will need to
+        # #re-calculate basically everything.
         # We only retain (and therefore must delete here) properties that are
         # either used more than once in the class, OR that we expect may want
         # to be accessed by the user and may cost a bit.
@@ -320,7 +319,7 @@ class HOD(object):
         try:
             return self.__profile
         except:
-            self.__profile = profiles(self.pert.cosmo_params['mean_dens'],
+            self.__profile = profiles(self.pert.cosmo_params.mean_dens,
                                       self.pert.delta_halo,
                                       profile=self.halo_profile,
                                       cm_relation=self.cm_relation)
@@ -367,7 +366,7 @@ class HOD(object):
         try:
             return self.__mean_gal_den
         except:
-            #Integrand is just the density of galaxies at mass M
+            # Integrand is just the density of galaxies at mass M
             integrand = self.pert.dndm * self.n_tot
 
             self.__mean_gal_den = intg.simps(integrand, self.pert.M)
@@ -384,11 +383,12 @@ class HOD(object):
             return self.__matter_power
         except:
             if self.nonlinear:
-                lnk, self.__matter_power = tools.non_linear_power(self.pert.lnkh,
-                                                                  **self.pert.camb_params)
-                #Now we need to normalise
-                #FIXME: get index of self.lnkh which is above -5.3
-                ind = np.where(self.pert.lnkh > -5.3)[0][0]
+                lnk, self.__matter_power = tools.non_linear_power(self.pert.lnk,
+                                                                  **dict(self.pert.cosmo_params.pycamb_dict(),
+                                                                       **self.pert._camb_options))
+                # Now we need to normalise
+                # FIXME: get index of self.lnkh which is above -5.3
+                ind = np.where(self.pert.lnk > -5.3)[0][0]
                 self.__matter_power += self.pert.power[ind] - self.__matter_power[0]
                 self.__matter_power = np.concatenate((self.pert.power[:ind], self.__matter_power))
             else:
@@ -403,15 +403,11 @@ class HOD(object):
         try:
             return self.__dm_corr
         except:
-            if USE_FORT:
-                self.__dm_corr = fort.power_to_corr(nlnk=len(self.pert.lnk),
-                                                    nr=len(self.r),
-                                                    lnk=self.pert.lnk,
-                                                    r=self.r,
-                                                    power=np.exp(self.matter_power))
-            else:
-                self.__dm_corr = tools.power_to_corr(np.exp(self.matter_power),
-                                                     self.pert.lnk, self.r)
+            self.__dm_corr = fort.power_to_corr(nlnk=len(self.pert.lnk),
+                                                nr=len(self.r),
+                                                lnk=self.pert.lnk,
+                                                r=self.r,
+                                                power=np.exp(self.matter_power))
             return self.__dm_corr
 
     @property
@@ -419,68 +415,43 @@ class HOD(object):
         """
         The sat-sat part of the 1-halo term of the galaxy power spectrum
         """
-        if USE_FORT:
-            u = self.profile.u(np.exp(self.pert.lnk), self.pert.M, self.pert.z)
-            result = fort.power_gal_1h_ss(nlnk=len(self.pert.lnk),
-                                          nm=len(self.pert.M),
-                                          u=np.asfortranarray(u),
-                                          dndm=self.pert.dndm,
-                                          nsat=self.n_sat,
-                                          ncen=self.n_cen,
-                                          mass=self.pert.M,
-                                          central=self.hodmod_params['central'])
-        else:
-            result = np.zeros_like(self.pert.lnk)
-            for i, lnk in enumerate(self.pert.lnk):
-                u = self.profile.u(lnk, self.pert.M, self.pert.z)
-                if self.hodmod_params['central']:
-                    integrand = self.n_cen * self.n_sat ** 2 * u ** 2 * self.pert.dndm
-                else:
-                    integrand = self.n_sat ** 2 * u ** 2 * self.pert.dndm
-                result[i] = intg.simps(integrand, self.pert.M, even='first')
-
-            result /= self.mean_gal_den ** 2
+        u = self.profile.u(np.exp(self.pert.lnk), self.pert.M, self.pert.z)
+        result = fort.power_gal_1h_ss(nlnk=len(self.pert.lnk),
+                                      nm=len(self.pert.M),
+                                      u=np.asfortranarray(u),
+                                      dndm=self.pert.dndm,
+                                      nsat=self.n_sat,
+                                      ncen=self.n_cen,
+                                      mass=self.pert.M,
+                                      central=self.hodmod_params['central'])
+        result /= self.mean_gal_den ** 2
 
         return result
 
     @property
     def _corr_gal_1h_ss(self):
         """The 1-halo galaxy correlation for sat-sat pairs"""
-        if USE_FORT:
-            result = fort.power_to_corr(nlnk=len(self.pert.lnk),
-                                        nr=len(self.r),
-                                        lnk=self.pert.lnk,
-                                        r=self.r,
-                                        power=self._power_gal_1h_ss)
-        else:
-            result = tools.power_to_corr(self._power_gal_1h_ss,
-                                         self.pert.lnk, self.r)
-        return self.__corr_gal_1h_ss
+        result = fort.power_to_corr(nlnk=len(self.pert.lnk),
+                                    nr=len(self.r),
+                                    lnk=self.pert.lnk,
+                                    r=self.r,
+                                    power=self._power_gal_1h_ss)
+        return result
 
     @property
     def _corr_gal_1h_cs(self):
         """The cen-sat part of the 1-halo galaxy correlations"""
-        if USE_FORT:
-            rho = self.profile.rho(self.r / self.h, self.pert.M / self.h, self.pert.z)
-            result = fort.corr_gal_1h_cs(nr=len(self.r),
-                                         nm=len(self.pert.M),
-                                         r=self.r,
-                                         mass=self.pert.M,
-                                         dndm=self.pert.dndm,
-                                         ncen=self.n_cen,
-                                         nsat=self.n_sat,
-                                         rho=np.asfortranarray(rho),
-                                         mean_dens=self.pert.cosmo_params['mean_dens'],
-                                         delta_halo=self.pert.delta_halo)
-        else:
-            result = np.zeros_like(self.r)
-            for i, r in enumerate(self.r):
-                rho = self.profile.rho(r / self.h, self.pert.M / self.h , self.pert.z)
-                integrand = self.pert.dndm * 2 * self.n_cen * self.n_sat * rho
-                m_min = tools.virial_mass(r, self.pert.cosmo_params['mean_dens'],
-                                          self.pert.delta_halo)
-                integrand[self.pert.M < m_min] = 0
-                result[i] = intg.simps(integrand, self.pert.M)
+        rho = self.profile.rho(self.r, self.pert.M, self.pert.z)
+        result = fort.corr_gal_1h_cs(nr=len(self.r),
+                                     nm=len(self.pert.M),
+                                     r=self.r,
+                                     mass=self.pert.M,
+                                     dndm=self.pert.dndm,
+                                     ncen=self.n_cen,
+                                     nsat=self.n_sat,
+                                     rho=np.asfortranarray(rho),
+                                     mean_dens=self.pert.cosmo_params.mean_dens,
+                                     delta_halo=self.pert.delta_halo)
         result /= self.mean_gal_den ** 2
         return result
 
@@ -490,44 +461,23 @@ class HOD(object):
         try:
             return self.__corr_gal_1h
         except:
-            if self.profile == "nfw":
-                if USE_FORT:
-                    rho = self.profile.rho(self.r / self.h, self.pert.M / self.h, self.pert.z)
-                    lam = self.profile.lam(self.r / self.h, self.pert.M / self.h, self.pert.z)
-                    self.__corr_gal_1h = fort.corr_gal_1h(nr=len(self.r),
-                                                          nm=len(self.pert.M),
-                                                          r=self.r,
-                                                          mass=self.pert.M,
-                                                          dndm=self.pert.dndm,
-                                                          ncen=self.n_cen,
-                                                          nsat=self.n_sat,
-                                                          rho=np.asfortranarray(rho),
-                                                          lam=np.asfortranarray(lam),
-                                                          central=self.hodmod_params['central'],
-                                                          mean_dens=self.pert.cosmo_params['mean_dens'],
-                                                          delta_halo=self.pert.delta_halo)
-                else:
-                    self.__corr_gal_1h = np.zeros_like(self.r)
-                    for i, r in enumerate(self.r):
-                        rho = self.profile.rho(r / self.h, self.pert.M / self.h , self.pert.z)
-                        lam = self.profile.lam(r / self.h, self.pert.M / self.h , self.pert.z)
-                        if self.hodmod_params['central']:
-                            integrand = self.pert.dndm * self.n_cen * self.n_sat ** 2\
-                                        * lam / self.pert.M ** 2
-                        else:
-                            integrand = self.pert.dndm * self.n_sat ** 2 * lam / self.pert.M ** 2
+            if self.halo_profile == "nfw":
 
-                        integrand2 = self.pert.dndm * 2 * self.n_cen * self.n_sat * rho
-                        m_min = tools.virial_mass(r, self.pert.cosmo_params['mean_dens'],
-                                                  self.pert.delta_halo)
-                        integrand2[self.pert.M < m_min] = 0
-                        integrand += integrand2
-                        self.__corr_gal_1h_cs[i] = intg.simps(integrand,
-                                                              self.pert.M)
-
-                        self.__corr_gal_1h_ss[i] = intg.simps(integrand, self.pert.M)
-
-                self.__corr_gal_1h_ss /= self.mean_gal_den ** 2
+                rho = self.profile.rho(self.r, self.pert.M, self.pert.z)
+                lam = self.profile.lam(self.r, self.pert.M, self.pert.z)
+                self.__corr_gal_1h = fort.corr_gal_1h(nr=len(self.r),
+                                                      nm=len(self.pert.M),
+                                                      r=self.r,
+                                                      mass=self.pert.M,
+                                                      dndm=self.pert.dndm,
+                                                      ncen=self.n_cen,
+                                                      nsat=self.n_sat,
+                                                      rho=np.asfortranarray(rho),
+                                                      lam=np.asfortranarray(lam),
+                                                      central=self.hodmod_params['central'],
+                                                      mean_dens=self.pert.cosmo_params.mean_dens,
+                                                      delta_halo=self.pert.delta_halo)
+                self.__corr_gal_1h /= self.mean_gal_den ** 2
 
             else:
                 self.__corr_gal_1h = self._corr_gal_1h_cs + self._corr_gal_1h_ss
@@ -537,25 +487,17 @@ class HOD(object):
     def power_gal_2h(self, r_index=None):
         """The 2-halo term of the galaxy power spectrum - NOT LOGGED"""
         if not self.scale_dependent_bias and self.halo_exclusion in [None, "schneider"]:
-            if USE_FORT:
-                u = self.profile.u(np.exp(self.pert.lnk), self.pert.M, self.pert.z)
-                pg2h = fort.power_gal_2h(nlnk=len(self.pert.lnk),
-                                         nm=len(self.pert.M),
-                                         u=np.asfortranarray(u),
-                                         bias=self.bias.bias,
-                                         ntot=self.n_tot,
-                                         dndm=self.pert.dndm,
-                                         mass=self.pert.M)
-            else:
-                pg2h = np.zeros_like(self.pert.lnk)
+            u = self.profile.u(np.exp(self.pert.lnk), self.pert.M, self.pert.z)
+            pg2h = fort.power_gal_2h(nlnk=len(self.pert.lnk),
+                                     nm=len(self.pert.M),
+                                     u=np.asfortranarray(u),
+                                     bias=self.bias.bias,
+                                     nsat=self.n_sat,
+                                     ncen=self.n_cen,
+                                     dndm=self.pert.dndm,
+                                     mass=self.pert.M)
 
-                for i, lnk in enumerate(self.pert.lnk):
-                    u = self.profile.u(np.exp(lnk), self.pert.M , self.pert.z)
-                    integrand = self.n_tot * u * self.pert.dndm * self.bias.bias
-
-                    pg2h[i] = intg.simps(integrand, self.pert.M)
-
-        else:  #We must use a value of r to get pg2h
+        else:  # We must use a value of r to get pg2h
             pg2h = np.zeros_like(self.pert.lnk)
 
             if self.scale_dependent_bias:
@@ -587,7 +529,7 @@ class HOD(object):
                                          np.log(integrand_m[integrand_m > 0]), k=1)
                     def integ(m1, m2, r):
                         rv1, rv2 = tools.virial_radius(np.exp(np.array([m1, m2])),
-                                                      self.pert.cosmo_params['mean_dens'],
+                                                      self.pert.cosmo_params.mean_dens,
                                                       self.pert.delta_halo)
 
                         return np.exp(m1 + m2) * np.exp(integrand_ms(m1) + integrand_ms(m2)) * tools.overlapping_halo_prob(r, rv1, rv2)
@@ -615,7 +557,7 @@ class HOD(object):
 
                     def integ(m1, m2, r):
                         rv1, rv2 = tools.virial_radius(np.exp(np.array([m1, m2])),
-                                                      self.pert.cosmo_params['mean_dens'],
+                                                      self.pert.cosmo_params.mean_dens,
                                                       self.pert.delta_halo)
 
                         return np.exp(m1 + m2) * np.exp(integrand(m1) + integrand(m2)) * tools.overlapping_halo_prob(r, rv1, rv2)
@@ -627,11 +569,13 @@ class HOD(object):
                 if self.halo_exclusion != "ellipsoid":
                     pg2h[i] = intg.simps(integrand, m)
 
+        self.pre_pg2h = pg2h
         pg2h = np.exp(self.matter_power) * pg2h ** 2 / self.mean_gal_den ** 2
 
         if self.halo_exclusion == 'schneider':
-            #should be k,r/h, but we use k/h and r (which gives the same)
+            # should be k,r/h, but we use k/h and r (which gives the same)
             pg2h *= tools.exclusion_window(np.exp(self.pert.lnk), r=2)
+        self.post_pg2h = pg2h
         return pg2h
 
     @property
@@ -641,29 +585,21 @@ class HOD(object):
             return self.__corr_gal_2h
         except:
             if not self.scale_dependent_bias and self.halo_exclusion in [None, 'schneider']:
-                if USE_FORT:
-                    self.__corr_gal_2h = fort.power_to_corr(nlnk=len(self.pert.lnk),
-                                                           nr=len(self.r),
-                                                           lnk=self.pert.lnk,
-                                                           r=self.r,
-                                                           power=self.power_gal_2h())
-                else:
-                    self.__corr_gal_2h = tools.power_to_corr(self.power_gal_2h(),
-                                                             self.pert.lnk, self.r)
+                self.__corr_gal_2h = fort.power_to_corr(nlnk=len(self.pert.lnk),
+                                                       nr=len(self.r),
+                                                       lnk=self.pert.lnk,
+                                                       r=self.r,
+                                                       power=self.power_gal_2h())
             else:
                 self.__corr_gal_2h = np.zeros_like(self.r)
                 for i, r in enumerate(self.r):
                     power = self.power_gal_2h(i)
 
-                    if USE_FORT:
-                        self.__corr_gal_2h[i] = fort.power_to_corr(nlnk=len(self.pert.lnk),
-                                                                   nr=len(self.r),
-                                                                   lnk=self.pert.lnk,
-                                                                   r=self.r,
-                                                                   power=power)[0]
-                    else:
-                        self.__corr_gal_2h[i] = tools.power_to_corr(power,
-                                                                self.pert.lnk, r)[0]
+                    self.__corr_gal_2h[i] = fort.power_to_corr(nlnk=len(self.pert.lnk),
+                                                               nr=len(self.r),
+                                                               lnk=self.pert.lnk,
+                                                               r=self.r,
+                                                               power=power)[0]
             return self.__corr_gal_2h
 
     @property

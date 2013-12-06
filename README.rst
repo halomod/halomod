@@ -3,13 +3,15 @@ THIS IS THE README FOR hod
 
 hod is a python application that provides a flexible and simple interface for 
 dealing with the Halo Model of Dark Matter Halos. It comes with several HOD 
-models, halo density profiles, bias models and Mass Function models (through 
-hmf, by the same people).
+models, halo density profiles, bias models and Mass Function models (through the 
+hmf package, by the same people).
 
 For a given choice of parameters (for each of the above models), it can 
-calculate the large-scale structure correlation function. In the future,we hope 
-to be able to use it "in reverse". That is, given a correlation function, be 
-able to compute the HOD model.
+calculate the large-scale structure correlation function. There is also a module
+which enables fitting the correlation function model to data via MCMC.
+
+It includes some parallelisation capabilities also (which are necessary for the
+MCMC fitting for more than a couple of parameters).
 
 
 INSTALLATION
@@ -19,8 +21,7 @@ INSTALLATION
 2. Install all dependencies of hmf (see readme for hmf).
 	
 ---- Install hod --------------
-    >>> pip install hod [soon will implement this, for now, grab this source
-    					 and use "python setup.py install"]
+>>> pip install hod 
     					 
 USAGE
 --------------------------------------------------------------------------------
@@ -54,7 +55,17 @@ given parameters through the pert attribute of HOD:
 
 
 HISTORY
----------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+1.1.1 - December 6, 2013
+		Bugfixes to fit_hod() routine
+		
+1.1.0 - December 5, 2013
+		Added multivariate guassian priors
+		Updated to reflect changes in hmf API
+		
+1.0.0 - November 22, 2013
+		MCMC routines now work properly -- all basic routines are in place.
+		
 0.7.0 - October 16, 2013
 		Added ability to get HOD, cosmo params from given xi(r) data using mcmc
 		

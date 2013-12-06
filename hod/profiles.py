@@ -20,8 +20,7 @@ class profiles(object):
         self._cm_relation = cm_relation
 
     def mvir_to_rvir(self, m):
-        #FIXME: the 0.3 indicates omegam -- but why should we divide by this???
-        return (3 * m / (4 * np.pi * self.delta_halo * self.mean_dens / 0.3)) ** (1. / 3.)
+        return (3 * m / (4 * np.pi * self.delta_halo * self.mean_dens)) ** (1. / 3.)
 
 
     #===========================================================================
@@ -36,7 +35,6 @@ class profiles(object):
         """
         #First treat case in which r AND m are arrays - return a matrix
         if np.iterable(r) and np.iterable(m):
-            print "yup it's iterable"
             result = np.zeros((len(r), len(m)))
             for i, rr in enumerate(r):
                 if self._profile == "nfw":
@@ -101,10 +99,10 @@ class profiles(object):
             result = np.zeros_like(x)
             result[rn <= 1] = (self._dc_nfw(c) / (c * r_s) ** 3 / (x * (1 + x) ** 2))[rn <= 1]
 
-            if r > 0.183 and r < 0.185:
-                for i, mm in enumerate(m):
-                    if mm > 10 ** 13 and mm < 1.1 * 10 ** 13:
-                        print mm, r, c[i], r_s[i], x[i], rn[i], self._dc_nfw(c[i]) / (c[i] * r_s[i]) ** 3 , (x[i] * (1 + x[i]) ** 2), result[i]
+#            if r > 0.071 and r < 0.072:
+#                for i, mm in enumerate(m):
+#                    if mm > 10 ** 13 and mm < 1.2 * 10 ** 13:
+#                        print i, mm, r, c[i], r_s[i], x[i], rn[i], self._dc_nfw(c[i]) / (c[i] * r_s[i]) ** 3 , (x[i] * (1 + x[i]) ** 2), result[i]
             return result
         else:
             if rn <= 1.0:
