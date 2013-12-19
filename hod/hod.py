@@ -63,7 +63,7 @@ class HOD(object):
     
     '''
     def __init__(self, M=np.linspace(8, 18, 500), r=np.linspace(1, 200, 200),
-                  M_1=12.851, alpha=1.049, M_min=11.6222,
+                 M_1=12.851, alpha=1.049, M_min=11.6222,
                  gauss_width=0.26, M_0=11.5047, fca=0.5, fcb=0, fs=1,
                  delta=None, x=1, hod_model='zehavi',
                  halo_profile='nfw', cm_relation='duffy', bias_model='tinker',
@@ -304,11 +304,6 @@ class HOD(object):
 # Start the actual calculations
 #===============================================================================
     @property
-    def h(self):
-        """Little h"""
-        return self.pert.cosmo_params['H0'] / 100.0
-
-    @property
     def bias(self):
         """A class containing the elements necessary to calculate the halo bias"""
         return bias(self.pert, self.bias_model)
@@ -403,11 +398,13 @@ class HOD(object):
         try:
             return self.__dm_corr
         except:
-            self.__dm_corr = fort.power_to_corr(nlnk=len(self.pert.lnk),
-                                                nr=len(self.r),
-                                                lnk=self.pert.lnk,
-                                                r=self.r,
-                                                power=np.exp(self.matter_power))
+            fit = spline(self.pert.lnk, self.matter_power, k=1)
+            self.__dm_corr = tools.power_to_corr(fit, self.r)
+#             self.__dm_corr = fort.power_to_corr(nlnk=len(self.pert.lnk),
+#                                                 nr=len(self.r),
+#                                                 lnk=self.pert.lnk,
+#                                                 r=self.r,
+#                                                 power=np.exp(self.matter_power))
             return self.__dm_corr
 
     @property
@@ -431,11 +428,13 @@ class HOD(object):
     @property
     def _corr_gal_1h_ss(self):
         """The 1-halo galaxy correlation for sat-sat pairs"""
-        result = fort.power_to_corr(nlnk=len(self.pert.lnk),
-                                    nr=len(self.r),
-                                    lnk=self.pert.lnk,
-                                    r=self.r,
-                                    power=self._power_gal_1h_ss)
+        fit = spline(self.pert.lnk, np.log(self._power_gal_1h_ss))
+        result = tools.power_to_corr(fit, self.r)
+#         result = fort.power_to_corr(nlnk=len(self.pert.lnk),
+#                                     nr=len(self.r),
+#                                     lnk=self.pert.lnk,
+#                                     r=self.r,
+#                                     power=self._power_gal_1h_ss)
         return result
 
     @property
@@ -488,6 +487,7 @@ class HOD(object):
         """The 2-halo term of the galaxy power spectrum - NOT LOGGED"""
         if not self.scale_dependent_bias and self.halo_exclusion in [None, "schneider"]:
             u = self.profile.u(np.exp(self.pert.lnk), self.pert.M, self.pert.z)
+
             pg2h = fort.power_gal_2h(nlnk=len(self.pert.lnk),
                                      nm=len(self.pert.M),
                                      u=np.asfortranarray(u),
@@ -569,13 +569,11 @@ class HOD(object):
                 if self.halo_exclusion != "ellipsoid":
                     pg2h[i] = intg.simps(integrand, m)
 
-        self.pre_pg2h = pg2h
         pg2h = np.exp(self.matter_power) * pg2h ** 2 / self.mean_gal_den ** 2
 
         if self.halo_exclusion == 'schneider':
             # should be k,r/h, but we use k/h and r (which gives the same)
-            pg2h *= tools.exclusion_window(np.exp(self.pert.lnk), r=2)
-        self.post_pg2h = pg2h
+            pg2h *= np.abs(tools.exclusion_window(np.exp(self.pert.lnk), r=2))
         return pg2h
 
     @property
@@ -585,21 +583,24 @@ class HOD(object):
             return self.__corr_gal_2h
         except:
             if not self.scale_dependent_bias and self.halo_exclusion in [None, 'schneider']:
-                self.__corr_gal_2h = fort.power_to_corr(nlnk=len(self.pert.lnk),
-                                                       nr=len(self.r),
-                                                       lnk=self.pert.lnk,
-                                                       r=self.r,
-                                                       power=self.power_gal_2h())
+                fit = spline(self.pert.lnk, np.log(self.power_gal_2h()))
+                self.__corr_gal_2h = tools.power_to_corr(fit, self.r)
+#                 self.__corr_gal_2h = fort.power_to_corr(nlnk=len(self.pert.lnk),
+#                                                        nr=len(self.r),
+#                                                        lnk=self.pert.lnk,
+#                                                        r=self.r,
+#                                                        power=self.power_gal_2h())
             else:
                 self.__corr_gal_2h = np.zeros_like(self.r)
                 for i, r in enumerate(self.r):
                     power = self.power_gal_2h(i)
-
-                    self.__corr_gal_2h[i] = fort.power_to_corr(nlnk=len(self.pert.lnk),
-                                                               nr=len(self.r),
-                                                               lnk=self.pert.lnk,
-                                                               r=self.r,
-                                                               power=power)[0]
+                    fit = spline(self.pert.lnk, np.log(power))
+                    self.__corr_gal_2h[i] = tools.power_to_corr(fit, r)
+#                     self.__corr_gal_2h[i] = fort.power_to_corr(nlnk=len(self.pert.lnk),
+#                                                                nr=len(self.r),
+#                                                                lnk=self.pert.lnk,
+#                                                                r=self.r,
+#                                                                power=power)[0]
             return self.__corr_gal_2h
 
     @property

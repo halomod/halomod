@@ -9,37 +9,49 @@ import pycamb
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 import matplotlib.pyplot as plt
 
-def power_to_corr(P, lnk, R):
+def power_to_corr(power_func, R):
     """
-    Calculates the correlation function given a power spectrum
+    Calculate the correlation function given a power spectrum
     
-    NOTE: no check is done to make sure k spans [0,Infinity] - make sure of this
-          before you enter the arguments.
-    
-    INPUT
-        P: vector of values for the power spectrum
-        k: vector of values (same length as lnP) giving the log wavenumbers 
-             for the power (EQUALLY SPACED)
-        r:   radi(us)(i) at which to calculate the correlation
+    Parameters
+    ----------
+    power_func : callable
+        A callable function which returns the natural log of power given lnk
+        
+    R : array_like
+        The values of separation/scale to calculate the correlation at.
+        
     """
-    k = np.exp(lnk)
     if not np.iterable(R):
         R = [R]
 
     corr = np.zeros_like(R)
 
+    # the number of steps to fit into a half-period at high-k. 6 is better than 1e-4.
+    minsteps = 6
+
+    # set min_k, 1e-6 should be good enough
+    mink = 1e-6
+
+    temp_min_k = 1.0
+
     for i, r in enumerate(R):
-        integ = P * k ** 2 * np.sin(k * r) / r
+        # getting maxk here is the important part. It must be an odd multiple of
+        # pi/r to be at a "zero", it must be >1 AND it must have a number of half
+        # cycles > 38 (for 1E-5 precision).
+
+        min_k = (2 * np.ceil((temp_min_k * r / np.pi - 1) / 2) + 1) * np.pi / r
+        maxk = max(39 * np.pi / r, min_k)
 
 
-        corr_cum = (0.5 / np.pi ** 2) * intg.cumtrapz(integ, dx=lnk[1] - lnk[0])
+        # Now we calculate the requisite number of steps to have a good dk at hi-k.
+        nk = np.ceil(np.log(maxk / mink) / np.log(maxk / (maxk - np.pi / (minsteps * r))))
 
-        # Try this: we cut off the integral when we can no longer fit 5 steps between zeros.
-        max_k = np.pi / (5 * r * (np.exp(lnk[1] - lnk[0]) - 1))
-        max_index = np.where(k < max_k)[-1][-1]
-        # Take average of last 20 values before the max_index
-        corr[i] = np.mean(corr_cum[max_index - 20:max_index])
+        lnk, dlnk = np.linspace(np.log(mink), np.log(maxk), nk, retstep=True)
+        P = np.exp(power_func(lnk))
+        integ = P * np.exp(lnk) ** 2 * np.sin(np.exp(lnk) * r) / r
 
+        corr[i] = (0.5 / np.pi ** 2) * intg.simps(integ, dx=dlnk)
 
     return corr
 
@@ -60,6 +72,7 @@ def non_linear_power(lnk_out=None, **camb_kwargs):
     """
 
     k, P = pycamb.matter_power(NonLinear=1, **camb_kwargs)
+
     if lnk_out is not None:
         # FIXME: I have to put this disgusting cut (lnk>-5.3), because sometimes P comes
         # out with a massive drop below some k

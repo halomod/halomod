@@ -16,7 +16,7 @@ from scipy.stats import norm
 import sys
 from scipy.optimize import minimize
 import copy
-
+from multiprocessing import Pool
 import scipy.sparse as sp
 import scipy.sparse.linalg as spln
 #===============================================================================
@@ -32,20 +32,16 @@ def model(parm, priors, h, attrs, data, sd):
     parm : sequence
         The position of the model. Takes arbitrary parameters.
         
-    initial : dict
-        A dictionary with keys as names of parameters in ``parm`` and values
-        as a 4-item list. The first item is the guessed value for the parameter,
-        the second is a string identifying whether the prior is normal (``norm``)
-        or uniform (``unif``). The third and fourth are the uniform lower and
-        upper boundaries or the mean and standard deviation of the normal
-        distribution.
+    priors : list of prior classes
+        A list containing objects that are either of the Uniform(), Normal() or 
+        MultiNorm() class. These specify the prior information on each parameter.
         
     h : ``hod.HOD`` instance
         A fully realised instance is best as it may make updating it faster
         
     attrs : list
         A list of the names of parameters passed in ``parm``. Corresponds to the
-        keys of ``initial``.
+        names of the objects in ``priors``.
         
     data : array_like
         The measured correlation function.
@@ -59,7 +55,6 @@ def model(parm, priors, h, attrs, data, sd):
         The log likelihood of the model at the given position.
         
     """
-    # print "parm before: ", parm
     ll = 0
 
     for prior in priors:
@@ -78,25 +73,18 @@ def model(parm, priors, h, attrs, data, sd):
             ll += _lognormpdf(np.array(parm[indices]), np.array(prior.means),
                               prior.cov)
 
-    # print "parm after:", parm
     # Rebuild the hod dict from given vals
     hoddict = {attr:val for attr, val in zip(attrs, parm)}
-
-    # print h.__dict__
-
     h.update(**hoddict)
-    # print "updated"
-    # print h.__dict__
+
     # The logprob of the model
-    model = h.corr_gal.copy()  # data + np.random.normal(scale=0.1)
-    # print "saved model"
+    model = h.corr_gal.copy()
     ll += np.sum(norm.logpdf(data, loc=model, scale=sd))
 
-    # print "got here"
     return ll
 
 def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10,
-           thin=50, nthreads=8, filename=None, **hodkwargs):
+           thin=50, nthreads=8, filename=None, chunks=None, **hodkwargs):
     """
     Run an MCMC procedure to fit a model correlation function to data
     
@@ -139,6 +127,13 @@ def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10
     nthreads : int, default 1
         Number of threads to use in sampling.
         
+    filename : str, default ``None``
+        A path to a file to which to write results sequentially
+        
+    chunks : int, default ``None``
+        How many samples to run before appending results to file. Only
+        applicable if ``filename`` is provided.
+        
     \*\*hmfkwargs : arguments
         Any argument that could be sent to ``hmf.Perturbations``
         
@@ -168,7 +163,7 @@ def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10
         else:
             attrs += prior.name
 
-     # Get the number of variables for MCMC
+    # Get the number of variables for MCMC
     ndim = len(attrs)
 
     # Check that attrs are all applicable
@@ -181,17 +176,18 @@ def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10
 
     # Make sure hodkwargs is ok
     if nthreads > 1:
-        numthreads = 1
-    else:
         numthreads = 0
+    else:
+        numthreads = 1
     if 'NumThreads' in hodkwargs:
         del hodkwargs['NumThreads']
 
     # Initialise the HOD object - use all available cpus for this
-    h = HOD(r=r, ThreadNum=0, **hodkwargs)
+    h = HOD(r=r, ThreadNum=nthreads, **hodkwargs)
 
-    # It's better to get a corr_gal instance now and then the updates are faster
-    h.corr_gal
+    # It's better to get a corr_gal instance then the updates could be faster
+    # BUT because of some reason we need to hack this and do it in a map() function
+    h = Pool(1).apply(create_hod, [h])
 
     # Now update numthreads for MCMC parallelisation
     h.update(ThreadNum=numthreads)
@@ -201,14 +197,10 @@ def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10
         guess = []
         for prior in priors:
             if isinstance(prior, Uniform):
-                print "uniform"
                 guess += [(prior.high + prior.low) / 2]
             elif isinstance(prior, Normal):
-                print "norm"
                 guess += [prior.mean]
             elif isinstance(prior, MultiNorm):
-                print "multinorm"
-                print prior.means
                 guess += prior.means.tolist()
 
     # Get an array of initial values
@@ -218,7 +210,19 @@ def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10
     stacked_val = guess.copy()
     for i in range(nwalkers - 1):
         stacked_val = np.vstack((guess, stacked_val))
-    p0 = stacked_val * np.random.normal(loc=1.0, scale=0.2, size=ndim * nwalkers).reshape((nwalkers, ndim))
+
+    i = 0
+    for prior in priors:
+        if isinstance(prior, Uniform):
+            stacked_val[:, i] += np.random.normal(loc=0.0, scale=0.05 * (prior.high - prior.low), size=nwalkers)
+            i += 1
+        elif isinstance(prior, Normal):
+            stacked_val[:, i] += np.random.normal(loc=0.0, scale=prior.sd, size=nwalkers)
+            i += 1
+        elif isinstance(prior, MultiNorm):
+            for j, name in enumerate(prior.name):
+                stacked_val[:, i] += np.random.normal(loc=0.0, scale=np.sqrt(prior.cov[j, j]), size=nwalkers)
+                i += 1
 
     sampler = emcee.EnsembleSampler(nwalkers, ndim, model,
                                     args=[priors, h, attrs, data, sd],
@@ -226,12 +230,30 @@ def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10
 
     # Run a burn-in
     if burnin:
-        pos, prob, state = sampler.run_mcmc(p0, burnin)
+        pos, prob, state = sampler.run_mcmc(stacked_val, burnin)
         sampler.reset()
     else:
-        pos = p0
+        pos = stacked_val
+
+
     # Run the actual run
-    sampler.run_mcmc(pos, nsamples, thin=thin)
+    if filename is None:
+        sampler.run_mcmc(pos, nsamples, thin=thin)
+    else:
+        header = "# " + "\t".join(attrs) + "\n"
+        with open(filename, "w") as f:
+            f.write(header)
+
+        if chunks is None:
+            chunks = 1
+        else:
+            if nsamples % chunks != 0:
+                print "Warning: nsamples must be a multiple of chunks, setting to 1"
+                chunks = 1
+        for i, result in enumerate(sampler.sample(pos, iterations=nsamples)):
+            if i % chunks == 0:
+                with open(filename, 'a') as f:
+                    np.savetxt(f, sampler.flatchain[-chunks:, :])
 
     return sampler.flatchain, np.mean(sampler.acceptance_fraction)
 
@@ -252,6 +274,10 @@ class MultiNorm(object):
         self.name = params
         self.means = means
         self.cov = cov
+
+def create_hod(h):
+    h.corr_gal
+    return h
 
 def _lognormpdf(x, mu, S):
     """ Calculate gaussian probability density of x, when x ~ N(mu,sigma) """

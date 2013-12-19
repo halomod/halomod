@@ -8,7 +8,13 @@ from numpy.distutils.core import setup, Extension
 import os
 import sys
 
-version = '1.1.0'
+version = '1.1.4'
+
+if sys.argv[-1] == "publish":
+    os.system("python setup.py install")
+    os.system("python setup.py sdist upload")
+    os.system("python setup.py bdist_egg upload")
+    sys.exit()
 
 fort = Extension('hod.fort.routines', ['hod/fort/routines.f90'],
                      extra_f90_compile_args=['-O3', '-Wall', '-Wtabs'],
