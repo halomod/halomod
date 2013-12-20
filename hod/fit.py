@@ -16,7 +16,7 @@ from scipy.stats import norm
 import sys
 from scipy.optimize import minimize
 import copy
-from multiprocessing import Pool
+from multiprocessing import Pool, cpu_count
 import scipy.sparse as sp
 import scipy.sparse.linalg as spln
 #===============================================================================
@@ -149,11 +149,7 @@ def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10
     """
 
     if len(priors) == 0:
-        raise ValueError("initial must be at least length 1")
-
-    # ##NOW TRY A LAPLACE APPROXIMATION TO FIND THE MODE
-    # res = minimize()
-
+        raise ValueError("priors must be at least length 1")
 
     # Save which attributes are updatable for HOD as a list
     attrs = []
@@ -174,23 +170,26 @@ def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10
                      'omegac_h2', 'h']:
             raise ValueError(a + " is not a valid variable for MCMC in HOD")
 
-    # Make sure hodkwargs is ok
+    # Properly set the number of threads to use
+    if not nthreads:
+        try:
+            nthreads = cpu_count()
+        except NotImplementedError:
+            nthreads = 1
+
     if nthreads > 1:
-        numthreads = 0
+        numthreads = 0  # number of threads to use for camb
     else:
-        numthreads = 1
-    if 'NumThreads' in hodkwargs:
-        del hodkwargs['NumThreads']
+        numthreads = 1  # we match it to 1 if user requests it
+
+    hodkwargs.update({"ThreadNum":numthreads})
 
     # Initialise the HOD object - use all available cpus for this
-    h = HOD(r=r, ThreadNum=nthreads, **hodkwargs)
+    h = HOD(r=r, **hodkwargs)
 
     # It's better to get a corr_gal instance then the updates could be faster
     # BUT because of some reason we need to hack this and do it in a map() function
     h = Pool(1).apply(create_hod, [h])
-
-    # Now update numthreads for MCMC parallelisation
-    h.update(ThreadNum=numthreads)
 
     # Set guess if not set
     if len(guess) != len(attrs):
@@ -203,7 +202,6 @@ def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10
             elif isinstance(prior, MultiNorm):
                 guess += prior.means.tolist()
 
-    # Get an array of initial values
     guess = np.array(guess)
 
     # Get an initial value for all walkers, around a small ball near the initial guess
@@ -245,7 +243,7 @@ def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10
             f.write(header)
 
         if chunks is None:
-            chunks = 1
+            chunks = nsamples
         else:
             if nsamples % chunks != 0:
                 print "Warning: nsamples must be a multiple of chunks, setting to 1"
