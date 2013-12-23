@@ -19,6 +19,7 @@ import copy
 from multiprocessing import Pool, cpu_count
 import scipy.sparse as sp
 import scipy.sparse.linalg as spln
+import time
 #===============================================================================
 # The Model
 #===============================================================================
@@ -79,6 +80,7 @@ def model(parm, priors, h, attrs, data, sd):
 
     # The logprob of the model
     model = h.corr_gal.copy()
+
     ll += np.sum(norm.logpdf(data, loc=model, scale=sd))
 
     return ll
@@ -170,27 +172,16 @@ def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10
                      'omegac_h2', 'h']:
             raise ValueError(a + " is not a valid variable for MCMC in HOD")
 
-    # Properly set the number of threads to use
-    if not nthreads:
-        try:
-            nthreads = cpu_count()
-        except NotImplementedError:
-            nthreads = 1
+    hodkwargs.update({"ThreadNum":nthreads})
 
-    if nthreads > 1:
-        numthreads = 0  # number of threads to use for camb
-    else:
-        numthreads = 1  # we match it to 1 if user requests it
-
-    hodkwargs.update({"ThreadNum":numthreads})
-
-    # Initialise the HOD object - use all available cpus for this
+    # Initialise the HOD objec
     h = HOD(r=r, **hodkwargs)
 
     # It's better to get a corr_gal instance then the updates could be faster
     # BUT because of some reason we need to hack this and do it in a map() function
     h = Pool(1).apply(create_hod, [h])
 
+    hodkwargs.update({"ThreadNum":nthreads})
     # Set guess if not set
     if len(guess) != len(attrs):
         guess = []
@@ -244,14 +235,13 @@ def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10
 
         if chunks is None:
             chunks = nsamples
-        else:
-            if nsamples % chunks != 0:
-                print "Warning: nsamples must be a multiple of chunks, setting to 1"
-                chunks = 1
+
+        start = time.time()
         for i, result in enumerate(sampler.sample(pos, iterations=nsamples)):
-            if i % chunks == 0:
+            if (i + 1) % chunks == 0:
+                print "Done ", 100 * nsamples / float(i + 1), " %. Time per sample: ", (time.time() - start) / ((i + 1) * nwalkers)
                 with open(filename, 'a') as f:
-                    np.savetxt(f, sampler.flatchain[-chunks:, :])
+                    np.savetxt(f, sampler.flatchain[(i + 1 - chunks):i, :])
 
     return sampler.flatchain, np.mean(sampler.acceptance_fraction)
 

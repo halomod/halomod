@@ -54,6 +54,13 @@ given parameters through the ``pert`` attribute of ``HOD``:
 
 HISTORY
 -------
+1.1.5 - December 23, 2013
+		Added automatic cpu counting in fit_hod()
+		Better setting of number of threads in fit_hod()
+		matter_power is now not deleted unless a cosmo param is changed.
+		Fixed writing out file in chunks in fit_hod()
+		Added some std output when chunks used in fit_hod()
+		
 1.1.4 - December 19, 2013
 		Much needed fix for fit_hod(), in which a crash occured if nthreads>1
 		

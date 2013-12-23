@@ -187,7 +187,8 @@ class HOD(object):
                 self.pert = Perturbations(cut_fit=False, **kwargs)
 
             startfresh = True
-
+            try: del self.__matter_power
+            except: pass
         # #Now that we've updated the base parameters, we will need to
         # #re-calculate basically everything.
         # We only retain (and therefore must delete here) properties that are
@@ -201,8 +202,6 @@ class HOD(object):
             try: del self.__n_tot
             except: pass
             try: del self.__mean_gal_den
-            except: pass
-            try: del self.__matter_power
             except: pass
             try: del self.__dm_corr
             except: pass
