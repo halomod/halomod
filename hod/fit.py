@@ -24,7 +24,7 @@ import time
 # The Model
 #===============================================================================
 
-def model(parm, priors, h, attrs, data, sd):
+def model(parm, priors, h, attrs, data, sd, verbose):
     """
     Calculate the log probability of a HMF model given data
     
@@ -50,6 +50,9 @@ def model(parm, priors, h, attrs, data, sd):
     sd : array_like
         Uncertainty in the measured correlation function
         
+    verbose : int
+        How much to write to screen.
+        
     Returns
     -------
     ll : float
@@ -63,7 +66,7 @@ def model(parm, priors, h, attrs, data, sd):
         if isinstance(prior, Uniform):
             index = attrs.index(prior.name)
             if parm[index] < prior.low or parm[index] > prior.high:
-                return -np.inf
+                ll = -np.inf
 
         elif isinstance(prior, Normal):
             index = attrs.index(prior.name)
@@ -75,18 +78,23 @@ def model(parm, priors, h, attrs, data, sd):
                               prior.cov)
 
     # Rebuild the hod dict from given vals
-    hoddict = {attr:val for attr, val in zip(attrs, parm)}
-    h.update(**hoddict)
+    if not np.isinf(ll):
+        hoddict = {attr:val for attr, val in zip(attrs, parm)}
+        h.update(**hoddict)
 
-    # The logprob of the model
-    model = h.corr_gal.copy()
+        # The logprob of the model
+        model = h.corr_gal.copy()
 
-    ll += np.sum(norm.logpdf(data, loc=model, scale=sd))
+        ll += np.sum(norm.logpdf(data, loc=model, scale=sd))
 
+    if verbose > 1:
+        print parm
+        print "Likelihood: ", ll
     return ll
 
 def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10,
-           thin=50, nthreads=8, filename=None, chunks=None, **hodkwargs):
+           thin=50, nthreads=8, filename=None, chunks=None, verbose=0,
+           **hodkwargs):
     """
     Run an MCMC procedure to fit a model correlation function to data
     
@@ -135,6 +143,9 @@ def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10
     chunks : int, default ``None``
         How many samples to run before appending results to file. Only
         applicable if ``filename`` is provided.
+        
+    verbose : int, default 0
+        The verbosity level. 
         
     \*\*hmfkwargs : arguments
         Any argument that could be sent to ``hmf.Perturbations``
@@ -220,9 +231,11 @@ def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10
                 i += 1
 
     sampler = emcee.EnsembleSampler(nwalkers, ndim, model,
-                                    args=[priors, h, attrs, data, sd],
+                                    args=[priors, h, attrs, data, sd, verbose],
                                     threads=nthreads)
 
+    if verbose:
+        print attrs
     # Run a burn-in
     if burnin:
         pos, prob, state = sampler.run_mcmc(stacked_val, burnin)
@@ -245,8 +258,11 @@ def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10
         start = time.time()
         for i, result in enumerate(sampler.sample(pos, iterations=nsamples)):
             if (i + 1) % chunks == 0:
-                print "Done ", 100 * float(i + 1) / nsamples , "%. Time per sample: ", (time.time() - start) / ((i + 1) * nwalkers)
+                if verbose:
+                    print "Done ", 100 * float(i + 1) / nsamples , "%. Time per sample: ", (time.time() - start) / ((i + 1) * nwalkers)
                 with open(filename, "w") as f:
+                    # need to write out nwalkers to be able to read the file back in properly
+                    f.write("# %s\n" % (nwalkers))
                     f.write(header)
                     np.savetxt(f, sampler.flatchain[sampler.flatchain[:, 0] != 0.0, :])
     return sampler.flatchain, np.mean(sampler.acceptance_fraction)

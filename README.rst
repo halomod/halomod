@@ -54,6 +54,10 @@ given parameters through the ``pert`` attribute of ``HOD``:
 
 HISTORY
 -------
+1.1.6 - 
+		Corrected auto-calc of nthreads in fit_hod()
+		Fixed chunks output in fit_hod()
+		
 1.1.5 - December 23, 2013
 		Added automatic cpu counting in fit_hod()
 		Better setting of number of threads in fit_hod()
