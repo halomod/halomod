@@ -89,6 +89,8 @@ def model(parm, priors, h, attrs, data, sd, verbose):
 
     if verbose > 1:
         print parm
+        print data - model
+        print norm.logpdf(data, loc=model, scale=sd)
         print "Likelihood: ", ll
     return ll
 
