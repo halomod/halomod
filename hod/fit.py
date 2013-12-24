@@ -110,7 +110,7 @@ def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10
     sd : array_like
         The uncertainty in the measured correlation function
         
-    priors : list of ``Uniform``, ``Gaussian`` or ``MultiGaussian`` objects
+    priors : list of ``Uniform``, ``Normal`` or ``MultiNorm`` objects
         A dictionary with keys as names of parameters in ``parm`` and values
         as a 4-item list. The first item is the guessed value for the parameter,
         the second is a string identifying whether the prior is normal (``norm``)
@@ -221,7 +221,7 @@ def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10
     i = 0
     for prior in priors:
         if isinstance(prior, Uniform):
-            stacked_val[:, i] += np.random.normal(loc=0.0, scale=0.05 * (prior.high - prior.low), size=nwalkers)
+            stacked_val[:, i] += np.random.normal(loc=0.0, scale=0.05 * min((guess[i] - prior.low), (prior.high - guess[i])), size=nwalkers)
             i += 1
         elif isinstance(prior, Normal):
             stacked_val[:, i] += np.random.normal(loc=0.0, scale=prior.sd, size=nwalkers)
