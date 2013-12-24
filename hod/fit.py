@@ -174,14 +174,20 @@ def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10
 
     hodkwargs.update({"ThreadNum":nthreads})
 
-    # Initialise the HOD objec
+    # Initialise the HOD object
     h = HOD(r=r, **hodkwargs)
 
     # It's better to get a corr_gal instance then the updates could be faster
     # BUT because of some reason we need to hack this and do it in a map() function
     h = Pool(1).apply(create_hod, [h])
 
-    hodkwargs.update({"ThreadNum":nthreads})
+    # re-set the number of threads used in pycamb to 1
+    hodkwargs.update({"ThreadNum":1})
+
+    # auto-calculate the number of threads to use if not set.
+    if not nthreads:
+        nthreads = cpu_count()
+
     # Set guess if not set
     if len(guess) != len(attrs):
         guess = []
@@ -239,10 +245,10 @@ def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10
         start = time.time()
         for i, result in enumerate(sampler.sample(pos, iterations=nsamples)):
             if (i + 1) % chunks == 0:
-                print "Done ", 100 * nsamples / float(i + 1), " %. Time per sample: ", (time.time() - start) / ((i + 1) * nwalkers)
-                with open(filename, 'a') as f:
-                    np.savetxt(f, sampler.flatchain[(i + 1 - chunks):i, :])
-
+                print "Done ", 100 * float(i + 1) / nsamples , "%. Time per sample: ", (time.time() - start) / ((i + 1) * nwalkers)
+                with open(filename, "w") as f:
+                    f.write(header)
+                    np.savetxt(f, sampler.flatchain[sampler.flatchain[:, 0] != 0.0, :])
     return sampler.flatchain, np.mean(sampler.acceptance_fraction)
 
 class Uniform(object):
