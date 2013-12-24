@@ -89,8 +89,6 @@ def model(parm, priors, h, attrs, data, sd, verbose):
 
     if verbose > 1:
         print parm
-        print data - model
-        print norm.logpdf(data, loc=model, scale=sd)
         print "Likelihood: ", ll
     return ll
 
@@ -194,6 +192,7 @@ def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10
     # BUT because of some reason we need to hack this and do it in a map() function
     h = Pool(1).apply(create_hod, [h])
 
+    print hodkwargs
     # re-set the number of threads used in pycamb to 1
     hodkwargs.update({"ThreadNum":1})
 
