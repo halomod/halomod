@@ -1,5 +1,6 @@
-Readme for hod
---------------------------
+---
+hod
+---
 
 `hod` is a python application that provides a flexible and simple interface for 
 dealing with the Halo Model of Dark Matter Halos. It comes with several HOD 

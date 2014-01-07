@@ -77,14 +77,13 @@ def model(parm, priors, h, attrs, data, sd, verbose):
             ll += _lognormpdf(np.array(parm[indices]), np.array(prior.means),
                               prior.cov)
 
+
     # Rebuild the hod dict from given vals
     if not np.isinf(ll):
         hoddict = {attr:val for attr, val in zip(attrs, parm)}
         h.update(**hoddict)
-
         # The logprob of the model
         model = h.corr_gal.copy()
-
         ll += np.sum(norm.logpdf(data, loc=model, scale=sd))
 
     if verbose > 1:
@@ -192,7 +191,6 @@ def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10
     # BUT because of some reason we need to hack this and do it in a map() function
     h = Pool(1).apply(create_hod, [h])
 
-    print hodkwargs
     # re-set the number of threads used in pycamb to 1
     hodkwargs.update({"ThreadNum":1})
 
