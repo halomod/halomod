@@ -324,11 +324,11 @@ class HaloModel(object):
         try:
             return self.__dm_corr
         except:
-            fit = spline(self.hmf.lnk, self.matter_power, k=1)
+            fit = spline(self.transfer.lnk, self.matter_power, k=1)
             self.__dm_corr = tools.power_to_corr(fit, self.r)
-#             self.__dm_corr = fort.power_to_corr(nlnk=len(self.hmf.lnk),
+#             self.__dm_corr = fort.power_to_corr(nlnk=len(self.transfer.lnk),
 #                                                 nr=len(self.r),
-#                                                 lnk=self.hmf.lnk,
+#                                                 lnk=self.transfer.lnk,
 #                                                 r=self.r,
 #                                                 power=np.exp(self.matter_power))
             return self.__dm_corr
@@ -341,8 +341,8 @@ class HaloModel(object):
         try:
             return self.__power_gal_1h_ss
         except AttributeError:
-            u = self.profile.u(np.exp(self.hmf.lnk), self.hmf.M, self.hmf.z)
-            self.__power_gal_1h_ss = fort.power_gal_1h_ss(nlnk=len(self.hmf.lnk),
+            u = self.profile.u(np.exp(self.transfer.lnk), self.hmf.M, self.hmf.transfer.z)
+            self.__power_gal_1h_ss = fort.power_gal_1h_ss(nlnk=len(self.transfer.lnk),
                                                           nm=len(self.hmf.M),
                                                           u=np.asfortranarray(u),
                                                           dndm=self.hmf.dndm,
@@ -359,11 +359,11 @@ class HaloModel(object):
         """The 1-halo galaxy correlation for sat-sat pairs"""
         try: return self.__corr_gal_1h_ss
         except:
-            fit = spline(self.hmf.lnk, np.log(self._power_gal_1h_ss))
+            fit = spline(self.transfer.lnk, np.log(self._power_gal_1h_ss))
             self.__corr_gal_1h_ss = tools.power_to_corr(fit, self.r)
-    #         result = fort.power_to_corr(nlnk=len(self.hmf.lnk),
+    #         result = fort.power_to_corr(nlnk=len(self.transfer.lnk),
     #                                     nr=len(self.r),
-    #                                     lnk=self.hmf.lnk,
+    #                                     lnk=self.transfer.lnk,
     #                                     r=self.r,
     #                                     power=self._power_gal_1h_ss)
             return self.__corr_gal_1h_ss
@@ -373,7 +373,7 @@ class HaloModel(object):
         """The cen-sat part of the 1-halo galaxy correlations"""
         try: return self.__corr_gal_1h_cs
         except:
-            rho = self.profile.rho(self.r, self.hmf.M, self.hmf.z)
+            rho = self.profile.rho(self.r, self.hmf.M, self.hmf.transfer.z)
             self.__corr_gal_1h_cs = fort.corr_gal_1h_cs(nr=len(self.r),
                                          nm=len(self.hmf.M),
                                          r=self.r,
@@ -395,8 +395,8 @@ class HaloModel(object):
         except:
             if self.halo_profile == "nfw":
 
-                rho = self.profile.rho(self.r, self.hmf.M, self.hmf.z)
-                lam = self.profile.lam(self.r, self.hmf.M, self.hmf.z)
+                rho = self.profile.rho(self.r, self.hmf.M, self.hmf.transfer.z)
+                lam = self.profile.lam(self.r, self.hmf.M, self.hmf.transfer.z)
                 self.__corr_gal_1h = fort.corr_gal_1h(nr=len(self.r),
                                                       nm=len(self.hmf.M),
                                                       r=self.r,
@@ -419,9 +419,9 @@ class HaloModel(object):
     def power_gal_2h(self, r_index=None):
         """The 2-halo term of the galaxy power spectrum - NOT LOGGED"""
         if not self.scale_dependent_bias and self.halo_exclusion in [None, "schneider"]:
-            u = self.profile.u(np.exp(self.hmf.lnk), self.hmf.M, self.hmf.z)
+            u = self.profile.u(np.exp(self.transfer.lnk), self.hmf.M, self.hmf.transfer.z)
 
-            pg2h = fort.power_gal_2h(nlnk=len(self.hmf.lnk),
+            pg2h = fort.power_gal_2h(nlnk=len(self.transfer.lnk),
                                      nm=len(self.hmf.M),
                                      u=np.asfortranarray(u),
                                      bias=self.bias.bias,
@@ -431,7 +431,7 @@ class HaloModel(object):
                                      mass=self.hmf.M)
 
         else:  # We must use a value of r to get pg2h
-            pg2h = np.zeros_like(self.hmf.lnk)
+            pg2h = np.zeros_like(self.transfer.lnk)
 
             if self.scale_dependent_bias:
                 xi = self.dm_corr[r_index]
@@ -442,8 +442,8 @@ class HaloModel(object):
             if self.halo_exclusion is not None:
                 integrand_m = self.hmf.dndm * self.n_tot
 
-            for i, lnk in enumerate(self.hmf.lnk):
-                u = self.profile.u(np.exp(lnk), self.hmf.M , self.hmf.z)
+            for i, lnk in enumerate(self.transfer.lnk):
+                u = self.profile.u(np.exp(lnk), self.hmf.M , self.hmf.transfer.z)
                 integrand = self.n_tot * u * self.hmf.dndm * bias
 
                 if self.halo_exclusion is None or self.halo_exclusion == 'schneider':
@@ -506,7 +506,7 @@ class HaloModel(object):
 
         if self.halo_exclusion == 'schneider':
             # should be k,r/h, but we use k/h and r (which gives the same)
-            pg2h *= np.abs(tools.exclusion_window(np.exp(self.hmf.lnk), r=2))
+            pg2h *= np.abs(tools.exclusion_window(np.exp(self.transfer.lnk), r=2))
         return pg2h
 
     @property
@@ -516,22 +516,22 @@ class HaloModel(object):
             return self.__corr_gal_2h
         except:
             if not self.scale_dependent_bias and self.halo_exclusion in [None, 'schneider']:
-                fit = spline(self.hmf.lnk, np.log(self.power_gal_2h()))
+                fit = spline(self.transfer.lnk, np.log(self.power_gal_2h()))
                 self.__corr_gal_2h = tools.power_to_corr(fit, self.r)
-#                 self.__corr_gal_2h = fort.power_to_corr(nlnk=len(self.hmf.lnk),
+#                 self.__corr_gal_2h = fort.power_to_corr(nlnk=len(self.transfer.lnk),
 #                                                        nr=len(self.r),
-#                                                        lnk=self.hmf.lnk,
+#                                                        lnk=self.transfer.lnk,
 #                                                        r=self.r,
 #                                                        power=self.power_gal_2h())
             else:
                 self.__corr_gal_2h = np.zeros_like(self.r)
                 for i, r in enumerate(self.r):
                     power = self.power_gal_2h(i)
-                    fit = spline(self.hmf.lnk, np.log(power))
+                    fit = spline(self.transfer.lnk, np.log(power))
                     self.__corr_gal_2h[i] = tools.power_to_corr(fit, r)
-#                     self.__corr_gal_2h[i] = fort.power_to_corr(nlnk=len(self.hmf.lnk),
+#                     self.__corr_gal_2h[i] = fort.power_to_corr(nlnk=len(self.transfer.lnk),
 #                                                                nr=len(self.r),
-#                                                                lnk=self.hmf.lnk,
+#                                                                lnk=self.transfer.lnk,
 #                                                                r=self.r,
 #                                                                power=power)[0]
             return self.__corr_gal_2h
