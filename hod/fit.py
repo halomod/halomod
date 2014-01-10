@@ -11,7 +11,7 @@ function data. It uses MCMC techniques to do so.
 #===============================================================================
 import numpy as np
 import emcee
-from hod import HOD
+from halo_model import HaloModel
 from scipy.stats import norm
 import sys
 from scipy.optimize import minimize
@@ -185,7 +185,7 @@ def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10
     hodkwargs.update({"ThreadNum":nthreads})
 
     # Initialise the HOD object
-    h = HOD(r=r, **hodkwargs)
+    h = HaloModel(r=r, **hodkwargs)
 
     # It's better to get a corr_gal instance then the updates could be faster
     # BUT because of some reason we need to hack this and do it in a map() function
