@@ -1,8 +1,4 @@
 '''
-Created on Aug 7, 2013
-
-@author: Steven
-
 Implements the Quadrature method with zeros of bessel functions to calculate the zeroth-order hankel transform of a function f()
 '''
 import numpy as np

@@ -1,8 +1,4 @@
-'''
-Created on Sep 30, 2013
 
-@author: Steven
-'''
 import numpy as np
 import scipy.special as sp
 
@@ -12,7 +8,7 @@ class HOD_models(object):
                  gauss_width=0.26, M_0=11.5047, fca=0.5, fcb=0, fs=1, delta=None, x=1,
                  central=True):
 
-        #Save parameters to self. Many of these are used in multiple models.
+        # Save parameters to self. Many of these are used in multiple models.
         self.M_1 = 10 ** M_1
         self.M_min = 10 ** M_min
         self.M_0 = 10 ** M_0
@@ -30,9 +26,9 @@ class HOD_models(object):
     #===========================================================================
     # DEFINE WRAPPERS - THE ONLY ONES THE USER CALLS
     #===========================================================================
-    #It would be 'simpler' to set eg. self.rho = self.rho_nfw etc (for relevant
+    # It would be 'simpler' to set eg. self.rho = self.rho_nfw etc (for relevant
     # profile parameter), but we CANNOT do this because then the class can't
-    #be pickled, which then means we can't go parallel!!
+    # be pickled, which then means we can't go parallel!!
     def nc(self, M):
         if self._hod_model == "zheng":
             return self._nc_zheng(M)

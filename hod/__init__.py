@@ -1,1 +1,1 @@
-from hod import HOD
+from halo_model import HaloModel
