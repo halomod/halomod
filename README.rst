@@ -55,9 +55,12 @@ given parameters through the ``pert`` attribute of ``HOD``:
 
 HISTORY
 -------
-1.1.6 - 
+1.1.6 - January 15, 2014
 		Corrected auto-calc of nthreads in fit_hod()
 		Fixed chunks output in fit_hod()
+		Fixed API for updated hmf API
+		Cleaned up the update process considerably
+		Added an optimization routine to fit
 		
 1.1.5 - December 23, 2013
 		Added automatic cpu counting in fit_hod()

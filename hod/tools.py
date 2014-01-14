@@ -7,7 +7,6 @@ import numpy as np
 import scipy.integrate as intg
 import pycamb
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
-import matplotlib.pyplot as plt
 
 def power_to_corr(power_func, R):
     """

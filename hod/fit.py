@@ -26,7 +26,7 @@ import time
 
 def model(parm, priors, h, attrs, data, sd, verbose):
     """
-    Calculate the log probability of a HMF model given data
+    Calculate the log probability of a HaloModel model given correlation data
     
     Parameters
     ----------
@@ -77,16 +77,14 @@ def model(parm, priors, h, attrs, data, sd, verbose):
             ll += _lognormpdf(np.array(parm[indices]), np.array(prior.means),
                               prior.cov)
 
-
     # Rebuild the hod dict from given vals
     if not np.isinf(ll):
         hoddict = {attr:val for attr, val in zip(attrs, parm)}
         h.update(**hoddict)
         # The logprob of the model
-        model = h.corr_gal.copy()
-        ll += np.sum(norm.logpdf(data, loc=model, scale=sd))
+        ll += np.sum(norm.logpdf(data, loc=h.corr_gal, scale=sd))
 
-    if verbose > 1:
+    if verbose > 0:
         print parm
         print "Likelihood: ", ll
     return ll
@@ -176,11 +174,8 @@ def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10
 
     # Check that attrs are all applicable
     for a in attrs:
-        if a not in ["wdm_mass", "delta_halo", "sigma_8", "n", "omegab", 'omegac',
-                     "omegav", "omegak", "H0", "M_1", 'alpha', "M_min", 'gauss_width',
-                     'M_0', 'fca', 'fcb', 'fs', 'delta', 'x', 'omegab_h2',
-                     'omegac_h2', 'h']:
-            raise ValueError(a + " is not a valid variable for MCMC in HOD")
+        if a not in _vars:
+            raise ValueError(a + " is not a valid variable for MCMC in HaloModel")
 
     hodkwargs.update({"ThreadNum":nthreads})
 
@@ -266,6 +261,125 @@ def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10
                     np.savetxt(f, sampler.flatchain[sampler.flatchain[:, 0] != 0.0, :])
     return sampler.flatchain, np.mean(sampler.acceptance_fraction)
 
+def fit_hod_minimize(r, data, sd, priors, guess=[], nthreads=0,
+                     filename=None, chunks=None, verbose=0, method="Nelder-Mead",
+                     disp=False, maxiter=30, tol=None, **hodkwargs):
+    """
+    Run an optimization procedure to fit a model correlation function to data
+    
+    Parameters
+    ----------
+    r : array_like
+        The scales at which to perform analysis. Must be the same as the input
+        data
+        
+    data : array_like
+        The measured correlation function at ``r``
+        
+    sd : array_like
+        The uncertainty in the measured correlation function
+        
+    priors : list of ``Uniform``, ``Normal`` or ``MultiNorm`` objects
+        A dictionary with keys as names of parameters in ``parm`` and values
+        as a 4-item list. The first item is the guessed value for the parameter,
+        the second is a string identifying whether the prior is normal (``norm``)
+        or uniform (``unif``). The third and fourth are the uniform lower and
+        upper boundaries or the mean and standard deviation of the normal
+        distribution.
+        
+    guess : array_like, default ``[]``
+        Where to start the chain. If empty, will fill it with central parameters
+        from the prior distributions.
+        
+    nwalkers : int, default 100
+        Number of walkers to use for Affine-Invariant Ensemble Sampler
+        
+    nsamples : int, default 100
+        Number of samples that *each walker* will perform.
+        
+    burnin : int, default 10
+        Number of samples from each walker that will be initially erased as burnin
+        
+    thin : int, default 50
+        Keep 1 in every ``thin`` samples.
+        
+    nthreads : int, default 1
+        Number of threads to use in sampling.
+        
+    filename : str, default ``None``
+        A path to a file to which to write results sequentially
+        
+    chunks : int, default ``None``
+        How many samples to run before appending results to file. Only
+        applicable if ``filename`` is provided.
+        
+    verbose : int, default 0
+        The verbosity level. 
+        
+    method : str, default ``"Nelder-Mead"``
+        The optimizing routine (see `scipy.optimize.minimize` for details).
+        
+    disp : bool, default False
+        Whether to display optimization information while running.
+        
+    maxiter : int, default 30
+        Maximum number of iterations
+        
+    tol : float, default None
+        Tolerance for termination
+        
+    \*\*hodkwargs : arguments
+        Any argument that could be sent to :class:`HaloModel`
+        
+    Returns
+    -------
+    res : Result object from scipy.optimize
+        Contains the results of the minimization. ``res.x`` is the solution,
+        other attributes are also available.
+         
+    """
+
+    # Save which attributes are updatable for HOD as a list
+    attrs = []
+    for prior in priors:
+        if isinstance(prior.name, basestring):
+            attrs += [prior.name]
+        else:
+            attrs += prior.name
+
+    # Check that attrs are all applicable
+    for a in attrs:
+        if a not in _vars:
+            raise ValueError(a + " is not a valid variable for optimization in HaloModel")
+
+    hodkwargs.update({"ThreadNum":nthreads})
+
+    # Initialise the HOD object
+    h = HaloModel(r=r, **hodkwargs)
+
+    # Set guess if not set
+    if len(guess) != len(attrs):
+        guess = []
+        for prior in priors:
+            if isinstance(prior, Uniform):
+                guess += [(prior.high + prior.low) / 2]
+            elif isinstance(prior, Normal):
+                guess += [prior.mean]
+            elif isinstance(prior, MultiNorm):
+                guess += prior.means.tolist()
+
+    guess = np.array(guess)
+
+    def negmod(parm, priors, h, attrs, data, sd, verbose):
+        return -model(parm, priors, h, attrs, data, sd, verbose)
+
+    res = minimize(negmod, guess, (priors, h, attrs, data, sd, verbose), tol=tol,
+                   method=method, options={"disp":disp, "maxiter":maxiter})
+
+    return res
+_vars = ["wdm_mass", "delta_halo", "sigma_8", "n", "omegab", 'omegac',
+         "omegav", "omegak", "H0", "M_1", 'alpha', "M_min", 'gauss_width',
+         'M_0', 'fca', 'fcb', 'fs', 'delta', 'x', 'omegab_h2', 'omegac_h2', 'h']
 class Uniform(object):
     def __init__(self, param, low, high):
         self.name = param
