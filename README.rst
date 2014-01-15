@@ -55,6 +55,10 @@ given parameters through the ``pert`` attribute of ``HOD``:
 
 HISTORY
 -------
+1.2.0 - 
+		Added ng_matched and ellipsoid halo exclusion options
+		Cleaned up and enhanced performance of halo exclusion in general
+		
 1.1.6 - January 15, 2014
 		Corrected auto-calc of nthreads in fit_hod()
 		Fixed chunks output in fit_hod()

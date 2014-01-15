@@ -26,14 +26,14 @@ class profiles(object):
     #===========================================================================
     # THE WRAPPING FUNCTIONS - THE ONLY ONES EVER CALLED
     #===========================================================================
-    #It would be 'simpler' to set eg. self.rho = self.rho_nfw etc (for relevant
+    # It would be 'simpler' to set eg. self.rho = self.rho_nfw etc (for relevant
     # profile parameter), but we CANNOT do this because then the class can't
-    #be pickled, which then means we can't go parallel!!
+    # be pickled, which then means we can't go parallel!!
     def rho(self, r, m, z):
         """
         The density at radius r of a halo of mass m and redshift z
         """
-        #First treat case in which r AND m are arrays - return a matrix
+        # First treat case in which r AND m are arrays - return a matrix
         if np.iterable(r) and np.iterable(m):
             result = np.zeros((len(r), len(m)))
             for i, rr in enumerate(r):
@@ -41,7 +41,7 @@ class profiles(object):
                     result[i, :] = self.rho_nfw(rr, m, z)
 
             return result
-        #Now the obvious case in which either one or none is an array
+        # Now the obvious case in which either one or none is an array
         else:
             if self._profile == 'nfw':
                 return self.rho_nfw(r, m, z)
@@ -127,20 +127,20 @@ class profiles(object):
         if not np.iterable(x):
             x = np.array([x])
         if not np.iterable(c):
-            #Could have iterable r rather than c which this fixes
+            # Could have iterable r rather than c which this fixes
             c = np.repeat(c, len(x))
 
-        r = x / c  #r is here scaled by the virial radius
+        r = x / c  # r is here scaled by the virial radius
 
         result = np.zeros_like(x)
 
         if r.min() > 2:
-            return result  #Stays as zero
+            return result  # Stays as zero
 
         fa = self._dc_nfw(c) * 4 * np.pi / c ** 3
         f1 = (fa * m) ** 2 / (4 * np.pi * r_s ** 3)
 
-        #GET LOW VALUES
+        # GET LOW VALUES
         if r.min() < 1:
             mask = r <= 1
             x_lo = x[mask]
@@ -173,7 +173,6 @@ class profiles(object):
         return result
 
     def _dc_nfw(self, c):
-        #We tentatively follow charles here...
         return c ** 3 / (4 * np.pi) / (np.log(1 + c) - c / (1 + c))
 
     #===========================================================================

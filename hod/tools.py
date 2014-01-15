@@ -97,14 +97,22 @@ def overlapping_halo_prob(r, rv1, rv2):
     """
     The probability of non-overlapping ellipsoidal haloes (Tinker 2005 Appendix B)
     """
-    x = r / (rv1 + rv2)
-    y = (x - 0.8) / 0.29
-    if y <= 0:
-        return 0
-    elif y >= 1:
-        return 1
+    if np.isscalar(rv1) and np.isscalar(rv2):
+        x = r / (rv1 + rv2)
     else:
-        return 3 * y ** 2 - 2 * y ** 3
+        x = r / np.add.outer(rv1, rv2)
+    y = (x - 0.8) / 0.29
+
+    if np.isscalar(y):
+        if y <= 0:
+            return 0
+        elif y >= 1:
+            return 1
+
+    res = 3 * y ** 2 - 2 * y ** 3
+    res[y <= 0] = 0.0
+    res[y >= 1] = 1.0
+    return res
 
 def exclusion_window(k, r):
     """Top hat window function"""

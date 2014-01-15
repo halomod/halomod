@@ -10,7 +10,7 @@ from hmf import MassFunction
 # import hmf.tools as ht
 import tools
 from profiles import profiles
-from hod_models import HOD_models
+from hod import HOD
 from bias import Bias as bias
 from fort.routines import hod_routines as fort
 
@@ -51,7 +51,7 @@ class HaloModel(object):
                  gauss_width=0.26, M_0=11.5047, fca=0.5, fcb=0, fs=1,
                  delta=None, x=1, hod_model='zehavi',
                  halo_profile='nfw', cm_relation='duffy', bias_model='tinker',
-                 central=False, nonlinear=False, scale_dependent_bias=True,
+                 central=True, nonlinear=True, scale_dependent_bias=True,
                  halo_exclusion="None", ** hmf_kwargs):
 
         if M is None:
@@ -85,7 +85,7 @@ class HaloModel(object):
         self.halo_exclusion = halo_exclusion
         self.scale_dependent_bias = scale_dependent_bias
         self.hmf = MassFunction(cut_fit=False, **hmf_kwargs)
-        self._hodmod = HOD_models(**self.hodmod_params)
+        self._hodmod = HOD(**self.hodmod_params)
 
         # A couple of simple derived parameters
         self.n_cen = self._hodmod.nc(self.hmf.M)
@@ -120,7 +120,7 @@ class HaloModel(object):
                 del kwargs[k]
 
             # Now actually update the hodmod class
-            self._hodmod = HOD_models(**self.hodmod_params)
+            self._hodmod = HOD(**self.hodmod_params)
             update_hod = True
 
         # Now go through the rest of the keys and set values
@@ -142,10 +142,8 @@ class HaloModel(object):
             if 'M' in kwargs:
                 update_hod = True
 
-            try:
-                del self.__matter_power
-            except AttributeError:
-                pass
+            try: del self.__matter_power
+            except AttributeError: pass
 
         if update_hod:
             self.n_cen = self._hodmod.nc(self.hmf.M)
@@ -230,7 +228,7 @@ class HaloModel(object):
 
     @halo_exclusion.setter
     def halo_exclusion(self, val):
-        available = ["None", "sphere_zheng", "ellipsoid", "ng_matched", 'schneider']
+        available = ["None", "sphere", "ellipsoid", "ng_matched", 'schneider']
         if val not in available:
             raise ValueError("halo_exclusion not acceptable: " + str(val))
         else:
@@ -293,9 +291,9 @@ class HaloModel(object):
             return self.__mean_gal_den
         except:
             # Integrand is just the density of galaxies at mass M
-            integrand = self.hmf.dndm * self.n_tot
+            integrand = self.hmf.M * self.hmf.dndm * self.n_tot
 
-            self.__mean_gal_den = intg.simps(integrand, self.hmf.M)
+            self.__mean_gal_den = intg.simps(integrand, dx=np.log(self.hmf.M[1]) - np.log(self.hmf.M[0]))
             return self.__mean_gal_den
 
     @property
@@ -426,84 +424,63 @@ class HaloModel(object):
         else:
             bias = self.bias.bias
 
-        integrand_m = self.hmf.dndm * self.n_tot * bias
+        ng_integrand = (self.hmf.dndm * self.n_tot)[self.n_tot > 0]
+        integrand_m = ng_integrand * bias[self.n_tot > 0]
+        m = self.hmf.M[self.n_tot > 0]
 
-        if self.halo_exclusion in ["None", 'schneider']:
-            m = self.hmf.M
-
+        #### First do stuff in any of the methods which is not k-dependent
         if self.halo_exclusion == "ng_matched":
-            mmin = np.log(self.hmf.M[integrand_m > 0][0])
+            rv = tools.virial_radius(m, self.cosmo.mean_dens, self.hmf.delta_halo)
+            prob = tools.overlapping_halo_prob(self.r[r_index], rv, rv)
+            integ = np.outer(m * ng_integrand, m * ng_integrand) * prob
+            del prob, rv
+            ng = np.sqrt(tools.dblsimps(integ, dx=np.log(m[1]) - np.log(m[0]),
+                              dy=np.log(m[1]) - np.log(m[0])))
+            cumint_ng = intg.cumtrapz(ng_integrand, m)
+            index = np.where(cumint_ng > ng)[0][0]
 
+        elif self.halo_exclusion == "sphere":
+            mlim = tools.virial_mass(self.r[r_index],
+                                     self.cosmo.mean_dens,
+                                     self.hmf.delta_halo)
+            m = m[m < mlim]
+
+        elif self.halo_exclusion == "schneider":
+                mm = m
+
+        # # Now do slow k-dependent stuff
         for i, lnk in enumerate(self.transfer.lnk):
-            u = self.profile.u(np.exp(lnk), self.hmf.M , self.transfer.z)
-            integrand = u * integrand_m
+            integrand = integrand_m * self.profile.u(np.exp(lnk), m , self.transfer.z)
 
-            if self.halo_exclusion == "sphere_zheng":
-                mlim = tools.virial_mass(self.r[r_index],
-                                         self.cosmo.mean_dens,
-                                         self.hmf.delta_halo)
-                integrand = integrand[self.hmf.M < mlim]
-                m = self.hmf.M[self.hmf.M < mlim]
-
+            if self.halo_exclusion == "sphere":
+                integrand = integrand[m < mlim]
+                mm = m[m < mlim]
             elif self.halo_exclusion == "ng_matched":
-
-#                 integrand_ms = spline(np.log(self.hmf.M[integrand > 0]),
-#                                          np.log(integrand_m[integrand > 0]), k=1)
-
-                m = self.hmf.M[self.hmf.M > mmin]
-                rv = tools.virial_radius(np.exp(np.outer(m, m)),
-                                   self.cosmo.mean_dens,
-                                   self.hmf.delta_halo)
-                integ = np.outer(m * integrand, m * integrand) * tools.overlapping_halo_prob(self.r[r_index], rv)
-#                 def integ(m1, m2, r):
-#
-#                 ng = dblsimps()
-#     return np.exp(m1 + m2) * np.exp(integrand_ms(m1) + integrand_ms(m2)) * tools.overlapping_halo_prob(r, rv1, rv2)
-#                 ng, err = intg.dblquad(integ, mmin, np.log(self.hmf.M[-1]),
-#                                        lambda x: mmin, lambda x: np.log(self.hmf.M[-1]),
-#                                        args=(self.r[r_index],), epsrel=1e-3)
-
-                # # Need to check this!
-                ng = dblsimps(integ, dx=np.log(m[1]) - np.log(m[0]))
-
-                cumint_ng = intg.cumtrapz(integrand_m, self.hmf.M)
-                print cumint_ng[-1], ng
-                index = np.where(cumint_ng > ng)[0][0]
-                print index
-                mlim = self.hmf.M[index - 1] + (self.hmf.M[index] -
-                                                 self.hmf.M[index - 1]) * \
-                       (ng - cumint_ng[index - 1]) / (cumint_ng[index] -
-                                                     cumint_ng[index - 1])
-
-                integrand = integrand[self.hmf.M < mlim]
-                m = self.hmf.M[self.hmf.M < mlim]
+                integrand = integrand[:index]
+                mm = m[:index]
 
             elif self.halo_exclusion == "ellipsoid":
-                m = self.hmf.M[integrand > 0]
-                integrand = integrand[integrand > 0]
-                integrand = spline(np.log(m), np.log(integrand), k=1)
-
-                def integ(m1, m2, r):
-                    rv1, rv2 = tools.virial_radius(np.exp(np.array([m1, m2])),
-                                                  self.cosmo.mean_dens,
-                                                  self.hmf.delta_halo)
-
-                    return np.exp(m1 + m2) * np.exp(integrand(m1) + integrand(m2)) * tools.overlapping_halo_prob(r, rv1, rv2)
-
-                pg2h[i], err = intg.dblquad(integ, np.log(m[0]), np.log(m[-1]),
-                                       lambda x: np.log(m[0]), lambda x: np.log(m[-1]),
-                                       args=(self.r[r_index],), epsrel=1e-3)
+                rv = tools.virial_radius(m, self.cosmo.mean_dens, self.hmf.delta_halo)
+                prob = tools.overlapping_halo_prob(self.r[r_index], rv, rv)
+                integ = np.outer(m * integrand, m * integrand) * prob
+                del prob, rv
+                pg2h[i] = np.sqrt(tools.dblsimps(integ, dx=np.log(m[1]) - np.log(m[0]),
+                                  dy=np.log(m[1]) - np.log(m[0])))
 
             if self.halo_exclusion != "ellipsoid":
-                if len(m) > 0:
-                    pg2h[i] = intg.simps(integrand, m)
+                if len(mm) > 2:
+                    pg2h[i] = intg.simps(integrand, mm)
                 else:
-                    pg2h[i] = 1e-20
+                    pg2h[i] = 0
         pg2h = np.exp(self.matter_power) * pg2h ** 2 / self.mean_gal_den ** 2
 
         if self.halo_exclusion == 'schneider':
             # should be k,r/h, but we use k/h and r (which gives the same)
             pg2h *= np.abs(tools.exclusion_window(np.exp(self.transfer.lnk), r=2))
+
+        # We do this so log splines work later on :)
+        pg2h[pg2h == 0] = 1e-20
+
         return pg2h
 
     @property
@@ -534,23 +511,3 @@ class HaloModel(object):
             self.__corr_gal = self.corr_gal_1h + self.corr_gal_2h
 
             return self.__corr_gal
-
-
-
-def dblsimps(X, dx, dy):
-    """
-    Perform double integration using simpsons rule
-    """
-    if len(X.shape) != 2:
-        raise ValueError("dblsimps takes a matrix")
-    if X.shape[0] % 2 != 1 or X.shape[1] != 1:
-        raise ValueError("dblsimps matrix must have both dimensions of odd length")
-
-    W = np.ones_like(X)
-
-    W[range(1, len(W[:, 0]) - 1, 2), :] *= 4
-    W[:, range(1, len(W[0, :]) - 1, 2)] *= 4
-    W[range(2, len(W[:, 0]) - 1, 2), :] *= 2
-    W[:, range(2, len(W[0, :]) - 1, 2)] *= 2
-
-    return dx * dy * np.sum(W * X) / 9.0

@@ -8,7 +8,7 @@ from numpy.distutils.core import setup, Extension
 import os
 import sys
 
-version = '1.1.5'
+version = '1.1.6'
 
 if sys.argv[-1] == "publish":
     os.system("python setup.py install")
@@ -37,9 +37,9 @@ if __name__ == "__main__":
         install_requires=['hmf'],
         author="Steven Murray",
         author_email="steven.murray@uwa.edu.au",
-        description="A HOD calculator built on hmf",
+        description="A Halo Model calculator built on hmf",
         long_description=read('README.rst'),
-        license='BSD',
+        license='MIT',
         keywords="halo occupation distribution",
         url="https://github.com/steven-murray/hod",
         ext_modules=[fort],

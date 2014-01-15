@@ -24,25 +24,26 @@ import time
 # The Model
 #===============================================================================
 
-def model(parm, priors, h, attrs, data, sd, verbose):
+def model(parm, priors, h, attrs, data, sd, verbose=0):
     """
     Calculate the log probability of a HaloModel model given correlation data
     
     Parameters
     ----------
-    parm : sequence
+    parm : list of floats
         The position of the model. Takes arbitrary parameters.
         
     priors : list of prior classes
-        A list containing objects that are either of the Uniform(), Normal() or 
-        MultiNorm() class. These specify the prior information on each parameter.
+        A list containing instances of :class:`.Uniform`, :class:`.Normal` or 
+        :class:`.MultiNorm` classes. These specify the prior information on each 
+        parameter.
         
-    h : ``hod.HOD`` instance
-        A fully realised instance is best as it may make updating it faster
+    h : :class:`~halo_model.HaloModel` instance
+        An instance of :class:`~halo_model.HaloModel` with the desired options
+        set. Variables of the estimation are updated within the routine.  
         
     attrs : list
-        A list of the names of parameters passed in ``parm``. Corresponds to the
-        names of the objects in ``priors``.
+        A list of the names of parameters passed in :attr:`.parm`.
         
     data : array_like
         The measured correlation function.
@@ -50,7 +51,7 @@ def model(parm, priors, h, attrs, data, sd, verbose):
     sd : array_like
         Uncertainty in the measured correlation function
         
-    verbose : int
+    verbose : int, default 0
         How much to write to screen.
         
     Returns
@@ -89,34 +90,40 @@ def model(parm, priors, h, attrs, data, sd, verbose):
         print "Likelihood: ", ll
     return ll
 
-def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10,
-           thin=50, nthreads=8, filename=None, chunks=None, verbose=0,
-           **hodkwargs):
+
+def fit_hod(r, data, sd, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
+            nthreads=0, filename=None, chunks=None, verbose=0, find_peak_first,
+            **kwargs):
     """
-    Run an MCMC procedure to fit a model correlation function to data
+    Estimate the parameters in :attr:`.priors` using AIES MCMC.
+    
+    This routine uses the emcee package to run an MCMC procedure, fitting 
+    parameters passed in :attr:`.priors` to the given galaxy correlation 
+    function.
     
     Parameters
     ----------
     r : array_like
-        The scales at which to perform analysis. Must be the same as the input
-        data
+        The scales at which to perform analysis, corresponding to input data.
         
     data : array_like
-        The measured correlation function at ``r``
+        The measured correlation function at :attr:`r`
         
     sd : array_like
-        The uncertainty in the measured correlation function
+        The uncertainty in the measured correlation function, same length as 
+        :attr:`r`.
         
-    priors : list of ``Uniform``, ``Normal`` or ``MultiNorm`` objects
-        A dictionary with keys as names of parameters in ``parm`` and values
-        as a 4-item list. The first item is the guessed value for the parameter,
-        the second is a string identifying whether the prior is normal (``norm``)
-        or uniform (``unif``). The third and fourth are the uniform lower and
-        upper boundaries or the mean and standard deviation of the normal
-        distribution.
+    priors : list of prior classes
+        A list containing instances of :class:`.Uniform`, :class:`.Normal` or 
+        :class:`.MultiNorm` classes. These specify the prior information on each 
+        parameter.
+    
+    h : instance of :class:`~halo_model.HaloModel`
+        This instance will be updated with the variables of the minimization.
+        Other desired options should have been set upon instantiation.
         
-    guess : array_like, default ``None``
-        Where to start the chain. If ``None``, will get central values from the
+    guess : array_like, default []
+        Where to start the chain. If empty, will get central values from the
         distributions.
         
     nwalkers : int, default 100
@@ -126,36 +133,44 @@ def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10
         Number of samples that *each walker* will perform.
         
     burnin : int, default 10
-        Number of samples from each walker that will be initially erased as burnin
-        
-    thin : int, default 50
-        Keep 1 in every ``thin`` samples.
-        
-    nthreads : int, default 1
-        Number of threads to use in sampling.
+        Number of samples from each walker that will be initially erased as 
+        burnin. Note, this performs *additional* iterations, rather than 
+        consuming iterations from :attr:`.nsamples`.
+                
+    nthreads : int, default 0
+        Number of threads to use in sampling. If nought, will automatically 
+        detect number of cores available.
         
     filename : str, default ``None``
-        A path to a file to which to write results sequentially
+        A path to a file to which to write results sequentially. If ``None``,
+        will not write anything out.
         
     chunks : int, default ``None``
-        How many samples to run before appending results to file. Only
-        applicable if ``filename`` is provided.
+        Number of samples to run before appending results to file. Only
+        applicable if :attr:`.filename` is provided.
         
     verbose : int, default 0
-        The verbosity level. 
+        The verbosity level.
         
-    \*\*hmfkwargs : arguments
-        Any argument that could be sent to ``hmf.Perturbations``
+    find_peak_first : bool, default False
+        Whether to perform a minimization routine before using MCMC to find a 
+        good guess to begin with. Could reduce necessary burn-in.
+        
+    \*\*kwargs :
+        Arguments passed to :func:`fit_hod_minimize` if :attr:`find_peak_first`
+        is ``True``.
         
     Returns
     -------
     flatchain : array_like, ``shape = (len(initial),nwalkers*nsamples)``
-        The MCMC chain, with each parameter as a column
+        The MCMC chain, with each parameter as a column. Note that each walker 
+        is semi-independent and they are interleaved. Calling 
+        ``flatchain.reshape((nwalkers, -1, ndim))`` will retrieve the proper
+        structure.
         
     acceptance_fraction : float
-        The acceptance fraction for the MCMC run. Should be ....
+        The acceptance fraction for the MCMC run. Should be between 0.2 and 0.5.
     
-        
     """
 
     if len(priors) == 0:
@@ -177,18 +192,6 @@ def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10
         if a not in _vars:
             raise ValueError(a + " is not a valid variable for MCMC in HaloModel")
 
-    hodkwargs.update({"ThreadNum":nthreads})
-
-    # Initialise the HOD object
-    h = HaloModel(r=r, **hodkwargs)
-
-    # It's better to get a corr_gal instance then the updates could be faster
-    # BUT because of some reason we need to hack this and do it in a map() function
-    h = Pool(1).apply(create_hod, [h])
-
-    # re-set the number of threads used in pycamb to 1
-    hodkwargs.update({"ThreadNum":1})
-
     # auto-calculate the number of threads to use if not set.
     if not nthreads:
         nthreads = cpu_count()
@@ -206,6 +209,11 @@ def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10
 
     guess = np.array(guess)
 
+    if find_peak_first:
+        res = fit_hod_minimize(r, data, sd, priors, h, guess=guess,
+                               verbose=verbose, **kwargs)
+        guess = res.x
+
     # Get an initial value for all walkers, around a small ball near the initial guess
     stacked_val = guess.copy()
     for i in range(nwalkers - 1):
@@ -214,15 +222,23 @@ def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10
     i = 0
     for prior in priors:
         if isinstance(prior, Uniform):
-            stacked_val[:, i] += np.random.normal(loc=0.0, scale=0.05 * min((guess[i] - prior.low), (prior.high - guess[i])), size=nwalkers)
+            stacked_val[:, i] += np.random.normal(loc=0.0, scale=0.05 *
+                                                  min((guess[i] - prior.low),
+                                                      (prior.high - guess[i])),
+                                                  size=nwalkers)
             i += 1
         elif isinstance(prior, Normal):
-            stacked_val[:, i] += np.random.normal(loc=0.0, scale=prior.sd, size=nwalkers)
+            stacked_val[:, i] += np.random.normal(loc=0.0, scale=prior.sd,
+                                                  size=nwalkers)
             i += 1
         elif isinstance(prior, MultiNorm):
-            for j, name in enumerate(prior.name):
-                stacked_val[:, i] += np.random.normal(loc=0.0, scale=np.sqrt(prior.cov[j, j]), size=nwalkers)
+            for j in range(len(prior.name)):
+                stacked_val[:, i] += np.random.normal(loc=0.0, scale=np.sqrt(prior.cov[j, j]),
+                                                      size=nwalkers)
                 i += 1
+
+    # Set the pycamb ThreadNum to 1 so it doesn't interfere with the map function.
+    h.update(ThreadNum=1)
 
     sampler = emcee.EnsembleSampler(nwalkers, ndim, model,
                                     args=[priors, h, attrs, data, sd, verbose],
@@ -230,17 +246,17 @@ def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10
 
     if verbose:
         print attrs
+
     # Run a burn-in
     if burnin:
-        pos, prob, state = sampler.run_mcmc(stacked_val, burnin)
+        pos = sampler.run_mcmc(stacked_val, burnin)[0]
         sampler.reset()
     else:
         pos = stacked_val
 
-
     # Run the actual run
     if filename is None:
-        sampler.run_mcmc(pos, nsamples, thin=thin)
+        sampler.run_mcmc(pos, nsamples)
     else:
         header = "# " + "\t".join(attrs) + "\n"
         with open(filename, "w") as f:
@@ -253,65 +269,45 @@ def fit_hod(r, data, sd, priors, guess=[], nwalkers=100, nsamples=100, burnin=10
         for i, result in enumerate(sampler.sample(pos, iterations=nsamples)):
             if (i + 1) % chunks == 0:
                 if verbose:
-                    print "Done ", 100 * float(i + 1) / nsamples , "%. Time per sample: ", (time.time() - start) / ((i + 1) * nwalkers)
+                    print "Done ", 100 * float(i + 1) / nsamples ,
+                    print "%. Time per sample: ", (time.time() - start) / ((i + 1) * nwalkers)
                 with open(filename, "w") as f:
                     # need to write out nwalkers to be able to read the file back in properly
                     f.write("# %s\n" % (nwalkers))
                     f.write(header)
                     np.savetxt(f, sampler.flatchain[sampler.flatchain[:, 0] != 0.0, :])
+
     return sampler.flatchain, np.mean(sampler.acceptance_fraction)
 
-def fit_hod_minimize(r, data, sd, priors, guess=[], nthreads=0,
-                     filename=None, chunks=None, verbose=0, method="Nelder-Mead",
-                     disp=False, maxiter=30, tol=None, **hodkwargs):
+def fit_hod_minimize(r, data, sd, priors, h, guess=[], verbose=0,
+                     method="Nelder-Mead", disp=False, maxiter=30, tol=None):
     """
-    Run an optimization procedure to fit a model correlation function to data
+    Run an optimization procedure to fit a model correlation function to data.
     
     Parameters
     ----------
     r : array_like
-        The scales at which to perform analysis. Must be the same as the input
-        data
+        The scales at which to perform analysis, corresponding to input data.
         
     data : array_like
-        The measured correlation function at ``r``
+        The measured correlation function at :attr:`r`
         
     sd : array_like
-        The uncertainty in the measured correlation function
+        The uncertainty in the measured correlation function, same length as 
+        :attr:`r`.
         
-    priors : list of ``Uniform``, ``Normal`` or ``MultiNorm`` objects
-        A dictionary with keys as names of parameters in ``parm`` and values
-        as a 4-item list. The first item is the guessed value for the parameter,
-        the second is a string identifying whether the prior is normal (``norm``)
-        or uniform (``unif``). The third and fourth are the uniform lower and
-        upper boundaries or the mean and standard deviation of the normal
-        distribution.
+    h : instance of :class:`~halo_model.HaloModel`
+        This instance will be updated with the variables of the minimization.
+        Other desired options should have been set upon instantiation.
         
-    guess : array_like, default ``[]``
-        Where to start the chain. If empty, will fill it with central parameters
-        from the prior distributions.
+    priors : list of prior classes
+        A list containing instances of :class:`.Uniform`, :class:`.Normal` or 
+        :class:`.MultiNorm` classes. These specify the prior information on each 
+        parameter.
         
-    nwalkers : int, default 100
-        Number of walkers to use for Affine-Invariant Ensemble Sampler
-        
-    nsamples : int, default 100
-        Number of samples that *each walker* will perform.
-        
-    burnin : int, default 10
-        Number of samples from each walker that will be initially erased as burnin
-        
-    thin : int, default 50
-        Keep 1 in every ``thin`` samples.
-        
-    nthreads : int, default 1
-        Number of threads to use in sampling.
-        
-    filename : str, default ``None``
-        A path to a file to which to write results sequentially
-        
-    chunks : int, default ``None``
-        How many samples to run before appending results to file. Only
-        applicable if ``filename`` is provided.
+    guess : array_like, default []
+        Where to start the chain. If empty, will get central values from the
+        distributions.
         
     verbose : int, default 0
         The verbosity level. 
@@ -328,17 +324,15 @@ def fit_hod_minimize(r, data, sd, priors, guess=[], nthreads=0,
     tol : float, default None
         Tolerance for termination
         
-    \*\*hodkwargs : arguments
-        Any argument that could be sent to :class:`HaloModel`
-        
     Returns
     -------
-    res : Result object from scipy.optimize
-        Contains the results of the minimization. ``res.x`` is the solution,
-        other attributes are also available.
+    res : instance of :class:`scipy.optimize.Result`
+        Contains the results of the minimization. Important attributes are the
+        solution vector :attr:`x`, the number of iterations :attr:`nit`, whether
+        the minimization was a success :attr:`success`, and the exit message 
+        :attr:`message`.
          
     """
-
     # Save which attributes are updatable for HOD as a list
     attrs = []
     for prior in priors:
@@ -351,11 +345,6 @@ def fit_hod_minimize(r, data, sd, priors, guess=[], nthreads=0,
     for a in attrs:
         if a not in _vars:
             raise ValueError(a + " is not a valid variable for optimization in HaloModel")
-
-    hodkwargs.update({"ThreadNum":nthreads})
-
-    # Initialise the HOD object
-    h = HaloModel(r=r, **hodkwargs)
 
     # Set guess if not set
     if len(guess) != len(attrs):
@@ -377,30 +366,71 @@ def fit_hod_minimize(r, data, sd, priors, guess=[], nthreads=0,
                    method=method, options={"disp":disp, "maxiter":maxiter})
 
     return res
+
 _vars = ["wdm_mass", "delta_halo", "sigma_8", "n", "omegab", 'omegac',
          "omegav", "omegak", "H0", "M_1", 'alpha', "M_min", 'gauss_width',
          'M_0', 'fca', 'fcb', 'fs', 'delta', 'x', 'omegab_h2', 'omegac_h2', 'h']
+
 class Uniform(object):
+    """
+    A Uniform prior.
+    
+    Parameters
+    ----------
+    param : str
+        The name of the parameter
+    
+    low : float
+        The lower bound of the parameter
+        
+    high : float
+        The upper bound of the parameter
+        
+    """
     def __init__(self, param, low, high):
         self.name = param
         self.low = low
         self.high = high
 
 class Normal(object):
+    """
+    A Gaussian prior.
+    
+    Parameters
+    ----------
+    param : str
+        Name of the parameter
+        
+    mean : float
+        Mean of the prior distribution
+        
+    sd : float
+        The standard deviation of the prior distribution
+    """
     def __init__(self, param, mean, sd):
         self.name = param
         self.mean = mean
         self.sd = sd
 
 class MultiNorm(object):
+    """
+    A Multivariate Gaussian prior
+    
+    Parameters
+    ----------
+    params : list of str
+        Names of the parameters (in order)
+        
+    means : list of float
+        Mean vector of the prior distribution
+        
+    cov : ndarray
+        Covariance matrix of the prior distribution
+    """
     def __init__(self, params, means, cov):
         self.name = params
         self.means = means
         self.cov = cov
-
-def create_hod(h):
-    h.corr_gal
-    return h
 
 def _lognormpdf(x, mu, S):
     """ Calculate gaussian probability density of x, when x ~ N(mu,sigma) """

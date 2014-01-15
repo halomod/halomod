@@ -2,7 +2,7 @@
 import numpy as np
 import scipy.special as sp
 
-class HOD_models(object):
+class HOD(object):
 
     def __init__(self, hod_model, M_1=12.851, alpha=1.049, M_min=11.6222,
                  gauss_width=0.26, M_0=11.5047, fca=0.5, fcb=0, fs=1, delta=None, x=1,
