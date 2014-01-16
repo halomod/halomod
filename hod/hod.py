@@ -26,28 +26,11 @@ class HOD(object):
     #===========================================================================
     # DEFINE WRAPPERS - THE ONLY ONES THE USER CALLS
     #===========================================================================
-    # It would be 'simpler' to set eg. self.rho = self.rho_nfw etc (for relevant
-    # profile parameter), but we CANNOT do this because then the class can't
-    # be pickled, which then means we can't go parallel!!
     def nc(self, M):
-        if self._hod_model == "zheng":
-            return self._nc_zheng(M)
-        elif self._hod_model == "zehavi":
-            return self._nc_zehavi(M)
-        elif self._hod_model == "contreras":
-            return self._nc_contreras(M)
-        elif self._hod_model == "geach":
-            return self._nc_geach(M)
+        return getattr(self, "_nc_" + self._hod_model)(M)
 
     def ns(self, M):
-        if self._hod_model == "zheng":
-            return self._ns_zheng(M)
-        elif self._hod_model == "zehavi":
-            return self._ns_zehavi(M)
-        elif self._hod_model == "contreras":
-            return self._ns_contreras(M)
-        elif self._hod_model == "geach":
-            return self._ns_geach(M)
+        return getattr(self, "_ns_" + self._hod_model)(M)
 
     def ntot(self, M):
         if self.central:

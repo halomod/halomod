@@ -4,6 +4,7 @@
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 import scipy.integrate as intg
 import numpy as np
+from scipy.optimize import minimize
 # import scipy.special as sp
 
 from hmf import MassFunction
@@ -52,7 +53,7 @@ class HaloModel(object):
                  delta=None, x=1, hod_model='zehavi',
                  halo_profile='nfw', cm_relation='duffy', bias_model='tinker',
                  central=True, nonlinear=True, scale_dependent_bias=True,
-                 halo_exclusion="None", ** hmf_kwargs):
+                 halo_exclusion="None", ng=None, ** hmf_kwargs):
 
         if M is None:
             M = np.linspace(8, 18, 500)
@@ -84,7 +85,14 @@ class HaloModel(object):
         self.nonlinear = nonlinear
         self.halo_exclusion = halo_exclusion
         self.scale_dependent_bias = scale_dependent_bias
+        self.ng = ng
         self.hmf = MassFunction(cut_fit=False, **hmf_kwargs)
+
+        # Find mmin if we want to
+        if self.ng is not None:
+            mmin = self._find_m_min()
+            self.hodmod_params.update({"M_min":mmin})
+
         self._hodmod = HOD(**self.hodmod_params)
 
         # A couple of simple derived parameters
@@ -119,8 +127,6 @@ class HaloModel(object):
             for k in hodmod_p:
                 del kwargs[k]
 
-            # Now actually update the hodmod class
-            self._hodmod = HOD(**self.hodmod_params)
             update_hod = True
 
         # Now go through the rest of the keys and set values
@@ -128,6 +134,8 @@ class HaloModel(object):
             if hasattr(self, k):
                 try: doset = np.any(getattr(self, k) != kwargs[k])
                 except ValueError: doset = not np.array_equal(getattr(self, k), kwargs[k])
+                if k == "ng":
+                    update_hod = True
                 if doset:
                     setattr(self, k, kwargs.pop(k))
                     update_other = True
@@ -146,6 +154,12 @@ class HaloModel(object):
             except AttributeError: pass
 
         if update_hod:
+            # Find mmin if we want to
+            if self.ng is not None:
+                mmin = self._find_m_min()
+                self.hodmod_params.update({"M_min":mmin})
+            # Now actually update the hodmod class
+            self._hodmod = HOD(**self.hodmod_params)
             self.n_cen = self._hodmod.nc(self.hmf.M)
             self.n_sat = self._hodmod.ns(self.hmf.M)
             self.n_tot = self._hodmod.ntot(self.hmf.M)
@@ -278,7 +292,7 @@ class HaloModel(object):
     @property
     def n_gal(self):
         """
-        The total number density of galaxies
+        The total number density of galaxies in halos of mass M
         """
         return self.hmf.dndm * self.n_tot
 
@@ -290,17 +304,21 @@ class HaloModel(object):
         try:
             return self.__mean_gal_den
         except:
-            # Integrand is just the density of galaxies at mass M
-            integrand = self.hmf.M * self.hmf.dndm * self.n_tot
+            if self.ng is not None:
+                self.__mean_gal_den = self.ng
+                return self.ng
+            else:
+                # Integrand is just the density of galaxies at mass M
+                integrand = self.hmf.M * self.hmf.dndm * self.n_tot
 
-            self.__mean_gal_den = intg.simps(integrand, dx=np.log(self.hmf.M[1]) - np.log(self.hmf.M[0]))
-            return self.__mean_gal_den
+                self.__mean_gal_den = intg.simps(integrand, dx=np.log(self.hmf.M[1]) - np.log(self.hmf.M[0]))
+                return self.__mean_gal_den
 
     @property
     def matter_power(self):
         """The matter power used in calculations -- can be linear or nonlinear
         
-        .. note :: Linear power is always available through self.transfer.power
+        .. note :: Linear power is available through :attr:`.transfer.power`
         """
         try:
             return self.__matter_power
@@ -511,3 +529,32 @@ class HaloModel(object):
             self.__corr_gal = self.corr_gal_1h + self.corr_gal_2h
 
             return self.__corr_gal
+
+    def _find_m_min(self):
+        """
+        Calculate the minimum mass of a halo to contain a (central) galaxy 
+        based on a known mean galaxy density
+        """
+
+        if self.hodmod_params["hod_model"] == "zheng":
+            self.hodmod_params.update({"M_min":np.log10(self.hmf.M[0])})
+            x = HOD(**self.hodmod_params)
+            integrand = self.hmf.M * self.hmf.dndm * x.ntot(self.hmf.M)
+            integral = intg.cumtrapz(integrand[::-1], dx=np.log(self.hmf.M[1]) - np.log(self.hmf.M[0]))
+            spline_int = spline(np.log(integral), np.log(self.hmf.M[:-1])[::-1], k=3)
+            mmin = spline_int(np.log(self.ng)) / np.log(10)
+
+        else:
+            # Anything else requires us to do some optimization unfortunately.
+            def model(mmin):
+                self.hodmod_params.update({"M_min":mmin})
+                x = HOD(**self.hodmod_params)
+                integrand = self.hmf.M * self.hmf.dndm * x.ntot(self.hmf.M)
+                integral = intg.simps(integrand, dx=np.log(self.hmf.M[1]) - np.log(self.hmf.M[0]))
+                return abs(integral - self.ng)
+
+            res = minimize(model, self.hodmod_params["M_min"], tol=1e-3,
+                           method="Nelder-Mead", options={"maxiter":200})
+            mmin = res.x[0]
+
+        return mmin

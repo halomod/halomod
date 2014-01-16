@@ -58,6 +58,7 @@ HISTORY
 1.2.0 - 
 		Added ng_matched and ellipsoid halo exclusion options
 		Cleaned up and enhanced performance of halo exclusion in general
+		Added ability to pass mean density and evaluate M_min from this.
 		
 1.1.6 - January 15, 2014
 		Corrected auto-calc of nthreads in fit_hod()

@@ -92,7 +92,7 @@ def model(parm, priors, h, attrs, data, sd, verbose=0):
 
 
 def fit_hod(r, data, sd, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
-            nthreads=0, filename=None, chunks=None, verbose=0, find_peak_first,
+            nthreads=0, filename=None, chunks=None, verbose=0, find_peak_first=False,
             **kwargs):
     """
     Estimate the parameters in :attr:`.priors` using AIES MCMC.
