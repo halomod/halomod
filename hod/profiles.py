@@ -1,16 +1,22 @@
-"""
-A few halo density profiles and their normalised  fourier-transform pairs, 
-along with concentration-mass relations.
 
-Each density profile is a function of r,m,z. each fourier pair is a function of
-k,m,z and each mass relation is a function of mass, and outputs r_s as well if 
-you want it to.
-"""
 import numpy as np
 import scipy.special as sp
 
 class profiles(object):
-
+    """
+    Halo radial density profiles.
+    
+    This class deals with halo density profiles and their normalised 
+    fourier-transform pairs, along with concentration-mass relations.
+    
+    Each density profile is a function of r,m,z. each fourier pair is a function of
+    k,m,z and each mass relation is a function of mass, and also outputs r_s if
+    desired.
+    
+    .. note :: Currently we are only implementing the NFW profile. We could 
+            implement other profiles, but it is unclear what the necessary
+            concentration-mass relation would be.
+    """
     def __init__(self, mean_dens=2.775E11, delta_halo=200.0, profile='nfw',
                  cm_relation='zehavi'):
 
@@ -99,10 +105,6 @@ class profiles(object):
             result = np.zeros_like(x)
             result[rn <= 1] = (self._dc_nfw(c) / (c * r_s) ** 3 / (x * (1 + x) ** 2))[rn <= 1]
 
-#            if r > 0.071 and r < 0.072:
-#                for i, mm in enumerate(m):
-#                    if mm > 10 ** 13 and mm < 1.2 * 10 ** 13:
-#                        print i, mm, r, c[i], r_s[i], x[i], rn[i], self._dc_nfw(c[i]) / (c[i] * r_s[i]) ** 3 , (x[i] * (1 + x[i]) ** 2), result[i]
             return result
         else:
             if rn <= 1.0:
@@ -163,10 +165,6 @@ class profiles(object):
 
             f2_hi = np.log((1 + a_hi) / (a_hi + a_hi * x_hi - 1)) / (x_hi * (2 + x_hi) ** 2)
             f3_hi = (x_hi * a_hi ** 2 - 2 * a_hi) / (2 * x_hi * (1 + a_hi) ** 2 * (2 + x_hi))
-
-#            for i, R in enumerate(r[mask]):
-#                if (R <= 1.05 or R >= 1.95) and (m[mask][i] <= 1.5E12 or m[mask][i] >= 1.8E16):
-#                    print R, m[mask][i], c_hi[i], f1[mask][i], f2_hi[i], f3_hi[i]  #, f4[i]
 
             result[mask] = f1[mask] * (f2_hi + f3_hi)
 
