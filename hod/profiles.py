@@ -37,7 +37,7 @@ class Profile(object):
             concentration-mass relation would be.
     """
     def __init__(self, omegam=0.3, omegav=0.7, w=-1,
-                 delta_halo=200.0, cm_relation='zehavi', z):
+                 delta_halo=200.0, cm_relation='zehavi'):
 
         self.cosmo = Cosmology(omegam=omegam, omegav=omegav, w=-1)
 
