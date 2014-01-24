@@ -10,7 +10,7 @@ from scipy.optimize import minimize
 from hmf import MassFunction
 # import hmf.tools as ht
 import tools
-from profiles import profiles
+from profiles import get_profile
 from hod import HOD
 from bias import Bias as bias
 from fort.routines import hod_routines as fort
@@ -203,11 +203,14 @@ class HaloModel(object):
 
     @halo_profile.setter
     def halo_profile(self, val):
-        available_profs = ['nfw']
-        if val not in available_profs:
-            raise ValueError("halo_profile not acceptable: " + str(val))
-        else:
+        if hasattr(val, "rho"):
             self.__halo_profile = val
+        else:
+            try:
+                get_profile(profile=val)
+                self.__halo_profile = val
+            except:
+                raise
 
     @property
     def cm_relation(self):
@@ -283,11 +286,14 @@ class HaloModel(object):
     @property
     def profile(self):
         """A class containing the elements necessary to calculate halo profile quantities"""
-        return profiles(self.cosmo.mean_dens,
-                        self.hmf.delta_halo,
-                        profile=self.halo_profile,
-                        cm_relation=self.cm_relation)
-
+        if hasattr(self.halo_profile, "rho"):
+            return self.halo_profile
+        else:
+            return get_profile(self.halo_profile,
+                               self.cosmo.omegam,
+                               self.hmf.delta_halo,
+                               cm_relation=self.cm_relation,
+                               truncate=True)
 
     @property
     def n_gal(self):
@@ -406,8 +412,7 @@ class HaloModel(object):
         try:
             return self.__corr_gal_1h
         except:
-            if self.halo_profile == "nfw":
-
+            if self.profile.has_lam():
                 rho = self.profile.rho(self.r, self.hmf.M, self.hmf.transfer.z)
                 lam = self.profile.lam(self.r, self.hmf.M, self.hmf.transfer.z)
                 self.__corr_gal_1h = fort.corr_gal_1h(nr=len(self.r),
@@ -537,15 +542,25 @@ class HaloModel(object):
         """
 
         if self.hodmod_params["hod_model"] == "zheng":
-            self.hodmod_params.update({"M_min":np.log10(self.hmf.M[0])})
+            self.hodmod_params["M_min"] = np.log10(self.hmf.M[0])
             x = HOD(**self.hodmod_params)
             integrand = self.hmf.M * self.hmf.dndm * x.ntot(self.hmf.M)
             integral = intg.cumtrapz(integrand[::-1], dx=np.log(self.hmf.M[1]) - np.log(self.hmf.M[0]))
+            if integral[-1] < self.ng:
+                raise NGException("Maximum mean galaxy density exceeded: " + str(integral[-1]))
             spline_int = spline(np.log(integral), np.log(self.hmf.M[:-1])[::-1], k=3)
             mmin = spline_int(np.log(self.ng)) / np.log(10)
 
         else:
             # Anything else requires us to do some optimization unfortunately.
+            params = self.hodmod_params
+            params["M_min"] = np.log10(self.hmf.M[0])
+            x = HOD(**params)
+            integrand = self.hmf.M * self.hmf.dndm * x.ntot(self.hmf.M)
+            integral = intg.simps(integrand, dx=np.log(self.hmf.M[1]) - np.log(self.hmf.M[0]))
+            if integral < self.ng:
+                raise NGException("Maximum mean galaxy density exceeded: " + str(integral))
+
             def model(mmin):
                 self.hodmod_params.update({"M_min":mmin})
                 x = HOD(**self.hodmod_params)
@@ -558,3 +573,6 @@ class HaloModel(object):
             mmin = res.x[0]
 
         return mmin
+
+class NGException(Exception):
+    pass

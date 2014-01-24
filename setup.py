@@ -34,7 +34,8 @@ if __name__ == "__main__":
     setup(
         name="hod",
         version=version,
-        install_requires=['hmf'],
+        install_requires=['hmf',
+                          'mpmath'],
         author="Steven Murray",
         author_email="steven.murray@uwa.edu.au",
         description="A Halo Model calculator built on hmf",

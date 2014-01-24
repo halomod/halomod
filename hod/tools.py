@@ -119,3 +119,24 @@ def exclusion_window(k, r):
     x = k * r
     return 3 * (np.sin(x) - x * np.cos(x)) / x ** 3
 
+def dblsimps(X, dx, dy):
+    """
+    Perform double integration using simpsons rule
+    """
+    if len(X.shape) != 2:
+        raise ValueError("dblsimps takes a matrix")
+    if X.shape[0] % 2 != 1 or X.shape[1] != 1:
+        # For now, knowing what's going in here, we just cut off the last value
+        X = X[:-1, :-1]
+
+    W = np.ones_like(X)
+
+    W[range(1, len(W[:, 0]) - 1, 2), :] *= 4
+    W[:, range(1, len(W[0, :]) - 1, 2)] *= 4
+    W[range(2, len(W[:, 0]) - 1, 2), :] *= 2
+    W[:, range(2, len(W[0, :]) - 1, 2)] *= 2
+
+    return dx * dy * np.sum(W * X) / 9.0
+
+
+
