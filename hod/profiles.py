@@ -51,8 +51,8 @@ class Profile(object):
     def _mean_dens(self, z):
         return cd.omega_M_z(z, **self.cosmo.cosmolopy_dict()) * 2.775E11
 
-    def _mvir_to_rvir(self, m):
-        return (3 * m / (4 * np.pi * self.delta_halo * self.mean_dens)) ** (1. / 3.)
+    def _mvir_to_rvir(self, m, z):
+        return (3 * m / (4 * np.pi * self.delta_halo * self._mean_dens(z))) ** (1. / 3.)
 
 
     def rho(self, r, m, z, norm=None):
@@ -187,7 +187,7 @@ class Profile(object):
                     pos = pos[:N, :]
 
         # Sort the particles in increasing r
-        pos = pos[np.argsort(x), :] * self.mvir_to_rvir(m) / c
+        pos = pos[np.argsort(x), :] * self._mvir_to_rvir(m, z) / c
 #         x.sort()
 
         return pos
@@ -287,13 +287,13 @@ class Profile(object):
     #===========================================================================
     def _cm_duffy(self, m, z):
         c = 6.71 * (m / (2.0 * 10 ** 12)) ** -0.091 * (1 + z) ** -0.44
-        rvir = self._mvir_to_rvir(m)
+        rvir = self._mvir_to_rvir(m, z)
 
         return c, rvir / c
 
     def _cm_zehavi(self, m, z):
         c = ((m / 1.5E13) ** -0.13) * 9.0 / (1 + z)
-        rvir = self._mvir_to_rvir(m)
+        rvir = self._mvir_to_rvir(m, z)
 
         return c, rvir / c
 
@@ -516,3 +516,14 @@ class Constant(Profile):
 
     def p(self, K, c):
         return (-c * K * np.cos(c * K) + np.sin(c * K)) / K ** 3
+
+class GeneralNFWLike(Profile):
+    def __init__(self, alpha, *args, **kwargs):
+        super(GeneralNFWLike, self).__init__(*args, **kwargs)
+        self.alpha = alpha
+
+    def f(self, x):
+        return 1.0 / (x ** self.alpha * (1 + x) ** (3 - self.alpha))
+
+    def h(self, c):
+        pass

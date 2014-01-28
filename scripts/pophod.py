@@ -88,6 +88,7 @@ def main(argv=None):
         # Process arguments
         args = parser.parse_args()
 
+        print args.simfile
         if args.subfile is not None:
             s, halos = read_halo.load(args.simfile, halofinder="subfind",
                                  subfile=args.subfile, idsfile=args.idsfile,
@@ -131,8 +132,8 @@ def main(argv=None):
 #===============================================================================
 def read(filename):
     x = np.genfromtxt(filename)
-    centres = [x[i, :3] for i in range(len(x[:, 0]))]
-    masses = x[:, 3] * 5.58e11
+    centres = [x[i + 1, :3] for i in range(len(x[:, 0]) - 1)]
+    masses = x[1:, 3] * 5.58e11
     return centres, masses
 
 def populate(centres, masses, delta_halo, omegam, z, profile, cm_relation, hodmod,
@@ -141,11 +142,17 @@ def populate(centres, masses, delta_halo, omegam, z, profile, cm_relation, hodmo
     # Define which halos have central galaxies.
     cgal = np.zeros_like(masses)
     masses = np.array(masses)
+    print "Number of haloes: ", len(masses)
+    print hodmod.nc(np.sort(masses)), np.sort(masses)
+    print np.where(np.isnan(masses))
+
     cgal[np.random.rand() < hodmod.nc(masses)] = 1.0
+    print "Number with central galaxies: ", np.sum(cgal)
     # Calculate the number of satellite galaxies in halos
     sgal = np.zeros_like(masses)
     sgal[cgal != 0.0] = poisson.rvs(hodmod.ns(masses[cgal != 0.0]))
-
+    print "Most galaxies in a halo: ", sgal.max()
+    print "Mean number of galaxies in halos: ", np.mean(sgal + cgal)
     # Now go through each halo and calculate galaxy positions
     for i, m in enumerate(masses):
         if cgal[i] > 0 and sgal[i] > 0:
