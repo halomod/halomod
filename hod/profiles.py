@@ -8,15 +8,15 @@ import sys
 from hmf.cosmo import Cosmology
 from cosmolopy import density as cd
 
-def get_profile(profile, omegam=0.3, delta_halo=200.0, cm_relation='zehavi',
-                truncate=True):
+def get_profile(profile, omegam=0.3, omegav=0.7, w=-1, delta_halo=200.0,
+                cm_relation='zehavi', truncate=True):
     """
     A function that chooses the correct Profile class and returns it
     """
     if not truncate:
         profile = profile + "Inf"
     try:
-        return getattr(sys.modules[__name__], profile)(omegam, delta_halo, cm_relation)
+        return getattr(sys.modules[__name__], profile)(omegam, omegav, w, delta_halo, cm_relation)
     except AttributeError:
         raise AttributeError(str(profile) + "  is not a valid profile class")
 
