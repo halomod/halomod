@@ -131,9 +131,9 @@ def main(argv=None):
 #===============================================================================
 def read(filename):
     x = np.genfromtxt(filename)
-    print x.shape
-    centres = [x[:3, i] for i in len(x[0, :])]
+    centres = [x[i, :3] for i in range(len(x[:, 0]))]
     masses = x[:, 3] * 5.58e11
+    print centres.shape, masses.shape
     return centres, masses
 
 def populate(centres, masses, delta_halo, omegam, z, profile, cm_relation, hodmod,
