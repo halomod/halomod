@@ -143,8 +143,8 @@ def populate(centres, masses, delta_halo, omegam, z, profile, cm_relation, hodmo
     masses = np.array(masses)
     cgal[np.random.rand() < hodmod.nc(masses)] = 1.0
     # Calculate the number of satellite galaxies in halos
-    sgal = poisson.rvs(hodmod.ns(masses))
-    sgal[cgal == 0.0] = 0.0
+    sgal = np.zeros_like(masses)
+    sgal[cgal != 0.0] = poisson.rvs(hodmod.ns(masses[cgal != 0.0]))
 
     # Now go through each halo and calculate galaxy positions
     for i, m in enumerate(masses):
