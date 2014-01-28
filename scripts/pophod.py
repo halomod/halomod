@@ -100,7 +100,7 @@ def main(argv=None):
             omegam = s.properties["omegam"]
             z = s.properties['redshift']
         else:
-            centres, masses = read(args.simfile)
+            centres, masses = read_ascii(args.simfile)
             omegam = args.omegam
             z = args.redshift
 
@@ -130,12 +130,17 @@ def main(argv=None):
 #===============================================================================
 # FUNCTION CALLS
 #===============================================================================
-def read(filename):
+def read_ascii(filename):
     x = np.genfromtxt(filename)
-    centres = [x[i + 1, :3] for i in range(len(x[:, 0]) - 1)]
     masses = x[1:, 3] * 5.58e11
+
+    centres = [x[i + 1, :3] for i in range(len(x[:, 0]) - 1) if masses[i] < 5e16]
+    masses = masses[masses < 5e16]
+
     return centres, masses
 
+def read_subfind(fofcat_file, pos_file):
+    pass
 def populate(centres, masses, delta_halo, omegam, z, profile, cm_relation, hodmod,
              truncate):
 
