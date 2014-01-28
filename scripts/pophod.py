@@ -149,7 +149,7 @@ def populate(centres, masses, delta_halo, omegam, z, profile, cm_relation, hodmo
     # Now go through each halo and calculate galaxy positions
     for i, m in enumerate(masses):
         if cgal[i] > 0 and sgal[i] > 0:
-            prof = profiles.get_profile(profile, omegam, delta_halo, cm_relation, truncate)
+            prof = profiles.get_profile(profile, omegam, 1 - omegam, -1, delta_halo, cm_relation, truncate)
             pos = np.concatenate((prof.populate(sgal[i], m, ba=1, ca=1, z=z) + centres[i], np.atleast_2d(centres[i])))
         elif cgal[i] == 1:
             pos = np.atleast_2d(centres[i])
