@@ -123,8 +123,6 @@ def main(argv=None):
             outfiles = args.outfile
 
         # Get posfiles if type is subfind.
-        print len(ftypes)
-        print len(args.infile)
         posfiles = [f.replace("fofcat", "pos") if ftypes[i] == "subfind" else None for i, f in enumerate(args.infile)]
 
         # auto-calculate the number of threads to use if not set.
