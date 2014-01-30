@@ -7,7 +7,8 @@ import numpy as np
 import scipy.integrate as intg
 import pycamb
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
-
+from scipy.stats import poisson
+import profiles
 def power_to_corr(power_func, R):
     """
     Calculate the correlation function given a power spectrum
@@ -139,4 +140,69 @@ def dblsimps(X, dx, dy):
     return dx * dy * np.sum(W * X) / 9.0
 
 
+def populate(centres, masses, delta_halo, omegam, z, profile, cm_relation,
+             hodmod, truncate=True):
+    """
+    Populate a series of DM halos with galaxies given a HOD model.
+    
+    Parameters
+    ----------
+    centres : (N,3)-array 
+        The cartesian co-ordinates of the centres of the halos
+        
+    masses : array_like
+        The masses (in M_sun/h) of the halos
+        
+    delta_halo : float
+        The overdensity of a halo w.r.t. mean density.
+        
+    omegam : float
+        The fractional matter density
+        
+    z : float
+        The redshift
+        
+    profile : str
+        A density profile to use. Calls a subclass of :class:`profile.Profile`.
+        
+    cm_relation : str
+        A concentration-mass relation to use
+        
+    hodmod : object of type :class:`hod.HOD`
+        A HOD model to use to populate the dark matter.
+        
+    truncate : bool, default True
+        Whether the profile should be truncated at the virial radius.
+    
+    Returns
+    -------
+    array :
+        (N,3)-array of positions of galaxies.
+        
+    """
+
+    # Define which halos have central galaxies.
+    cgal = np.zeros_like(masses)
+    masses = np.array(masses)
+
+    cgal[np.random.rand() < hodmod.nc(masses)] = 1.0
+    # Calculate the number of satellite galaxies in halos
+    sgal = np.zeros_like(masses)
+    sgal[cgal != 0.0] = poisson.rvs(hodmod.ns(masses[cgal != 0.0]))
+    # Now go through each halo and calculate galaxy positions
+    for i, m in enumerate(masses):
+        if cgal[i] > 0 and sgal[i] > 0:
+            prof = profiles.get_profile(profile, omegam, 1 - omegam, -1, delta_halo, cm_relation, truncate)
+            pos = np.concatenate((prof.populate(sgal[i], m, ba=1, ca=1, z=z) + centres[i], np.atleast_2d(centres[i])))
+        elif cgal[i] == 1:
+            pos = np.atleast_2d(centres[i])
+
+        else:
+            continue
+
+        try:
+            allpos = np.concatenate((pos, allpos))
+        except UnboundLocalError:
+            allpos = pos
+    return allpos
 

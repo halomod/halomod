@@ -36,6 +36,7 @@ if __name__ == "__main__":
         version=version,
         install_requires=['hmf',
                           'mpmath'],
+        scripts=['scripts/pophod'],
         author="Steven Murray",
         author_email="steven.murray@uwa.edu.au",
         description="A Halo Model calculator built on hmf",
