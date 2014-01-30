@@ -89,7 +89,7 @@ def main(argv=None):
         parser.add_argument("infile", nargs="+", help="the main input halo catalogue(s). If SubFind format, this is the fofcat file.")
         parser.add_argument("hodmod_dict", help="dictionary of HOD parameters")
 
-        parser.add_argument("--outfile", help="the output galaxy catalogue")
+        parser.add_argument("--outfile", nargs="*", help="the output galaxy catalogue")
 
         parser.add_argument("--filetype", nargs="*", default=["ascii"], choices=["ascii", "subfind"], help="the type of input file(s). Must be len(1) or len(infile)")
         parser.add_argument("--hodmod", default="zheng", help="the HOD model used")
