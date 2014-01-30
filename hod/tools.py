@@ -205,6 +205,6 @@ def populate(centres, masses, delta_halo, omegam, z, profile, cm_relation,
         except UnboundLocalError:
             allpos = pos
 
-    print "Centrals: ", float(len(masses)) / np.sum(cgal), "MeanGal: ", np.mean(sgal + cgal), "MostGal: ", sgal.max() + 1
+    print "z: ", z, "Centrals: ", float(len(masses)) / np.sum(cgal), "MeanGal: ", np.mean(sgal + cgal), "MostGal: ", sgal.max() + 1
     return allpos
 

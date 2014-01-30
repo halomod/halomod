@@ -526,4 +526,28 @@ class GeneralNFWLike(Profile):
         return 1.0 / (x ** self.alpha * (1 + x) ** (3 - self.alpha))
 
     def h(self, c):
-        pass
+        c = np.complex(c)
+        f1 = -(-c) ** self.alpha * c ** self.alpha
+        f2 = sp.betainc(-c, 3 - self.alpha, self.alpha - 2) * sp.beta(3 - self.alpha, self.alpha - 2)
+        return (f1 * f2).real
+
+class GeneralNFWLikeInf(GeneralNFWLike, ProfileInf):
+    def p(self, K):
+        G = lambda k : mpmath.meijerg([[(self.alpha - 2) / 2.0, (self.alpha - 1) / 2.0], []],
+                       [[0, 0, 0.5], [-0.5]],
+                       k ** 2 / 4) / (np.sqrt(np.pi) * sp.gamma(3 - self.alpha))
+
+        if len(K.shape) == 2:
+            K1 = np.reshape(K, -1)
+            K1.sort()
+        else:
+            K1 = K
+        res = np.zeros(len(K[K < 10 ** 3.2]))
+        for i, k in enumerate(K1[K1 < 10 ** 3.2]):
+            print k
+            res[i] = G(k)
+
+        fit = spline(np.log(K1[K1 < 10 ** 3.2]), np.log(res), k=1)
+        res = np.reshape(np.exp(fit(np.log(np.reshape(K, -1)))), (len(K[:, 0]), len(K[0, :])))
+
+        return res

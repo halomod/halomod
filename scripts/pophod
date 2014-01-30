@@ -227,22 +227,26 @@ def read_subfind(fofcat_file, pos_file, mp):
         # Get number of halos
         f.read(4)
         nhalos = struct.unpack('i', f.read(4))[0]
+        print nhalos
         f.read(4)
 
         # Get halo sizes
         f.read(4)
         grouplen = np.fromfile(f, dtype='i', count=nhalos)
+        print grouplen
         f.read(4)
 
         # Get group id offsets
         f.read(4)
         groupoffsets = np.fromfile(f, dtype='i', count=nhalos)
+        print groupoffsets
         f.read(4)
 
     with open(pos_file) as f:
         # Get total number of particles in groups
         f.read(4)
         total_particles_in_groups = struct.unpack('i', f.read(4))[0]
+        print total_particles_in_groups
         f.read(4)
 
         # Positions Block
