@@ -21,7 +21,7 @@ fort = Extension('hod.fort.routines', ['hod/fort/routines.f90'],
                      f2py_options=['--quiet', 'only:', 'power_gal_2h',
                                    'power_gal_1h_ss', 'corr_gal_1h_ss',
                                    'corr_gal_1h_cs', 'power_to_corr',
-                                   'corr_gal_1h', ':'])
+                                   'corr_gal_1h', 'get_subfind_centres', ':'])
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 

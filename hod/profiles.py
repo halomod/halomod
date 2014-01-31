@@ -111,7 +111,7 @@ class Profile(object):
         """
         return self.h(x) / self.h(c)
 
-    def populate(self, N, m, c=None, ba=1, ca=1, z=0.0):
+    def populate(self, N, m, c=None, ba=1, ca=1, z=0.0, sort=False, norm=False):
         """
         Creates a mock halo with the current profile.
         """
@@ -119,7 +119,7 @@ class Profile(object):
             c = self.cm_relation(m, z)[0]
 
         # Internal max just buffers where the particles are created to before truncating
-        internal_max = 1.2 * (1 / ca)
+        internal_max = 1 / ca
 
         # Buffer the number of particles
         N_full = int(internal_max * N)
@@ -129,14 +129,19 @@ class Profile(object):
 
         mass_enc = self.cdf(x, c)
 
-        icdf = spline(mass_enc, x, k=1)
+        icdf = spline(mass_enc, x, k=3)
+
+#         import matplotlib.pyplot as plt
+#         plt.plot(mass_enc, x, label="raw")
+#         plt.plot(mass_enc, icdf(mass_enc), label="spline")
+#         plt.legend()
+#         plt.savefig("trial.pdf")
 
         # Pick a random number
         rnd = np.random.random(N_full)
 
         # Calculate the radius x from the ICDF
         x = icdf(rnd)
-
         # Make sure we end up with N particles
         pos = np.zeros((N_full, 3))
 
@@ -150,15 +155,15 @@ class Profile(object):
         pos[:, 1] = rcynd * np.cos(phi) * ba
         pos[:, 2] = rcynd * np.sin(phi) * ca
 
-        x = np.sqrt(pos[:, 1] ** 2 + pos[:, 2] ** 2 + pos[:, 0] ** 2)
-
-        pos = pos[x <= c, :]
-        x = x[x <= c]
-
-        if len(x) > N:
+        # FIXME: the following lines should be there, but since spline isn't
+        # perfect, they cause things that should be == c to be cut out.
+        # pos = pos[x <= c, :]
+        # x = x[x <= c]
+        if len(x) >= N:
             x = x[:N]
             pos = pos[:N, :]
         else:
+            print "in the while.."
             while len(x) < N:
                 rnd = np.random.random(N)
                 x2 = icdf(rnd)
@@ -187,8 +192,11 @@ class Profile(object):
                     pos = pos[:N, :]
 
         # Sort the particles in increasing r
-        pos = pos[np.argsort(x), :] * self._mvir_to_rvir(m, z) / c
-#         x.sort()
+        if sort:
+            pos = pos[np.argsort(x), :]
+
+        if not norm:
+            pos *= self._mvir_to_rvir(m, z) / c
 
         return pos
     def u(self, k, m, z, norm=None):
@@ -528,7 +536,7 @@ class GeneralNFWLike(Profile):
     def h(self, c):
         c = np.complex(c)
         f1 = -(-c) ** self.alpha * c ** self.alpha
-        f2 = sp.betainc(-c, 3 - self.alpha, self.alpha - 2) * sp.beta(3 - self.alpha, self.alpha - 2)
+        f2 = mpmath.betainc(-c, 3 - self.alpha, self.alpha - 2)
         return (f1 * f2).real
 
 class GeneralNFWLikeInf(GeneralNFWLike, ProfileInf):

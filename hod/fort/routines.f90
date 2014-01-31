@@ -220,4 +220,43 @@ subroutine power_to_corr(nlnk,nr,lnk,r,power,corr)
 
     corr = corr/(2*3.141592653589**2)
 end subroutine
+
+
+subroutine get_subfind_centres(nhalos,npart,groupoffsets,grouplen,pos,centres)
+    implicit none
+    !This is here because of a potentially very large loop.
+
+    integer, intent(in) :: nhalos,npart
+    integer, intent(in) :: groupoffsets(nhalos), grouplen(nhalos)
+    real, intent(inout) :: pos(npart,3)
+
+    real, intent(out) :: centres(nhalos,3)
+
+    integer :: i,j,a,b
+    real :: boxsize
+
+    boxsize = maxval(pos)
+
+
+    do i=1,nhalos
+        a = groupoffsets(i) + 1
+        b = groupoffsets(i) + grouplen(i)
+
+        ! First calculate a centre
+        !centres(i,:) = sum(pos(a:b,:))/grouplen(i)
+
+        do j=1,3
+            where ((pos(a:b,j)-minval(pos(a:b,j)))>boxsize/2) pos(a:b,j) = pos(a:b,j) - boxsize
+        end do
+        centres(i,:) = sum(pos(a:b,:))/grouplen(i)
+
+        do j=1,3
+            if (centres(i,j)<0.0)then
+                centres(i,j) = centres(i,j) + boxsize
+            end if
+        end do
+    end do
+
+
+end subroutine
 end module

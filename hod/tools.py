@@ -189,22 +189,27 @@ def populate(centres, masses, delta_halo, omegam, z, profile, cm_relation,
     # Calculate the number of satellite galaxies in halos
     sgal = np.zeros_like(masses)
     sgal[cgal != 0.0] = poisson.rvs(hodmod.ns(masses[cgal != 0.0]))
+
+    # Get an array ready, hopefully speeds things up a bit
+    nhalos_with_gal = np.sum(cgal)
+
+    allpos = np.empty((np.sum(sgal) + nhalos_with_gal, 3))
+    allpos[:nhalos_with_gal, :] = centres[cgal > 0]
+    prof = profiles.get_profile(profile, omegam, 1 - omegam, -1, delta_halo, cm_relation, truncate)
+    begin = nhalos_with_gal
+    mask = sgal > 0
+    sgal = sgal[mask]
+    centres = centres[mask]
+    M = masses[mask]
     # Now go through each halo and calculate galaxy positions
-    for i, m in enumerate(masses):
-        if cgal[i] > 0 and sgal[i] > 0:
-            prof = profiles.get_profile(profile, omegam, 1 - omegam, -1, delta_halo, cm_relation, truncate)
-            pos = np.concatenate((prof.populate(sgal[i], m, ba=1, ca=1, z=z) + centres[i], np.atleast_2d(centres[i])))
-        elif cgal[i] == 1:
-            pos = np.atleast_2d(centres[i])
-
-        else:
-            continue
-
-        try:
-            allpos = np.concatenate((pos, allpos))
-        except UnboundLocalError:
-            allpos = pos
-
-    print "z: ", z, "Centrals: ", float(len(masses)) / np.sum(cgal), "MeanGal: ", np.mean(sgal + cgal), "MostGal: ", sgal.max() + 1
+    import time
+    start = time.time()
+    for i, m in enumerate(M):
+        # print i, m
+        end = begin + sgal[i]
+        allpos[begin:end, :] = prof.populate(sgal[i], m, ba=1, ca=1, z=z) + centres[i, :]
+        begin = end
+    print "Took ", time.time() - start, " seconds, or ", (time.time() - start) / nhalos_with_gal, " each."
+    print "z: ", z, "Centrals: ", float(len(masses)) / np.sum(cgal), "MeanGal: ", np.mean(sgal + 1) , "MostGal: ", sgal.max() + 1
     return allpos
 

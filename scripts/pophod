@@ -15,7 +15,7 @@ import numpy as np
 from hod import hod
 from hod import tools
 import ast
-
+from hod.fort.routines import hod_routines as hr
 from argparse import ArgumentParser
 from argparse import RawDescriptionHelpFormatter
 
@@ -157,6 +157,7 @@ def main(argv=None):
 
         popfunc = _function_wrapper(populate, [ftypes, args, posfiles, omegams,
                                                 redshifts, hodmod, outfiles])
+
         flags = p.map(popfunc, range(len(args.infile)))
 
         assert False not in flags
@@ -185,6 +186,7 @@ def populate(i, ftypes, args, posfiles, omegams, redshifts, hodmod, outfiles):
         centres, masses = read_ascii(args.infile[i], args.particle_mass)
     else:
         raise ValueError("ftypes had value " + ftypes[i] + " in it!")
+
     pos = tools.populate(centres, masses, args.delta_h, omegams[i],
                          redshifts[i], args.profile, args.cm_relation,
                          hodmod, not args.no_truncate)
@@ -213,7 +215,7 @@ def read_ascii(filename, mp):
     x = np.genfromtxt(filename)
     masses = x[1:, 3] * mp
 
-    centres = [x[i + 1, :3] for i in range(len(x[:, 0]) - 1)]
+    centres = x[1:, :3]
 
     return centres, masses
 
@@ -225,39 +227,46 @@ def read_subfind(fofcat_file, pos_file, mp):
                                 ])
     with open(fofcat_file) as f:
         # Get number of halos
-        f.read(4)
         nhalos = struct.unpack('i', f.read(4))[0]
-        print nhalos
-        f.read(4)
 
         # Get halo sizes
-        f.read(4)
         grouplen = np.fromfile(f, dtype='i', count=nhalos)
-        print grouplen
-        f.read(4)
 
         # Get group id offsets
-        f.read(4)
         groupoffsets = np.fromfile(f, dtype='i', count=nhalos)
-        print groupoffsets
-        f.read(4)
 
     with open(pos_file) as f:
         # Get total number of particles in groups
-        f.read(4)
         total_particles_in_groups = struct.unpack('i', f.read(4))[0]
-        print total_particles_in_groups
-        f.read(4)
 
         # Positions Block
-        f.read(4)
         pos = np.fromfile(f, dtype=positions_dtype, count=total_particles_in_groups)
-        f.read(4)
 
-    centres = []
-    for i in range(nhalos):
-        centres[i] = np.array([pos["x"][groupoffsets[i] - 1:groupoffsets[i] - 1 + grouplen[i]]])
+    # Make pos a normal ndarray
+    pos = pos.view(np.float32).reshape(pos.shape + (-1,))
+#     centres = []
+#     for i in range(nhalos):
+#         a = groupoffsets[i]
+#         b = groupoffsets[i] + grouplen[i]
+#         centres.append(np.array([np.mean([pos["x"][a :b]]),
+#                                  np.mean([pos["y"][a :b]]),
+#                                  np.mean([pos["z"][a :b]])]))
+#
+#         # Now make sure particles weren't wrapped around boundary
+#         for i, cd in enumerate(['x', 'y', 'z']):
+#             pos[cd][a:b][(pos[cd][a:b] - 10) > centres[-1][i]] -= pos[cd].max()
+#             pos[cd][a:b][(pos[cd][a:b] + 10) < centres[-1][i]] += pos[cd].max()
+#
+#         centres[-1] = np.array([np.mean([pos["x"][a :b]]),
+#                                 np.mean([pos["y"][a :b]]),
+#                                 np.mean([pos["z"][a :b]])])
 
+    centres = hr.get_subfind_centres(groupoffsets, grouplen,
+                                     np.asfortranarray(pos))
+    print centres.shape
+    print centres[:, 0].min(), centres[:, 0].max()
+    print centres[:, 1].min(), centres[:, 1].max()
+    print centres[:, 2].min(), centres[:, 2].max()
     masses = grouplen * mp
 
     return centres, masses
