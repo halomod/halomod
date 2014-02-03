@@ -195,19 +195,21 @@ def populate(centres, masses, delta_halo, omegam, z, profile, cm_relation,
 
     allpos = np.empty((np.sum(sgal) + nhalos_with_gal, 3))
     allpos[:nhalos_with_gal, :] = centres[cgal > 0]
-    prof = profiles.get_profile(profile, omegam, 1 - omegam, -1, delta_halo, cm_relation, truncate)
+    prof = profiles.get_profile(profile, omegam, delta_halo, cm_relation,
+                                z, truncate)
     begin = nhalos_with_gal
     mask = sgal > 0
     sgal = sgal[mask]
     centres = centres[mask]
     M = masses[mask]
+    print "got here"
     # Now go through each halo and calculate galaxy positions
     import time
     start = time.time()
     for i, m in enumerate(M):
         # print i, m
         end = begin + sgal[i]
-        allpos[begin:end, :] = prof.populate(sgal[i], m, ba=1, ca=1, z=z) + centres[i, :]
+        allpos[begin:end, :] = prof.populate(sgal[i], m, ba=1, ca=1) + centres[i, :]
         begin = end
     print "Took ", time.time() - start, " seconds, or ", (time.time() - start) / nhalos_with_gal, " each."
     print "z: ", z, "Centrals: ", float(len(masses)) / np.sum(cgal), "MeanGal: ", np.mean(sgal + 1) , "MostGal: ", sgal.max() + 1

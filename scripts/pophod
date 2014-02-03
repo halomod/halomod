@@ -19,6 +19,8 @@ from hod.fort.routines import hod_routines as hr
 from argparse import ArgumentParser
 from argparse import RawDescriptionHelpFormatter
 
+import cosmolopy as cp
+
 from multiprocessing import Pool, cpu_count
 __all__ = []
 __version__ = 0.1
@@ -101,6 +103,8 @@ def main(argv=None):
         parser.add_argument("--redshift", nargs="*", default=[0.0], type=float, help="the redshift")
         parser.add_argument("--nthreads", type=int, help="number of threads to use. Default auto.")
         parser.add_argument("-m", "--particle-mass", default=1.0, type=float, help="particle mass in the simulation. For ascii, leave as 1.0 unless 4th column is number of particles.")
+        parser.add_argument("--delta-wrt", nargs="*", default=["mean"], choices=["mean", "crit"], help="what delta_h is with respect to")
+
         # Process arguments
         args = parser.parse_args()
 
@@ -124,6 +128,7 @@ def main(argv=None):
 
         # Get posfiles if type is subfind.
         posfiles = [f.replace("fofcat", "pos") if ftypes[i] == "subfind" else None for i, f in enumerate(args.infile)]
+
 
         # auto-calculate the number of threads to use if not set.
         if not args.nthreads:
@@ -150,12 +155,24 @@ def main(argv=None):
         else:
             omegams = args.omegam
 
+        delta_h = []
+        if len(args.delta_wrt) == 1:
+            delta_h = len(args.infile) * [args.delta_h]
+        elif len(args.delta_wrt) == len(args.infile):
+            delta_h = [args.delta_h if dw == "mean" else args.delta_h / cp.density.omega_M_z(args.redshift[i], omega_M_0=omegams[i],
+                                                          omega_lambda_0=1 - omegams[i],
+                                                          omega_k_0=0.0) for i, dw in enumerate(args.delta_wrt)]
+        else:
+            raise ValueError("length of delta_wrt must be 1 or len(infile)")
+
+        print delta_h
+
         # Define the HOD model
         hodparams = ast.literal_eval(args.hodmod_dict)
         hodmod = hod.HOD(args.hodmod, **hodparams)
 
 
-        popfunc = _function_wrapper(populate, [ftypes, args, posfiles, omegams,
+        popfunc = _function_wrapper(populate, [ftypes, args, delta_h, posfiles, omegams,
                                                 redshifts, hodmod, outfiles])
 
         flags = p.map(popfunc, range(len(args.infile)))
@@ -179,7 +196,7 @@ def main(argv=None):
 #===============================================================================
 # FUNCTION CALLS
 #===============================================================================
-def populate(i, ftypes, args, posfiles, omegams, redshifts, hodmod, outfiles):
+def populate(i, ftypes, args, delta_h, posfiles, omegams, redshifts, hodmod, outfiles):
     if ftypes[i] == "subfind":
         centres, masses = read_subfind(args.infile[i], posfiles[i], args.particle_mass)
     elif ftypes[i] == "ascii":
@@ -187,9 +204,19 @@ def populate(i, ftypes, args, posfiles, omegams, redshifts, hodmod, outfiles):
     else:
         raise ValueError("ftypes had value " + ftypes[i] + " in it!")
 
-    pos = tools.populate(centres, masses, args.delta_h, omegams[i],
+    boxsize = np.ceil(centres.max())  # best estimate we can get
+    # Convert to physical co-ordinates
+    centres /= (1 + redshifts[i])
+
+    pos = tools.populate(centres, masses, delta_h[i], omegams[i],
                          redshifts[i], args.profile, args.cm_relation,
                          hodmod, not args.no_truncate)
+
+    pos *= (1 + redshifts[i])
+
+    # wrap the galaxies so they stay inside the box
+    pos[pos < 0] += boxsize
+    pos[pos > boxsize] -= boxsize
 
     np.savetxt(outfiles[i], pos)
     return True
@@ -263,10 +290,7 @@ def read_subfind(fofcat_file, pos_file, mp):
 
     centres = hr.get_subfind_centres(groupoffsets, grouplen,
                                      np.asfortranarray(pos))
-    print centres.shape
-    print centres[:, 0].min(), centres[:, 0].max()
-    print centres[:, 1].min(), centres[:, 1].max()
-    print centres[:, 2].min(), centres[:, 2].max()
+
     masses = grouplen * mp
 
     return centres, masses

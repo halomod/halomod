@@ -235,9 +235,9 @@ subroutine get_subfind_centres(nhalos,npart,groupoffsets,grouplen,pos,centres)
     integer :: i,j,a,b
     real :: boxsize
 
-    boxsize = maxval(pos)
+    boxsize = ceiling(maxval(pos))
 
-
+    write(*,*) boxsize
     do i=1,nhalos
         a = groupoffsets(i) + 1
         b = groupoffsets(i) + grouplen(i)
@@ -247,9 +247,13 @@ subroutine get_subfind_centres(nhalos,npart,groupoffsets,grouplen,pos,centres)
 
         do j=1,3
             where ((pos(a:b,j)-minval(pos(a:b,j)))>boxsize/2) pos(a:b,j) = pos(a:b,j) - boxsize
+            centres(i,j) = sum(pos(a:b,j))/grouplen(i)
         end do
-        centres(i,:) = sum(pos(a:b,:))/grouplen(i)
 
+
+        if (i==nhalos) then
+            write(*,*) centres(i,:)
+        end if
         do j=1,3
             if (centres(i,j)<0.0)then
                 centres(i,j) = centres(i,j) + boxsize

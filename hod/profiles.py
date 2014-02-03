@@ -5,18 +5,17 @@ import scipy.integrate as intg
 from scipy.interpolate import UnivariateSpline as spline
 import mpmath
 import sys
-from hmf.cosmo import Cosmology
-from cosmolopy import density as cd
 
-def get_profile(profile, omegam=0.3, omegav=0.7, w=-1, delta_halo=200.0,
-                cm_relation='zehavi', truncate=True):
+def get_profile(profile, omegam=0.3, delta_halo=200.0,
+                cm_relation='zehavi', z=0.0, truncate=True):
     """
     A function that chooses the correct Profile class and returns it
     """
     if not truncate:
         profile = profile + "Inf"
     try:
-        return getattr(sys.modules[__name__], profile)(omegam, omegav, w, delta_halo, cm_relation)
+        return getattr(sys.modules[__name__], profile)(omegam, delta_halo,
+                                                       cm_relation, z)
     except AttributeError:
         raise AttributeError(str(profile) + "  is not a valid profile class")
 
@@ -25,41 +24,59 @@ class Profile(object):
     """
     Halo radial density profiles.
     
-    This class deals with halo density profiles and their normalised 
-    fourier-transform pairs, along with concentration-mass relations.
+    This class provides basic building blocks for all kinds of fun with halo
+    radial density profiles. It is modeled on the system described in 
+    XXXX.XXXX (paper yet to be published). This means that subclasses providing
+    specific profiles shapes, f(x) must provide very minimal other information
+    for a range of products to be available.
     
-    Each density profile is a function of r,m,z. each fourier pair is a function of
-    k,m,z and each mass relation is a function of mass, and also outputs r_s if
-    desired.
-    
-    .. note :: Currently we are only implementing the NFW profile. We could 
-            implement other profiles, but it is unclear what the necessary
-            concentration-mass relation would be.
+    The "main" quantities available are the profile itself, its fourier pair, 
+    and its convolution (this is not available for every profile). Furthermore,
+    quantities such as the concentration-mass relation are provided, along with 
+    tools such as those to generate a mock halo of the given profile. 
+
+    Parameters
+    ----------
+    omegam : float, default 0.3
+        Fractional matter density at current epoch
+        
+    delta_halo : float, default 200.0
+        Overdensity of the halo definition, with respect to MEAN BACKGROUND density.
+        
+    cm_relation : str {'zehavi','duffy'}
+        Identifies which concentration-mass relation to use
     """
-    def __init__(self, omegam=0.3, omegav=0.7, w=-1,
-                 delta_halo=200.0, cm_relation='zehavi'):
+    def __init__(self, omegam=0.3, delta_halo=200.0, cm_relation='zehavi', z=0.0):
 
-        self.cosmo = Cosmology(omegam=omegam, omegav=omegav, w=-1)
-
-        self.delta_halo = delta_halo
+        self._delta_halo = delta_halo
+        self._omegam = omegam
+        self._z = z
         self._cm_relation = cm_relation
         if hasattr(self, "l"):
             self.has_lam = True
         else:
             self.has_lam = False
 
-    def _mean_dens(self, z):
-        return cd.omega_M_z(z, **self.cosmo.cosmolopy_dict()) * 2.775E11
+        self._mean_dens = 2.755e11 * self._omegam * (1 + self._z) ** 3
 
-    def _mvir_to_rvir(self, m, z):
-        return (3 * m / (4 * np.pi * self.delta_halo * self._mean_dens(z))) ** (1. / 3.)
+    # -- BASIC TRANSFORMATIONS --------------------------------------
+    def _mvir_to_rvir(self, m):
+        return (3 * m / (4 * np.pi * self._delta_halo * self._mean_dens)) ** (1. / 3.)
 
+    def _rvir_to_mvir(self, r):
+        return 4 * np.pi * r ** 3 * self._delta_halo * self._mean_dens / 3
 
-    def rho(self, r, m, z, norm=None):
+    def _rs_from_m(self, m, c=None):
+        if c is None:
+            c = self.cm_relation(m)
+        rvir = self._mvir_to_rvir(m)
+        return rvir / c
+
+    def rho(self, r, m, norm=None):
         """
         The density at radius r of a halo of mass m and redshift z
         """
-        c, r_s, x = self._get_r_variables(r, m, z)
+        c, r_s, x = self._get_r_variables(r, m)
 
         rho = self.f(x) * self.rho_s(c, r_s, norm)
         if self.truncate:
@@ -111,12 +128,12 @@ class Profile(object):
         """
         return self.h(x) / self.h(c)
 
-    def populate(self, N, m, c=None, ba=1, ca=1, z=0.0, sort=False, norm=False):
+    def populate(self, N, m, c=None, ba=1, ca=1, sort=False, norm=False):
         """
         Creates a mock halo with the current profile.
         """
         if c is None:
-            c = self.cm_relation(m, z)[0]
+            c = self.cm_relation(m)
 
         # Internal max just buffers where the particles are created to before truncating
         internal_max = 1 / ca
@@ -130,12 +147,6 @@ class Profile(object):
         mass_enc = self.cdf(x, c)
 
         icdf = spline(mass_enc, x, k=3)
-
-#         import matplotlib.pyplot as plt
-#         plt.plot(mass_enc, x, label="raw")
-#         plt.plot(mass_enc, icdf(mass_enc), label="spline")
-#         plt.legend()
-#         plt.savefig("trial.pdf")
 
         # Pick a random number
         rnd = np.random.random(N_full)
@@ -196,14 +207,14 @@ class Profile(object):
             pos = pos[np.argsort(x), :]
 
         if not norm:
-            pos *= self._mvir_to_rvir(m, z) / c
+            pos *= self._rs_from_m(m, c)
 
         return pos
-    def u(self, k, m, z, norm=None):
+    def u(self, k, m, norm=None):
         """
         The fourier-transform of the density profile 
         """
-        c, K = self._get_k_variables(k, m, z)
+        c, K = self._get_k_variables(k, m)
 
         u = self.p(K, c) / self.h(c)
 
@@ -247,11 +258,11 @@ class Profile(object):
 
         return res
 
-    def lam(self, r, m, z, norm=None):
+    def lam(self, r, m, norm=None):
         """
         The density profile convolved with itself.
         """
-        c, r_s, x = self._get_r_variables(r, m, z)
+        c, r_s, x = self._get_r_variables(r, m)
         if self.has_lam:
             if norm in [None, "m"]:
                 lam = self.l(x, c) * r_s ** 3 * self.rho_s(c, r_s, norm) ** 2
@@ -262,22 +273,24 @@ class Profile(object):
         return self._make_scalar(lam)
 
 
-    def cm_relation(self, m, z):
+    def cm_relation(self, m):
         """
         The concentration-mass relation
         """
-        return getattr(self, "_cm_" + self._cm_relation)(m, z)
+        return getattr(self, "_cm_" + self._cm_relation)(m)
 
-    def _get_r_variables(self, r, m, z):
-        c, r_s = self.cm_relation(m, z)
+    def _get_r_variables(self, r, m):
+        c = self.cm_relation(m)
+        r_s = self._rs_from_m(m, c)
         if np.iterable(r) and np.iterable(r_s):
             x = np.divide.outer(r, r_s)
         else:
             x = r / r_s
         return np.atleast_1d(c, r_s, x)
 
-    def _get_k_variables(self, k, m, z):
-        c, r_s = self.cm_relation(m, z)
+    def _get_k_variables(self, k, m):
+        c = self.cm_relation(m)
+        r_s = self._rs_from_m(m, c)
         if np.iterable(k) and np.iterable(r_s):
             K = np.outer(k, r_s)
         else:
@@ -293,17 +306,11 @@ class Profile(object):
     #===========================================================================
     # CONCENTRATION-MASS RELATIONS
     #===========================================================================
-    def _cm_duffy(self, m, z):
-        c = 6.71 * (m / (2.0 * 10 ** 12)) ** -0.091 * (1 + z) ** -0.44
-        rvir = self._mvir_to_rvir(m, z)
+    def _cm_duffy(self, m):
+        return 6.71 * (m / (2.0 * 10 ** 12)) ** -0.091 * (1 + self._z) ** -0.44
 
-        return c, rvir / c
-
-    def _cm_zehavi(self, m, z):
-        c = ((m / 1.5E13) ** -0.13) * 9.0 / (1 + z)
-        rvir = self._mvir_to_rvir(m, z)
-
-        return c, rvir / c
+    def _cm_zehavi(self, m):
+        return ((m / 1.5E13) ** -0.13) * 9.0 / (1 + self._z)
 
 class ProfileInf(Profile):
     """
