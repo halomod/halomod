@@ -27,8 +27,10 @@ class Bias(object):
             self.bias = self._bias_ma()
         elif bias_model == "seljak_warren":
             self.bias = self._bias_sw()
-        elif bias_model == "tinker":
-            self.bias = self._bias_tinker()
+        elif bias_model == "Tinker05":
+            self.bias = self._bias_tinker05()
+        elif bias_model == "tinker10":
+            self.bias = self._bias_tinker10()
 
     def _bias_st(self):
         """
@@ -58,13 +60,26 @@ class Bias(object):
 #        #TODO: what the monkeys is alpha_s??
 #        return bias_ls + np.log10(x) * (0.4 * (self.cosmo_params['omegam'] - 0.3 + self.cosmo_params['n'] - 1) + 0.3 * (self.cosmo_params['sigma_8'] - 0.9 + self.cosmo_params['H0'] / 100 - 0.7) + 0.8)
 
-    def _bias_tinker(self):
+    def _bias_tinker05(self):
         a = 0.707
         sa = np.sqrt(a)
         b = 0.35
         c = 0.8
 
         return 1 + 1 / (sa * self.dc) * (sa * (a * self.nu) + sa * b * (a * self.nu) ** (1 - c) - (a * self.nu) ** c / ((a * self.nu) ** c + b * (1 - c) * (1 - c / 2)))
+
+    def _bias_tinker10(self):
+        nu = np.sqrt(self.nu)
+        y = np.log10(self.hmf.delta_halo)
+        A = 1.0 + 0.24 * y * np.exp(-(4 / y) ** 4)
+        a = 0.44 * y - 0.88
+        B = 0.183
+        b = 1.5
+        C = 0.019 + 0.107 * y + 0.19 * np.exp(-(4 / y) ** 4)
+        c = 2.4
+
+#         print y, A, a, B, b, C, c
+        return 1 - A * nu ** a / (nu ** a + self.dc ** a) + B * nu ** b + C * nu ** c
 
     def bias_scale(self, xi_dm):
         """

@@ -52,13 +52,20 @@ given parameters through the ``pert`` attribute of ``HOD``:
  >>> mass_variance = h.pert.sigma
  >>> mass_function = h.pert.dndlnm
 
+ACKNOWLEDGMENTS
+---------------
+Thanks to Florian Beutler, Chris Blake, David Palamara, Peder Norberg and Charles
+who have all contributed significantly to the ideas, implementation and testing
+of this code.
 
 HISTORY
 -------
-1.2.0 - 
+1.2.0 - May 14, 2014
 		Added ng_matched and ellipsoid halo exclusion options
 		Cleaned up and enhanced performance of halo exclusion in general
 		Added ability to pass mean density and evaluate M_min from this.
+		Moved 2-halo estimation to fortran to improve speed (*10-100)
+		A LOT of testing against other codes to find small bugs.
 		
 1.1.6 - January 15, 2014
 		Corrected auto-calc of nthreads in fit_hod()

@@ -2,33 +2,30 @@
 module hod_routines
 contains
 subroutine simps(dx, func,val)
-    implicit none
-    !!simps works on functions defined at EQUIDISTANT values of x only
+        implicit none
+        !!simps works on functions defined at EQUIDISTANT values of x only
 
-    real(8), intent(in) :: dx !The grid spacing
-    real(8), intent(in) :: func(:) !The function
-    real(8), intent(out) :: val !The value of the integral
+        real(8), intent(in) :: dx !The grid spacing
+        real(8), intent(in) :: func(:) !The function
+        real(8), intent(out) :: val !The value of the integral
 
-    integer :: n !length of func
-    integer :: i,start
-    real(8) :: endbit
+        integer :: n !length of func
+        integer :: i,end
+        real(8) :: endbit
 
-    n = size(func)
-    if (mod(n,2)>0) then
-        start = 2
-        endbit = (func(1)+func(2))*dx/2
-    else
-        start = 1
-        endbit=0.d0
-    end if
+        n = size(func)
 
-    val = func(start) + func(n) + 4*func(n-1)
-    do i=start,n/2-1
-        val = val + 2*func(2*i)
-        val = val + 4*func(2*i-1)
-    end do
-    val = val*dx/3 + endbit
-end subroutine
+        if (mod(n,2)==0) then
+            end =  n-1
+            endbit = (func(n)+func(n-1))*dx/2
+        else
+            end=n
+            endbit=0.d0
+        end if
+
+        val = sum(func(1:end-2:2) + func(3:end:2) + 4*func(2:end-1:2))
+        val = val*dx/3 + endbit
+    end subroutine simps
 
 subroutine trapz(dx,func,val)
     implicit none
@@ -164,9 +161,18 @@ subroutine corr_gal_1h(nr,nm,r,mass,dndm,ncen,nsat,rho,lam,central,mean_dens,del
 
     real(8), intent(out) :: corr(nr)
 
-    integer :: i,j
+    integer :: i,j,myindex,mymindex
     real(8) :: mmin
     real(8) :: integrand(nm),dm
+
+    do i=1,nm
+        if (rho(77,i) .gt. 0.d0 .and. lam(77,i).gt.0.d0)then
+            myindex = i
+            exit
+        end if
+    end do
+
+    !write(*,*) "INDEX OF NON-zeroness: ", myindex
 
     integrand = 0.d0
     dm = log(mass(2))-log(mass(1))
@@ -174,13 +180,38 @@ subroutine corr_gal_1h(nr,nm,r,mass,dndm,ncen,nsat,rho,lam,central,mean_dens,del
     !Integrating in log-space, so everything is multiplied by mass
     do i=1,nr
         if (central)then
-            integrand = dndm*ncen*nsat**2*lam(i,:)/mass
+            integrand = dndm*ncen*nsat**2*lam(i,:)/(mass*mass)
         else
-            integrand = dndm*nsat**2*lam(i,:)/mass
+            integrand = dndm*nsat**2*lam(i,:)/(mass*mass)
         end if
 
         mmin = 4*3.14159265*r(i)**3*mean_dens*delta_halo/3
-        where (mass>mmin) integrand = integrand+dndm*2*ncen*nsat*rho(i,:)*mass
+
+        !if (i==77)then
+        !    do j=1,nm
+        !        if (mass(j).gt.mmin)then
+        !            mymindex = j
+        !            exit
+        !        end if
+        !    end do
+        !    write(*,*) "Index of mass being okay: ", mymindex
+        !    write(6,*) "mass: ", mass(myindex:myindex+9)/0.7, mass(983:992)/0.7
+        !    write(6,*) "dndm: ", dndm(myindex:myindex+9)*0.7**4, dndm(983:992)*0.7**4
+        !    write(6,*) "ncen: ", ncen(myindex:myindex+9), ncen(983:992)
+        !    write(6,*) "nsat: ", nsat(myindex:myindex+9), nsat(983:992)
+        !    write(6,*) "lam: ", lam(i,myindex:myindex+9)*0.7, lam(i,983:992)*0.7
+        !    write(6,*) "rho: ", rho(i,myindex:myindex+9)*0.7**3, rho(i,983:992)*0.7**3
+        !endif
+        where (mass>mmin) integrand = integrand+dndm*2*ncen*nsat*rho(i,:)
+        !if(i==77)then
+        !    write(6,*) "final integrand", integrand(myindex:myindex+9)*0.7**7
+        !    write(*,*) "final integrand: ", integrand(983:992)*0.7**7
+        !    write(6,*) "final area", integrand(myindex:myindex+9)*mass(myindex:myindex+9)*dm*0.7**6
+        !    write(6,*) "final area: ",integrand(983:992)*dm*mass(983:992)*0.7**6
+        !end if
+!        write(6,*) i, rho(i,1)*0.7**3, lam(i,1)*0.7
+
+        integrand = integrand * mass
      !   if (i==1)then
      !       do j=1,nm
                 !if (mass(j)/0.7>1e13 .and. mass(j)/0.7<1.2e13)then
@@ -190,6 +221,9 @@ subroutine corr_gal_1h(nr,nm,r,mass,dndm,ncen,nsat,rho,lam,central,mean_dens,del
       !      end do
       !  end if
         call simps(dm,integrand,corr(i))
+        !if(i==77)then
+        !    write(6,*) "corr: ",corr(i)*0.7**6
+        !end if
     end do
 end subroutine
 

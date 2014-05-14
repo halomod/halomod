@@ -8,7 +8,7 @@ from numpy.distutils.core import setup, Extension
 import os
 import sys
 
-version = '1.1.6'
+version = '1.2.0'
 
 if sys.argv[-1] == "publish":
     os.system("python setup.py install")
@@ -16,12 +16,25 @@ if sys.argv[-1] == "publish":
     os.system("python setup.py bdist_egg upload")
     sys.exit()
 
+
 fort = Extension('hod.fort.routines', ['hod/fort/routines.f90'],
                      extra_f90_compile_args=['-O3', '-Wall', '-Wtabs'],
                      f2py_options=['--quiet', 'only:', 'power_gal_2h',
                                    'power_gal_1h_ss', 'corr_gal_1h_ss',
                                    'corr_gal_1h_cs', 'power_to_corr',
                                    'corr_gal_1h', 'get_subfind_centres', ':'])
+
+# hankel = Extension('hod.fort.hankel', ['hod/fort/power_to_corr.f90', 'hod/fort/utils.f90'],
+#                      extra_f90_compile_args=['-O3', '-Wall', '-Wtabs'],
+#                      f2py_options=['--quiet', 'skip:', 'interp', ':'])
+
+corr_2h = Extension('hod.fort.thalo', ['hod/fort/halo_exclusion.f90'],
+                    extra_f90_compile_args=['-Wall', '-Wtabs'],
+                    f2py_options=['only:', "power_to_corr", "twohalo", ":"]  # , "noexclusion_sd",
+                                  # "schneider", "schneider_sd", "sphere", "sphere_sd",
+                                  # "ellipsoid", "ellipsoid_sd", "ng_matched", "ng_matched_sd", ":"]
+                    )
+
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
@@ -44,6 +57,6 @@ if __name__ == "__main__":
         license='MIT',
         keywords="halo occupation distribution",
         url="https://github.com/steven-murray/hod",
-        ext_modules=[fort],
+        ext_modules=[fort, corr_2h],
         packages=['hod', 'hod.fort']
         )

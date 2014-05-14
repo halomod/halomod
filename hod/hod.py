@@ -45,7 +45,7 @@ class HOD(object):
         Defines the central galaxy number for 3-param model of Zheng (2005)
         """
         n_c = np.zeros_like(M)
-        n_c[M > self.M_min] = 1
+        n_c[M >= self.M_min] = 1
 
         return n_c
 

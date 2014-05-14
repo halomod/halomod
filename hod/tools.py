@@ -5,10 +5,16 @@ Created on Sep 9, 2013
 '''
 import numpy as np
 import scipy.integrate as intg
-import pycamb
-from scipy.interpolate import InterpolatedUnivariateSpline as spline
 from scipy.stats import poisson
 import profiles
+from fort.thalo import haloexclusion as he
+
+def power_to_corr_ogata(power, lnk, R, N=640, h=0.005):
+    if not np.iterable(R):
+        R = np.array([R])
+
+    return he.power_to_corr(R, power, lnk, N, h)
+
 def power_to_corr(power_func, R):
     """
     Calculate the correlation function given a power spectrum
@@ -28,7 +34,7 @@ def power_to_corr(power_func, R):
     corr = np.zeros_like(R)
 
     # the number of steps to fit into a half-period at high-k. 6 is better than 1e-4.
-    minsteps = 6
+    minsteps = 8
 
     # set min_k, 1e-6 should be good enough
     mink = 1e-6
@@ -36,51 +42,24 @@ def power_to_corr(power_func, R):
     temp_min_k = 1.0
 
     for i, r in enumerate(R):
-        # getting maxk here is the important part. It must be an odd multiple of
+        # getting maxk here is the important part. It must be a half multiple of
         # pi/r to be at a "zero", it must be >1 AND it must have a number of half
         # cycles > 38 (for 1E-5 precision).
 
-        min_k = (2 * np.ceil((temp_min_k * r / np.pi - 1) / 2) + 1) * np.pi / r
-        maxk = max(39 * np.pi / r, min_k)
+        min_k = (2 * np.ceil((temp_min_k * r / np.pi - 1) / 2) + 0.5) * np.pi / r
+        maxk = max(501.5 * np.pi / r, min_k)
 
 
         # Now we calculate the requisite number of steps to have a good dk at hi-k.
         nk = np.ceil(np.log(maxk / mink) / np.log(maxk / (maxk - np.pi / (minsteps * r))))
 
         lnk, dlnk = np.linspace(np.log(mink), np.log(maxk), nk, retstep=True)
-        P = np.exp(power_func(lnk))
+        P = power_func(lnk)
         integ = P * np.exp(lnk) ** 2 * np.sin(np.exp(lnk) * r) / r
 
         corr[i] = (0.5 / np.pi ** 2) * intg.simps(integ, dx=dlnk)
 
     return corr
-
-
-def non_linear_power(lnk_out=None, **camb_kwargs):
-    """
-    Calculates the non-linear power spectrum from camb + halofit and outputs
-    it at the given lnk_out if given.
-    
-    INPUT
-    lnk_out: [None] The values of ln(k) at which the power spectrum should be output
-    **camb_kwargs: any argument for CAMB
-    
-    OUTPUT
-    lnk: The lnk values at which the power is evaluated (k in units of k/h)
-         If lnk_out is given, will be equivalent to lnk_out
-    lnp: The log of the nonlinear power from halofit. 
-    """
-
-    k, P = pycamb.matter_power(NonLinear=1, **camb_kwargs)
-
-    if lnk_out is not None:
-        # FIXME: I have to put this disgusting cut (lnk>-5.3), because sometimes P comes
-        # out with a massive drop below some k
-        power_func = spline(np.log(k), np.log(P), k=1)
-        P = np.exp(power_func(lnk_out[lnk_out > -5.3]))
-        k = np.exp(lnk_out[lnk_out > -5.3])
-
-    return np.log(k), np.log(P)
 
 def virial_mass(r, mean_dens, delta_halo):
     """
@@ -202,7 +181,7 @@ def populate(centres, masses, delta_halo, omegam, z, profile, cm_relation,
     sgal = sgal[mask]
     centres = centres[mask]
     M = masses[mask]
-    print "got here"
+
     # Now go through each halo and calculate galaxy positions
     import time
     start = time.time()

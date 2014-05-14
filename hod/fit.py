@@ -24,7 +24,7 @@ import time
 # The Model
 #===============================================================================
 
-def model(parm, priors, h, attrs, data, sd, verbose=0):
+def model(parm, priors, h, attrs, data, quantity, sd=None, covar=None, verbose=0):
     """
     Calculate the log probability of a HaloModel model given correlation data
     
@@ -48,8 +48,12 @@ def model(parm, priors, h, attrs, data, sd, verbose=0):
     data : array_like
         The measured correlation function.
         
-    sd : array_like
+    sd : array_like, default ``None``
         Uncertainty in the measured correlation function
+        
+    covar : 2d array, default ``None``
+        Covariance matrix of the data. Either `sd` or `covar` must be given,
+        but if both are given, `covar` takes precedence.
         
     verbose : int, default 0
         How much to write to screen.
@@ -83,7 +87,10 @@ def model(parm, priors, h, attrs, data, sd, verbose=0):
         hoddict = {attr:val for attr, val in zip(attrs, parm)}
         h.update(**hoddict)
         # The logprob of the model
-        ll += np.sum(norm.logpdf(data, loc=h.corr_gal, scale=sd))
+        if covar is not None:
+            ll += _lognormpdf(getattr(h, quantity), data, covar)
+        else:
+            ll += np.sum(norm.logpdf(data, loc=getattr(h, quantity), scale=sd))
 
     if verbose > 0:
         print parm
@@ -91,9 +98,9 @@ def model(parm, priors, h, attrs, data, sd, verbose=0):
     return ll
 
 
-def fit_hod(r, data, sd, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
+def fit_hod(r, data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
             nthreads=0, filename=None, chunks=None, verbose=0, find_peak_first=False,
-            **kwargs):
+            sd=None, covar=None, quantity="projected_corr_gal", **kwargs):
     """
     Estimate the parameters in :attr:`.priors` using AIES MCMC.
     
@@ -108,11 +115,7 @@ def fit_hod(r, data, sd, priors, h, guess=[], nwalkers=100, nsamples=100, burnin
         
     data : array_like
         The measured correlation function at :attr:`r`
-        
-    sd : array_like
-        The uncertainty in the measured correlation function, same length as 
-        :attr:`r`.
-        
+                
     priors : list of prior classes
         A list containing instances of :class:`.Uniform`, :class:`.Normal` or 
         :class:`.MultiNorm` classes. These specify the prior information on each 
@@ -155,6 +158,13 @@ def fit_hod(r, data, sd, priors, h, guess=[], nwalkers=100, nsamples=100, burnin
     find_peak_first : bool, default False
         Whether to perform a minimization routine before using MCMC to find a 
         good guess to begin with. Could reduce necessary burn-in.
+        
+    sd : array_like, default ``None``
+        Uncertainty in the measured correlation function
+        
+    covar : 2d array, default ``None``
+        Covariance matrix of the data. Either `sd` or `covar` must be given,
+        but if both are given, `covar` takes precedence.
         
     \*\*kwargs :
         Arguments passed to :func:`fit_hod_minimize` if :attr:`find_peak_first`
@@ -237,11 +247,17 @@ def fit_hod(r, data, sd, priors, h, guess=[], nwalkers=100, nsamples=100, burnin
                                                       size=nwalkers)
                 i += 1
 
+
     # Set the pycamb ThreadNum to 1 so it doesn't interfere with the map function.
     h.update(ThreadNum=1)
+    getattr(h, quantity)
 
+    if covar is not None:
+        arglist = [priors, h, attrs, data, quantity, None, covar, verbose]
+    else:
+        arglist = [priors, h, attrs, data, quantity, sd, None, verbose]
     sampler = emcee.EnsembleSampler(nwalkers, ndim, model,
-                                    args=[priors, h, attrs, data, sd, verbose],
+                                    args=arglist,
                                     threads=nthreads)
 
     if verbose:
@@ -262,7 +278,7 @@ def fit_hod(r, data, sd, priors, h, guess=[], nwalkers=100, nsamples=100, burnin
         with open(filename, "w") as f:
             f.write(header)
 
-        if chunks is None:
+        if chunks == 0:
             chunks = nsamples
 
         start = time.time()
@@ -279,7 +295,7 @@ def fit_hod(r, data, sd, priors, h, guess=[], nwalkers=100, nsamples=100, burnin
 
     return sampler.flatchain, np.mean(sampler.acceptance_fraction)
 
-def fit_hod_minimize(r, data, sd, priors, h, guess=[], verbose=0,
+def fit_hod_minimize(r, data, priors, h, sd=None, covar=None, guess=[], verbose=0,
                      method="Nelder-Mead", disp=False, maxiter=30, tol=None):
     """
     Run an optimization procedure to fit a model correlation function to data.
@@ -292,14 +308,18 @@ def fit_hod_minimize(r, data, sd, priors, h, guess=[], verbose=0,
     data : array_like
         The measured correlation function at :attr:`r`
         
-    sd : array_like
-        The uncertainty in the measured correlation function, same length as 
-        :attr:`r`.
-        
     h : instance of :class:`~halo_model.HaloModel`
         This instance will be updated with the variables of the minimization.
         Other desired options should have been set upon instantiation.
         
+    sd : array_like
+        The uncertainty in the measured correlation function, same length as 
+        :attr:`r`.
+    
+    covar : 2d array, default ``None``
+        Covariance matrix of the data. Either `sd` or `covar` must be given,
+        but if both are given, `covar` takes precedence.
+           
     priors : list of prior classes
         A list containing instances of :class:`.Uniform`, :class:`.Normal` or 
         :class:`.MultiNorm` classes. These specify the prior information on each 
@@ -359,10 +379,10 @@ def fit_hod_minimize(r, data, sd, priors, h, guess=[], verbose=0,
 
     guess = np.array(guess)
 
-    def negmod(parm, priors, h, attrs, data, sd, verbose):
-        return -model(parm, priors, h, attrs, data, sd, verbose)
+    def negmod(parm, priors, h, attrs, data, sd, covar, verbose):
+        return -model(parm, priors, h, attrs, data, sd, covar, verbose)
 
-    res = minimize(negmod, guess, (priors, h, attrs, data, sd, verbose), tol=tol,
+    res = minimize(negmod, guess, (priors, h, attrs, data, sd, covar, verbose), tol=tol,
                    method=method, options={"disp":disp, "maxiter":maxiter})
 
     return res
