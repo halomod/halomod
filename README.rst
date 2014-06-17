@@ -1,11 +1,11 @@
----
-hod
----
+-------
+halomod
+-------
 
-:mod:`hod` is a python application that provides a flexible and simple interface for 
+`halomod` is a python application that provides a flexible and simple interface for 
 dealing with the Halo Model of Dark Matter Halos. It comes with several HOD 
 models, halo density profiles, bias models and Mass Function models (through the 
-:mod:`hmf` package, by the same people).
+`hmf` package, by the same people).
 
 For a given choice of parameters (for each of the above models), it can 
 calculate the large-scale structure correlation function. There is also a module

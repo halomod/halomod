@@ -11,12 +11,9 @@ function data. It uses MCMC techniques to do so.
 #===============================================================================
 import numpy as np
 import emcee
-from halo_model import HaloModel
 from scipy.stats import norm
-import sys
 from scipy.optimize import minimize
-import copy
-from multiprocessing import Pool, cpu_count
+from multiprocessing import cpu_count
 import scipy.sparse as sp
 import scipy.sparse.linalg as spln
 import time
@@ -24,7 +21,7 @@ import time
 # The Model
 #===============================================================================
 
-def model(parm, priors, h, attrs, data, quantity, sd=None, covar=None, verbose=0):
+def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=None, verbose=0):
     """
     Calculate the log probability of a HaloModel model given correlation data
     
@@ -47,6 +44,10 @@ def model(parm, priors, h, attrs, data, quantity, sd=None, covar=None, verbose=0
         
     data : array_like
         The measured correlation function.
+        
+    blobs : list of str
+        Names of quantities to be returned along with the chain
+        MUST be immediate properties of the :class:`HaloModel` class.
         
     sd : array_like, default ``None``
         Uncertainty in the measured correlation function
@@ -91,16 +92,23 @@ def model(parm, priors, h, attrs, data, quantity, sd=None, covar=None, verbose=0
             ll += _lognormpdf(getattr(h, quantity), data, covar)
         else:
             ll += np.sum(norm.logpdf(data, loc=getattr(h, quantity), scale=sd))
-
     if verbose > 0:
         print parm
         print "Likelihood: ", ll
-    return ll
 
+    if blobs is not None:
+        out = []
+        for b in blobs:
+            out.append(getattr(h, b))
+
+        return ll, out
+    else:
+        return ll
 
 def fit_hod(r, data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
-            nthreads=0, filename=None, chunks=None, verbose=0, find_peak_first=False,
-            sd=None, covar=None, quantity="projected_corr_gal", **kwargs):
+            nthreads=0, blobs=None, filename=None, chunks=None, verbose=0,
+            find_peak_first=False, sd=None, covar=None,
+            quantity="projected_corr_gal", **kwargs):
     """
     Estimate the parameters in :attr:`.priors` using AIES MCMC.
     
@@ -143,6 +151,10 @@ def fit_hod(r, data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
     nthreads : int, default 0
         Number of threads to use in sampling. If nought, will automatically 
         detect number of cores available.
+        
+    blobs : list of str
+        Names of quantities to be returned along with the chain
+        MUST be immediate properties of the :class:`HaloModel` class.
         
     filename : str, default ``None``
         A path to a file to which to write results sequentially. If ``None``,
@@ -247,10 +259,11 @@ def fit_hod(r, data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
                                                       size=nwalkers)
                 i += 1
 
-
-    # Set the pycamb ThreadNum to 1 so it doesn't interfere with the map function.
-    h.update(ThreadNum=1)
     getattr(h, quantity)
+
+    # If using CAMB, nthreads MUST BE 1
+    if h.transfer.transfer_fit == "CAMB":
+        nthreads = 1
 
     if covar is not None:
         arglist = [priors, h, attrs, data, quantity, None, covar, verbose]
@@ -261,7 +274,7 @@ def fit_hod(r, data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
                                     threads=nthreads)
 
     if verbose:
-        print attrs
+        print "Parameters for MCMC: ", attrs
 
     # Run a burn-in
     if burnin:

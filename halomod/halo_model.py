@@ -51,18 +51,19 @@ class HaloModel(object):
     **kwargs: anything that can be used in the Perturbations class
     
     '''
-    def __init__(self, r=None, M=None,
+    dlogm = 0.05
+    def __init__(self, r=None,
                  M_1=12.851, alpha=1.049, M_min=11.6222,
                  gauss_width=0.26, M_0=11.5047, fca=0.5, fcb=0, fs=1,
                  delta=None, x=1, hod_model='zehavi',
                  halo_profile='NFW', cm_relation='duffy', bias_model='tinker10',
                  central=True, nonlinear=True, scale_dependent_bias=True,
-                 halo_exclusion="None", ng=None, ** hmf_kwargs):
+                 halo_exclusion="None", ng=None, nthreads_2halo=0, ** hmf_kwargs):
 
-        if M is None and ng is not None:
-            M = np.linspace(8, 18, 500)
-        elif M is None and ng is None:
-            M = np.linspace(M_min, 18, 500)
+        if "cut_fit" not in hmf_kwargs:
+            hmf_kwargs.update({"cut_fit":False, "Mmax":18})
+        self.hmf = MassFunction(**hmf_kwargs)
+        self.__ng = ng
 
         if r is None:
             r = np.logspace(-1.0, 2.0, 100)
@@ -83,6 +84,14 @@ class HaloModel(object):
 
         self.hod = self._hodmod_params
 
+        # Find mmin if we want to
+        if ng is not None:
+            mmin = self._find_m_min(ng)
+            self._hodmod_params.update({"M_min":mmin})
+            self.hod = self._hodmod_params
+
+        self.hmf.update(Mmin=np.log10(self.hod.M_min))
+
         # Initially save parameters to the class.
         # We must do this because update() checks if values are different,
         # which doesn't work if there are no values there to begin with
@@ -93,17 +102,8 @@ class HaloModel(object):
         self.nonlinear = nonlinear
         self.halo_exclusion = halo_exclusion
         self.scale_dependent_bias = scale_dependent_bias
-        if "cut_fit" not in hmf_kwargs:
-            hmf_kwargs.update({"cut_fit":False})
-        self.hmf = MassFunction(M=M, **hmf_kwargs)
-        self.__ng = ng
 
-        # Find mmin if we want to
-        if ng is not None:
-            mmin = self._find_m_min(ng)
-            self._hodmod_params.update({"M_min":mmin})
-            self.hod = self._hodmod_params
-            self.hmf.update(M=np.linspace(mmin, 18, 500))
+        self.nthreads_2halo = nthreads_2halo
 
     def update(self, **kwargs):
         """
@@ -113,14 +113,6 @@ class HaloModel(object):
         hodmod_p = {k:v for k, v in kwargs.iteritems() if k in self._hodmod_params}
         if hodmod_p:
             self._hodmod_params.update(hodmod_p)
-            if "M_min" in hodmod_p and not "ng" in kwargs:
-                self.__ng = None
-            else:
-                if "ng" in kwargs:
-                    self.__ng = kwargs.pop('ng')
-                mmin = self._find_m_min(self.__ng)
-                self._hodmod_params.update({"M_min":mmin})
-                self.hmf.update(M=np.linspace(mmin, 18, 500))
             self.hod = self._hodmod_params
 
             # Delete the entries we've used from kwargs
@@ -133,14 +125,26 @@ class HaloModel(object):
             if hasattr(self, k):
                 setattr(self, k, kwargs.pop(k))
 
+        if "M_min" in hodmod_p and not "ng" in kwargs:
+            self.__ng = None
+            self.hmf.update(Mmin=hodmod_p["M_min"])
+            del self.n_tot, self.n_cen, self.n_sat, self.bias
+
+        elif "ng" in kwargs:
+            self.__ng = kwargs.pop('ng')
+
         # MassFunction args
         if kwargs:
+            print kwargs
             self.hmf.update(**kwargs)
+            del self.matter_power, self.n_tot, self.n_cen, self.n_sat, self.bias
 
-            if len(kwargs) > 1 or (len(kwargs) == 1 and "M" not in kwargs):
-                del self.matter_power
-
-
+        if self.__ng is not None:
+            mmin = self._find_m_min(self.__ng)
+            self._hodmod_params.update({"M_min":mmin})
+            self.hmf.update(Mmin=mmin)
+            self.hod = self._hodmod_params
+            del self.n_tot, self.n_cen, self.n_sat, self.bias
 #===============================================================================
 # Set Properties
 #===============================================================================
@@ -481,7 +485,7 @@ class HaloModel(object):
                      self.hmf.dndm, self.transfer.lnk,
                      np.exp(self.matter_power), u, self.r, self.dm_corr,
                      self.mean_gal_den, self.hmf.delta_halo,
-                     self.hmf.cosmo.mean_dens)
+                     self.hmf.cosmo.mean_dens, self.nthreads_2halo)
 
     @cached_property("projected_corr_gal")
     def  corr_gal(self):
@@ -493,15 +497,22 @@ class HaloModel(object):
         Calculate the minimum mass of a halo to contain a (central) galaxy 
         based on a known mean galaxy density
         """
-        self.hmf.update(M=np.linspace(8, 18, 1000))
+        self.hmf.update(Mmin=8, dlog10m=0.02)
         if self._hodmod_params["hod_model"] == "zheng":
             self._hodmod_params["M_min"] = np.log10(self.hmf.M[0])
             x = HOD(**self._hodmod_params)
             integrand = self.hmf.M * self.hmf.dndm * x.ntot(self.hmf.M)
             integral = intg.cumtrapz(integrand[::-1], dx=np.log(self.hmf.M[1]) - np.log(self.hmf.M[0]))
+
             if integral[-1] < ng:
                 raise NGException("Maximum mean galaxy density exceeded: " + str(integral[-1]))
-            spline_int = spline(np.log(integral), np.log(self.hmf.M[:-1])[::-1], k=3)
+
+            ind = np.where(integral > ng)[0][0]
+
+            m = self.hmf.M[::-1][1:][max(ind - 4, 0):min(ind + 4, len(self.hmf.M))]
+            integral = integral[max(ind - 4, 0):min(ind + 4, len(self.hmf.M))]
+
+            spline_int = spline(np.log(integral), np.log(m), k=3)
             mmin = spline_int(np.log(ng)) / np.log(10)
 
         else:

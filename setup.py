@@ -17,7 +17,7 @@ if sys.argv[-1] == "publish":
     sys.exit()
 
 
-fort = Extension('hod.fort.routines', ['hod/fort/routines.f90'],
+fort = Extension('halomod.fort.routines', ['halomod/fort/routines.f90'],
                      extra_f90_compile_args=['-O3', '-Wall', '-Wtabs'],
                      f2py_options=['--quiet', 'only:', 'power_gal_2h',
                                    'power_gal_1h_ss', 'corr_gal_1h_ss',
@@ -28,11 +28,10 @@ fort = Extension('hod.fort.routines', ['hod/fort/routines.f90'],
 #                      extra_f90_compile_args=['-O3', '-Wall', '-Wtabs'],
 #                      f2py_options=['--quiet', 'skip:', 'interp', ':'])
 
-corr_2h = Extension('hod.fort.thalo', ['hod/fort/halo_exclusion.f90'],
-                    extra_f90_compile_args=['-Wall', '-Wtabs'],
-                    f2py_options=['only:', "power_to_corr", "twohalo", ":"]  # , "noexclusion_sd",
-                                  # "schneider", "schneider_sd", "sphere", "sphere_sd",
-                                  # "ellipsoid", "ellipsoid_sd", "ng_matched", "ng_matched_sd", ":"]
+corr_2h = Extension('halomod.fort.twohalo', ['halomod/fort/twohalo.f90'],
+                    extra_f90_compile_args=['-Wall', '-Wtabs', '-fopenmp'],
+                    f2py_options=['only:', "power_to_corr", "twohalo", ":"],
+                    libraries=['gomp']
                     )
 
 def read(fname):
@@ -45,18 +44,19 @@ if sys.argv[-1] == "publish":
 
 if __name__ == "__main__":
     setup(
-        name="hod",
+        name="halomod",
         version=version,
         install_requires=['hmf',
                           'mpmath'],
-        scripts=['scripts/pophod'],
+        scripts=['scripts/pophod',
+                 'scripts/halomod-fit'],
         author="Steven Murray",
         author_email="steven.murray@uwa.edu.au",
         description="A Halo Model calculator built on hmf",
         long_description=read('README.rst'),
         license='MIT',
         keywords="halo occupation distribution",
-        url="https://github.com/steven-murray/hod",
+        url="https://github.com/steven-murray/halomod",
         ext_modules=[fort, corr_2h],
-        packages=['hod', 'hod.fort']
+        packages=['halomod', 'halomod.fort']
         )

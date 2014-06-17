@@ -56,6 +56,8 @@ class Profile(object):
                  **cosmo_args):
 
         self._delta_halo = delta_halo
+        if "default" not in cosmo_args:
+            cosmo_args.update({"default":"planck1_base"})
         self._cosmo = cosmo.Cosmology(**cosmo_args)
         self._z = z
         self._cm_relation = cm_relation
@@ -399,7 +401,7 @@ class Profile(object):
         if isinstance(self._cm_relation, str):
             return getattr(self, "_cm_" + self._cm_relation)(m)
         else:
-            return np.repeat(self._cm_relation, len(m))
+            return self._cm_relation
 
     def _get_r_variables(self, r, m, c=None, coord="r"):
         if c is None:
@@ -423,6 +425,7 @@ class Profile(object):
         return np.atleast_1d(c, r_s, x)
 
     def _get_k_variables(self, k, m, c=None, coord="k"):
+
         if c is None:
             c = self.cm_relation(m)
         r_s = self._rs_from_m(m, c)
@@ -435,7 +438,7 @@ class Profile(object):
         elif coord == "kappa":
             K = k
 
-        return np.atleast_1d(c, K)
+        return c, np.atleast_1d(K)
 
     def _make_scalar(self, x):
         if len(x) == 1:
