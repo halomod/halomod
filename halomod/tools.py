@@ -6,14 +6,13 @@ Created on Sep 9, 2013
 import numpy as np
 import scipy.integrate as intg
 from scipy.stats import poisson
-import profiles
-from fort.thalo import haloexclusion as he
+from fort.twohalo import twohalo_calc as thalo
 
 def power_to_corr_ogata(power, lnk, R, N=640, h=0.005):
     if not np.iterable(R):
         R = np.array([R])
 
-    return he.power_to_corr(R, power, lnk, N, h)
+    return thalo.power_to_corr(R, power, lnk, N, h)
 
 def power_to_corr(power_func, R):
     """

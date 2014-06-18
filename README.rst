@@ -60,6 +60,10 @@ of this code.
 
 HISTORY
 -------
+1.2.1 - June 18, 2014
+		Changed package name to halomod
+		Fixed some import issues that were being covered up in my system.
+		
 1.2.0 - May 14, 2014
 		Added ng_matched and ellipsoid halo exclusion options
 		Cleaned up and enhanced performance of halo exclusion in general
