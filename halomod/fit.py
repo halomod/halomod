@@ -83,9 +83,20 @@ def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=Non
             ll += _lognormpdf(np.array(parm[indices]), np.array(prior.means),
                               prior.cov)
 
-    # Rebuild the hod dict from given vals
+
     if not np.isinf(ll):
-        hoddict = {attr:val for attr, val in zip(attrs, parm)}
+        # Rebuild the hod dict from given vals
+        # Any attr starting with <name>: is put into a dictionary.
+        hoddict = {}
+        for attr, val in zip(attrs, parm):
+            if ":" in attr:
+                if attr.split(":")[0] not in hoddict:
+                    hoddict[attr.split(":")[0]] = {}
+
+                hoddict[attr.split(":")[0]][attr.split(":")[1]] = val
+            else:
+                hoddict[attr] = val
+
         h.update(**hoddict)
         # The logprob of the model
         if covar is not None:
@@ -105,7 +116,7 @@ def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=Non
     else:
         return ll
 
-def fit_hod(r, data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
+def fit_hod(data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
             nthreads=0, blobs=None, filename=None, chunks=None, verbose=0,
             find_peak_first=False, sd=None, covar=None,
             quantity="projected_corr_gal", **kwargs):
@@ -118,9 +129,6 @@ def fit_hod(r, data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
     
     Parameters
     ----------
-    r : array_like
-        The scales at which to perform analysis, corresponding to input data.
-        
     data : array_like
         The measured correlation function at :attr:`r`
                 
@@ -210,9 +218,9 @@ def fit_hod(r, data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
     ndim = len(attrs)
 
     # Check that attrs are all applicable
-    for a in attrs:
-        if a not in _vars:
-            raise ValueError(a + " is not a valid variable for MCMC in HaloModel")
+#     for a in attrs:
+#         if a not in _vars:
+#             raise ValueError(a + " is not a valid variable for MCMC in HaloModel")
 
     # auto-calculate the number of threads to use if not set.
     if not nthreads:
@@ -232,7 +240,7 @@ def fit_hod(r, data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
     guess = np.array(guess)
 
     if find_peak_first:
-        res = fit_hod_minimize(r, data, sd, priors, h, guess=guess,
+        res = fit_hod_minimize(data, sd, priors, h, guess=guess,
                                verbose=verbose, **kwargs)
         guess = res.x
 
@@ -262,13 +270,13 @@ def fit_hod(r, data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
     getattr(h, quantity)
 
     # If using CAMB, nthreads MUST BE 1
-    if h.transfer.transfer_fit == "CAMB":
+    if h.transfer_fit == "CAMB":
         nthreads = 1
 
     if covar is not None:
-        arglist = [priors, h, attrs, data, quantity, None, covar, verbose]
+        arglist = [priors, h, attrs, data, quantity, blobs, None, covar, verbose]
     else:
-        arglist = [priors, h, attrs, data, quantity, sd, None, verbose]
+        arglist = [priors, h, attrs, data, quantity, blobs, sd, None, verbose]
     sampler = emcee.EnsembleSampler(nwalkers, ndim, model,
                                     args=arglist,
                                     threads=nthreads)
@@ -308,16 +316,13 @@ def fit_hod(r, data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
 
     return sampler.flatchain, np.mean(sampler.acceptance_fraction)
 
-def fit_hod_minimize(r, data, priors, h, sd=None, covar=None, guess=[], verbose=0,
+def fit_hod_minimize(data, priors, h, sd=None, covar=None, guess=[], verbose=0,
                      method="Nelder-Mead", disp=False, maxiter=30, tol=None):
     """
     Run an optimization procedure to fit a model correlation function to data.
     
     Parameters
     ----------
-    r : array_like
-        The scales at which to perform analysis, corresponding to input data.
-        
     data : array_like
         The measured correlation function at :attr:`r`
         
@@ -400,9 +405,9 @@ def fit_hod_minimize(r, data, priors, h, sd=None, covar=None, guess=[], verbose=
 
     return res
 
-_vars = ["wdm_mass", "delta_halo", "sigma_8", "n", "omegab", 'omegac',
-         "omegav", "omegak", "H0", "M_1", 'alpha', "M_min", 'gauss_width',
-         'M_0', 'fca', 'fcb', 'fs', 'delta', 'x', 'omegab_h2', 'omegac_h2', 'h']
+# _vars = ["wdm_mass", "delta_halo", "sigma_8", "n", "omegab", 'omegac',
+#          "omegav", "omegak", "H0", "M_1", 'alpha', "M_min", 'gauss_width',
+#          'M_0', 'fca', 'fcb', 'fs', 'delta', 'x', 'omegab_h2', 'omegac_h2', 'h']
 
 class Uniform(object):
     """

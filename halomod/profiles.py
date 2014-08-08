@@ -5,7 +5,7 @@ import scipy.integrate as intg
 from scipy.interpolate import UnivariateSpline as spline
 import mpmath
 import sys
-from hmf import cosmo
+from hmf.cosmo import Cosmology
 import cosmolopy as cp
 
 def get_profile(profile, delta_halo=200.0,
@@ -20,6 +20,7 @@ def get_profile(profile, delta_halo=200.0,
         return getattr(sys.modules[__name__], profile)(delta_halo, cm_relation,
                                                        z, **cosmo_args)
     except AttributeError:
+        raise
         raise AttributeError(str(profile) + "  is not a valid profile class")
 
 
@@ -52,13 +53,19 @@ class Profile(object):
     z : float, default 0.0
         The redshift of the halo
     """
-    def __init__(self, delta_halo=200.0, cm_relation='zehavi', z=0.0,
+    def __init__(self, delta_halo=200.0, cm_relation='zehavi', z=0.0, cosmo=None,
                  **cosmo_args):
 
         self._delta_halo = delta_halo
+
         if "default" not in cosmo_args:
             cosmo_args.update({"default":"planck1_base"})
-        self._cosmo = cosmo.Cosmology(**cosmo_args)
+
+        if cosmo is not None:
+            self._cosmo = cosmo
+        else:
+            self._cosmo = Cosmology(**cosmo_args)
+
         self._z = z
         self._cm_relation = cm_relation
         if hasattr(self, "_l"):
@@ -66,7 +73,7 @@ class Profile(object):
         else:
             self.has_lam = False
 
-        self._mean_dens = 2.775e11 * cp.density.omega_M_z(z, **self._cosmo.cosmolopy_dict())
+        self._mean_dens = 2.775e11 * cp.density.omega_M_z(z, **self._cosmo.cosmolopy_dict)  # self._cosmo.mean_dens
 
     # -- BASIC TRANSFORMATIONS --------------------------------------
     def _mvir_to_rvir(self, m):
@@ -417,6 +424,10 @@ class Profile(object):
                 x = np.outer(r, c)
         else:
             if coord == "r":
+                print "r: ", r
+                print "rs: ", r_s
+                print "m: ", m
+                print "c: ", c
                 x = r / r_s
             elif coord == "x":
                 x = x

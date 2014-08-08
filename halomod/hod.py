@@ -2,85 +2,199 @@
 import numpy as np
 import scipy.special as sp
 
+_allmodels = ["Zehavi05", "Zheng05", "Contreras"]
+
 class HOD(object):
+    """
+    Halo Occupation Distribution model base class.
+    
+    This class defines three methods -- the average central galaxies, average
+    satellite galaxies and total galaxies. 
+    
+    The total number of galaxies can take two forms: one if there MUST be a
+    central galaxy to have a satellite, and the other if not. 
+    
+    This class should not be called directly. The user
+    should call a derived class.
+    
+    Derived classes of :class:`HOD` should define two methods: :method:`nc` and 
+    :method:`ns` (central and satellite distributions respectively).
+    Additionally, any parameters of the model should have their names and
+    defaults defined as class variables. 
+    
+    The exception to this is the M_min parameter, which is defined for every
+    model (it may still be defined to modify the default). This parameter acts
+    as the one that may be set via the mean number density given all the other
+    parameters. If the model has a sharp cutoff at low mass, corresponding to
+    M_min, the extra parameter sharp_cut may be set to True, allowing for simpler
+    setting of M_min via this route. 
+    
+    See the derived classes in this module for examples of how to define derived
+    classes of :class:`HOD`.
+    """
+    _defaults = {"M_min": 11}
+    sharp_cut = False
 
-    def __init__(self, hod_model, M_1=12.851, alpha=1.049, M_min=11.6222,
-                 gauss_width=0.26, M_0=11.5047, fca=0.5, fcb=0, fs=1, delta=None, x=1,
-                 central=True):
+    def __init__(self, central=True, **model_parameters):
+        self.params = self._defaults
+        self.params.update(model_parameters)
+        self._central = central
 
-        # Save parameters to self. Many of these are used in multiple models.
-        self.M_1 = 10 ** M_1
-        self.M_min = 10 ** M_min
-        self.M_0 = 10 ** M_0
-        self.alpha = alpha
-        self.gauss_width = gauss_width
-        self.fca = fca
-        self.fcb = fcb
-        self.fs = fs
-        self.delta = delta
-        self.x = x
-        self.central = central
-
-        self._hod_model = hod_model
-
-    #===========================================================================
-    # DEFINE WRAPPERS - THE ONLY ONES THE USER CALLS
-    #===========================================================================
     def nc(self, M):
-        return getattr(self, "_nc_" + self._hod_model)(M)
+        pass
 
     def ns(self, M):
-        return getattr(self, "_ns_" + self._hod_model)(M)
+        pass
 
     def ntot(self, M):
-        if self.central:
+        if self._central:
             return self.nc(M) * (1.0 + self.ns(M))
         else:
             return self.nc(M) + self.ns(M)
-    #===========================================================================
-    # DEFINE BASE FUNCTIONS
-    #===========================================================================
-    def _nc_zheng(self, M):
+
+    @property
+    def mmin(self):
+        return self.params["M_min"]
+
+class Zehavi05(HOD):
+    """
+    Three-parameter model of Zehavi (2005)
+    
+    Parameters
+    ----------
+    M_min : float, default = 11.6222
+        Minimum mass of halo that supports a central galaxy
+        
+    M_1 : float, default = 12.851
+        Mass of a halo which on average contains 1 satellite
+        
+    alpha : float, default = 1.049
+        Index of power law for satellite galaxies
+    """
+    _defaults = {"M_min":11.6222,
+                 "M_1":12.851,
+                 "alpha":1.049}
+    sharp_cut = True
+
+    def nc(self, M):
         """
-        Defines the central galaxy number for 3-param model of Zheng (2005)
+        Number of central galaxies at mass M
         """
         n_c = np.zeros_like(M)
-        n_c[M >= self.M_min] = 1
+        n_c[M >= 10 ** self.params["M_min"]] = 1
 
         return n_c
 
-    def _nc_zehavi(self, M):
+    def ns(self, M):
         """
-        Defines the central galaxy number for 5-param model of Zehavi (2005)
+        Number of satellite galaxies at mass M
         """
-        nc = 0.5 * (1 + sp.erf((np.log10(M) - np.log10(self.M_min)) / self.gauss_width))
+        return (M / 10 ** self.params["M_1"]) ** self.params["alpha"]
+
+class Zheng05(HOD):
+    """
+    Five-parameter model of Zehavi (2005)
+    
+    Parameters
+    ----------
+    M_min : float, default = 11.6222
+        Minimum mass of halo that supports a central galaxy
+        
+    M_1 : float, default = 12.851
+        Mass of a halo which on average contains 1 satellite
+        
+    alpha : float, default = 1.049
+        Index of power law for satellite galaxies
+        
+    sig_logm : float, default = 0.26
+        Width of smoothed cutoff
+        
+    M_0 : float, default = 11.5047
+        Minimum mass of halo containing satellites
+    """
+    _defaults = {"M_min":11.6222,
+                 "M_1":12.851,
+                 "alpha":1.049,
+                 "M_0":11.5047,
+                 "sig_logm":0.26
+                 }
+
+    def nc(self, M):
+        """
+        Number of central galaxies at mass M
+        """
+        nc = 0.5 * (1 + sp.erf((np.log10(M) - self.params["M_min"]) / self.params["sig_logm"]))
         return nc
-    def _nc_contreras(self, M):
-        """
-        Defines the central galaxy number for 9-param model of Contreras (2012)
-        """
-        return self.fcb * (1 - self.fca) * np.exp(np.log10(M / self.M_min) ** 2 / (2 * (self.x * self.gauss_width) ** 2)) + self.fca * (1 + sp.erf(np.log10(M / self.M_min) / self.x / self.gauss_width))
 
-    def _ns_zheng(self, M):
+    def ns(self, M):
         """
-        Defines the satellite galaxy number for 3-param model of Zheng(2005)
-        """
-        return (M / self.M_1) ** self.alpha
-
-    def _ns_zehavi(self, M):
-        """
-        Defines the satellite galaxy number for 5-param model of Zehavi(2005)
+        Number of satellite galaxies at mass M
         """
         ns = np.zeros_like(M)
-        ns[M > self.M_0] = ((M[M > self.M_0] - self.M_0) / self.M_1) ** self.alpha
-
+        ns[M > 10 ** self.params["M_0"]] = ((M[M > 10 ** self.params["M_0"]] - 10 ** self.params["M_0"]) / 10 ** self.params["M_1"]) ** self.params["alpha"]
         return ns
 
-    def _ns_contreras(self, M):
-        """
-        Defines the satellite galaxy number for 9-param model of Contreras(2012)
-        """
-        return self.fs * (1 + sp.erf(np.log10(M / self.M_1) / self.delta)) * (M / self.M_1) ** self.alpha
+    @property
+    def mmin(self):
+        return self.params["M_min"] - 5 * self.params["sig_logm"]
 
+class Contreras(HOD):
+    """
+    Nine-parameter model of Contreras (2009)
+    
+    Parameters
+    ----------
+    M_min : float, default = 11.6222
+        Minimum mass of halo that supports a central galaxy
+        
+    M_1 : float, default = 12.851
+        Mass of a halo which on average contains 1 satellite
+        
+    alpha : float, default = 1.049
+        Index of power law for satellite galaxies
+        
+    sig_logm : float, default = 0.26
+        Width of smoothed cutoff
+        
+    M_0 : float, default = 11.5047
+        Minimum mass of halo containing satellites
+        
+    fca : float, default = 0.5
+        fca
+        
+    fcb : float, default = 0
+        fcb
+        
+    fs : float, default = 1
+        fs
+        
+    delta : float, default  = 1
+        delta
+        
+    x : float, default = 1
+        x
+    """
+    _defaults = {"M_min":11.6222,
+                 "M_1":12.851,
+                 "alpha":1.049,
+                 "M_0":11.5047,
+                 "sig_logm":0.26,
+                 "fca":0.5,
+                 "fcb":0,
+                 "fs":1,
+                 "delta":1,
+                 "x":1
+                 }
 
+    def nc(self, M):
+        """
+        Number of central galaxies at mass M
+        """
+        return self.params["fcb"] * (1 - self.params["fca"]) * np.exp(np.log10(M / 10 ** self.params["M_min"]) ** 2 / (2 * (self.params["x"] * self.params["sig_logm"]) ** 2)) + self.params["fca"] * (1 + sp.erf(np.log10(M / 10 ** self.params["M_min"]) / self.params["x"] / self.params["sig_logm"]))
+
+    def ns(self, M):
+        """
+        Number of satellite galaxies at mass M
+        """
+        return self.params["fs"] * (1 + sp.erf(np.log10(M / 10 ** self.params["M_1"]) / self.params["delta"])) * (M / 10 ** self.params["M_1"]) ** self.params["alpha"]
 
