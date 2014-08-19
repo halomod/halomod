@@ -1,8 +1,18 @@
 
 import numpy as np
 import scipy.special as sp
-
+import sys
 _allmodels = ["Zehavi05", "Zheng05", "Contreras"]
+
+def get_hod(hod):
+    """
+    A function that chooses the correct Profile class and returns it
+    """
+    try:
+        return getattr(sys.modules[__name__], hod)
+    except AttributeError:
+        raise
+        raise AttributeError(str(hod) + "  is not a valid profile class")
 
 class HOD(object):
     """
@@ -36,6 +46,10 @@ class HOD(object):
     sharp_cut = False
 
     def __init__(self, central=True, **model_parameters):
+        for k in model_parameters:
+            if k not in self._defaults:
+                raise ValueError("%s is not a valid argument for the HOD" % k)
+
         self.params = self._defaults
         self.params.update(model_parameters)
         self._central = central

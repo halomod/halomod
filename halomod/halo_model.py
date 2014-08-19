@@ -106,9 +106,14 @@ class HaloModel(MassFunction):
     @parameter
     def hod_model(self, val):
         """:class:`hod.hod.HOD` class"""
-        if not issubclass(val, hod.HOD):
-            raise ValueError("hod_model must be a subclass of hod.HOD")
-        return val
+        if not isinstance(val, basestring):
+
+            if not issubclass(val, hod.HOD):
+                raise ValueError("hod_model must be a subclass of hod.HOD")
+            else:
+                return val
+        else:
+            return hod.get_hod(val)
 
     @parameter
     def nonlinear(self, val):
@@ -241,10 +246,10 @@ class HaloModel(MassFunction):
         if self.ng is not None:
             return self.ng
         else:
-            # Integrand is just the density of galaxies at mass M
+#             Integrand is just the density of galaxies at mass M
             integrand = self.M * self.dndm * self.n_tot
-            return intg.simps(integrand, dx=np.log(self.M[1]) - np.log(self.M[0]),
-                              even="avg")
+        return intg.simps(integrand, dx=np.log(self.M[1]) - np.log(self.M[0]),
+                          even="first")
 
 
     @cached_property("M", "dndm", "n_tot", "bias")
@@ -254,20 +259,20 @@ class HaloModel(MassFunction):
         """
         # Integrand is just the density of galaxies at mass M by bias
         integrand = self.M * self.dndm * self.n_tot * self.bias
-
         b = intg.simps(integrand, dx=np.log(self.M[1]) - np.log(self.M[0]))
+
         return b / self.mean_gal_den
 
     @cached_property("M", 'dndm', 'n_tot', "mean_gal_den")
     def mass_effective(self):
         """
-        Average group halo mass, or host-halo mass
+        Average group halo mass, or host-halo mass (in log10 units)
         """
         # Integrand is just the density of galaxies at mass M by M
         integrand = self.M ** 2 * self.dndm * self.n_tot
 
         m = intg.simps(integrand, dx=np.log(self.M[1]) - np.log(self.M[0]))
-        return m / self.mean_gal_den
+        return np.log10(m / self.mean_gal_den)
 
     @cached_property("M", "dndm", "n_sat", "mean_gal_den")
     def satellite_fraction(self):
@@ -387,7 +392,7 @@ class HaloModel(MassFunction):
 
         self.power  # This just makes sure the power is gotten and copied
         c = deepcopy(self)
-        c.update(hod_params={"M_min":8})
+        c.update(hod_params={"M_min":8}, dlog10m=0.01)
 
         integrand = c.M * c.dndm * c.n_tot
 
@@ -399,12 +404,27 @@ class HaloModel(MassFunction):
 
             ind = np.where(integral > ng)[0][0]
 
+#             c.update(hod_params={"M_min":np.log10(c.M[::-1][ind + 1])}, dlogm=0.005)
+#
+#
+#             print "ROUGH LOWER BIT: ", np.log10(c.M[::-1][ind + 1])
+#             print "INTEGRAL HERE: ", integral[ind + 1], ng
+#             print "NEW LENGTH OF M: ", len(c.M)
+#
+#             integrand = c.M * c.dndm * c.n_tot
+#             integral = intg.cumtrapz(integrand[::-1], dx=np.log(c.M[1]) - np.log(c.M[0]))
+#
+#             print integral[0], integral[-1]
+#             ind = np.where(integral > ng)[0][0]
+#
+#             print "INTEGRAL HERE: ", integral[ind], ng
+
             m = c.M[::-1][1:][max(ind - 4, 0):min(ind + 4, len(c.M))]
             integral = integral[max(ind - 4, 0):min(ind + 4, len(c.M))]
 
+
             spline_int = spline(np.log(integral), np.log(m), k=3)
             mmin = spline_int(np.log(ng)) / np.log(10)
-#             self.update(Mmin=mmin)
         else:
             # Anything else requires us to do some optimization unfortunately.
             integral = intg.simps(integrand, dx=np.log(c.M[1]) - np.log(c.M[0]))
@@ -413,11 +433,11 @@ class HaloModel(MassFunction):
 
             def model(mmin):
                 c.update(hod_params={"M_min":mmin})
-                integrand = c.M * c.dndm * c.n_tot(c.M)
+                integrand = c.M * c.dndm * c.n_tot
                 integral = intg.simps(integrand, dx=np.log(c.M[1]) - np.log(c.M[0]))
                 return abs(integral - ng)
 
-            res = minimize(model, self.hod_params["M_min"], tol=1e-3,
+            res = minimize(model, 12.0, tol=1e-3,
                            method="Nelder-Mead", options={"maxiter":200})
             mmin = res.x[0]
 

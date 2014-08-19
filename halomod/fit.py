@@ -110,8 +110,10 @@ def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=Non
     if blobs is not None:
         out = []
         for b in blobs:
-            out.append(getattr(h, b))
-
+            if ":" not in b:
+                out.append(getattr(h, b))
+            elif ":" in b:
+                out.append(getattr(h, b.split(":")[0])[b.split(":")[1]])
         return ll, out
     else:
         return ll
@@ -226,6 +228,9 @@ def fit_hod(data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
     if not nthreads:
         nthreads = cpu_count()
 
+    if nthreads > 1:
+        h.update(transfer_options={"NumThreads":1})
+
     # Set guess if not set
     if len(guess) != len(attrs):
         guess = []
@@ -314,7 +319,7 @@ def fit_hod(data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
                     f.write(header)
                     np.savetxt(f, sampler.flatchain[sampler.flatchain[:, 0] != 0.0, :])
 
-    return sampler.flatchain, np.mean(sampler.acceptance_fraction)
+    return sampler
 
 def fit_hod_minimize(data, priors, h, sd=None, covar=None, guess=[], verbose=0,
                      method="Nelder-Mead", disp=False, maxiter=30, tol=None):

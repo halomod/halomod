@@ -17,10 +17,10 @@ from argparse import RawDescriptionHelpFormatter
 from ConfigParser import SafeConfigParser as cfg
 cfg.optionxform = str
 import numpy as np
-from hod import fit as mc
+from halomod import fit as mc
 import json
 import time
-from hod import HaloModel
+from halomod import HaloModel
 import errno
 from os.path import join
 
@@ -93,13 +93,15 @@ USAGE
 
         r, data, sd, cov = get_data(options["Data"])
 
-        priors, keys, guess = param_setup(options["CosmoParams"],
-                                          options["OtherParams"])
+        # Get params that are part of a dict (eg. HOD)
+        dict_p = {k:options[k] for k in options if k.endswith("Params")}
+        priors, keys, guess = param_setup(**dict_p)
 
+        quantity = options["RunOptions"]["quantity"]
+        blobs = json.loads(options["RunOptions"]["der_params"])
 
-        run(r, data, sd, cov, priors, keys, guess, options)
+        run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options)
 
-        #-----------------------------------------------------------------------
         return 0
     except KeyboardInterrupt:
         ### handle keyboard interrupt ###
@@ -136,31 +138,51 @@ def get_data(opts):
 
     return r, xi, sd, cov
 
-def param_setup(cosmoparams, otherparams):
+def param_setup(**params):
 
     priors = []
     guess = []
+    allparams = {}
+
+    covdata = params["CosmoParams"].pop("covar_data")
+
+    for pset, vset in params.iteritems():
+        for p, val in vset.iteritems():
+            allparams[p] = val
+
+    print "allparams: ", allparams
+    cosmoparams = params.pop("CosmoParams")
+    otherparams = params.pop("OtherParams")
 
     av_data = ["WMAP3", "WMAP5", "WMAP9", "PLANCK"]
-    print cosmoparams
-    covdata = cosmoparams.pop("covar_data")
 
-    print cosmoparams
+
     cosmo_priors = {k:json.loads(v) for k, v in cosmoparams.iteritems()}
 
     cov_vars = {k:v for k, v in cosmo_priors.iteritems() if v[0] == "cov"}
     var_vars = {k:v for k, v in cosmo_priors.iteritems() if v[0] == "var"}
 
+    # SIMPLE CASE (Cosmology params all flat priors)
     if covdata not in av_data or len(cov_vars) + len(var_vars) == 0:
-        # # Simple Case
+        # Do simple parameters
         otherparams.update(cosmoparams)
         for param, val in otherparams.iteritems():
             priors += set_prior(param, val)
+
+        # Do nested parameters
+        for k, v in params.iteritems():
+            for kk, vv in v.iteritems():
+                priors += set_prior(k[:-6] + ":" + kk, vv)
 
     else:
         # # First do all params other than cosmo
         for param, val in otherparams.iteritems():
             priors += set_prior(param, val)
+
+        # Nested parameters
+        for k, v in params.iteritems():
+            for kk, vv in v.iteritems():
+                priors += set_prior(k[:-6] + ":" + kk, vv)
 
         # Now cosmo params
         from hod._covardata import data
@@ -186,13 +208,13 @@ def param_setup(cosmoparams, otherparams):
         if isinstance(prior.name, basestring):
             keys += [prior.name]
         else:
-            keys += prior.name
+
+            keys += prior.name.split(":")[-1]
 
     # Get the guess
     guess = []
-    otherparams.update(cosmoparams)
-    for k in otherparams:
-        val = json.loads(otherparams[k])
+    for k in allparams:
+        val = json.loads(allparams[k])
         guess.append(val[-1])
 
     print keys
@@ -211,7 +233,7 @@ def set_prior(param, val):
 #===============================================================================
 # MAIN
 #===============================================================================
-def run(r, data, sd, cov, priors, keys, guess, options):
+def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options):
 
     kwargs = options["Model"]
     for k in kwargs:
@@ -228,15 +250,28 @@ def run(r, data, sd, cov, priors, keys, guess, options):
 
     print type(nwalkers), type(nsamples), type(burnin)
     start = time.time()
-    h = HaloModel(r=r, **kwargs)
+    h = HaloModel(rmin=r[0], rmax=r[-1], rnum=len(r), **kwargs)
     h.corr_gal
 
     prefix = join(options["IO"]["outdir"], options["IO"]["prefix"])
-    chain, acceptance = mc.fit_hod(r, data, priors, h, guess,
-                                   nwalkers, nsamples, burnin, nthreads,
-                                   prefix + "chain", chunks,
-                                   options["IO"]["verbose"],
-                                   sd=sd, covar=cov)
+    s = mc.fit_hod(data, priors, h, guess,
+                   nwalkers, nsamples, burnin, nthreads, blobs,
+                   prefix + "chain", chunks,
+                   options["IO"]["verbose"],
+                   sd=sd, covar=cov, quantity=quantity)
+
+    acceptance = np.mean(s.acceptance_fraction)
+    chain = s.flatchain
+
+    if blobs:
+        blobdata = np.array(s.blobs)
+        s = blobdata.shape
+        print "SHAPE OF BLOBDATA: ", s
+        blobdata = blobdata.reshape(s[0] * s[1], s[2])
+        print "MOdified shape of blobs: ", blobdata.shape
+        chain = np.hstack((chain, blobdata))
+        for b in blobs:
+            keys.append(b.split(":")[-1])
 
     with open(prefix + "log", 'w') as f:
         f.write("Average time: %s\n" % ((time.time() - start) / (nwalkers * nsamples + nwalkers * burnin)))
