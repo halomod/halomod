@@ -426,15 +426,15 @@ module twohalo_calc
         end if
 
         if(exc_type.ge.3)then
-            open(10,FILE="ngdash.dat")
+            !open(10,FILE="ngdash.dat")
             do i=1,nr
                 if(r(i).lt.20.d0)then
                     corr(i) = (ngdash(i)/nbar)**2*(1.d0+corr(i))-1.d0
                     if(corr(i)<-0.d0) corr(i) = 1e-15
                 end if
-                write(10,*) r(i), ngdash(i)
+             !   write(10,*) r(i), ngdash(i)
             end do
-            close(10)
+            !close(10)
         end if
     end subroutine
     ! ============== UTILITIES =================================================
