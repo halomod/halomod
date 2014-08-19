@@ -77,6 +77,7 @@ USAGE
         parser.add_argument('-V', '--version', action='version', version=program_version_message)
 
         parser.add_argument("conf", help="config file")
+        parser.add_argument("-p", "--prefix", default="", help="an optional prefix for the output files.")
 
         # Process arguments
         args = parser.parse_args()
@@ -233,7 +234,7 @@ def set_prior(param, val):
 #===============================================================================
 # MAIN
 #===============================================================================
-def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options):
+def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options, prefix):
 
     kwargs = options["Model"]
     for k in kwargs:
@@ -253,7 +254,7 @@ def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options):
     h = HaloModel(rmin=r[0], rmax=r[-1], rnum=len(r), **kwargs)
     h.corr_gal
 
-    prefix = join(options["IO"]["outdir"], options["IO"]["prefix"])
+    prefix = join(options["IO"]["outdir"], prefix)
     s = mc.fit_hod(data, priors, h, guess,
                    nwalkers, nsamples, burnin, nthreads, blobs,
                    prefix + "chain", chunks,
@@ -293,8 +294,6 @@ def read_config(fname):
     res = {s:dict(config.items(s)) for s in config.sections()}
     if "outdir" not in res["IO"]:
         res["IO"]["outdir"] = ""
-    if "prefix" not in res["IO"]:
-        res["IO"]["prefix"] = ""
     if "covar_data" not in res["CosmoParams"]:
         res["CosmoParams"]["covar_data"] = ""
     return res
