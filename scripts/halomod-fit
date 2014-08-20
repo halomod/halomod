@@ -101,7 +101,7 @@ USAGE
         quantity = options["RunOptions"]["quantity"]
         blobs = json.loads(options["RunOptions"]["der_params"])
 
-        run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options)
+        run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options, args.prefix)
 
         return 0
     except KeyboardInterrupt:
