@@ -229,7 +229,7 @@ def fit_hod(data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
         nthreads = cpu_count()
 
     if nthreads > 1:
-        h.update(transfer_options={"NumThreads":1})
+        h.update(transfer_options={"ThreadNum":1})
 
     # Set guess if not set
     if len(guess) != len(attrs):
@@ -257,7 +257,6 @@ def fit_hod(data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
     i = 0
     for prior in priors:
         if isinstance(prior, Uniform):
-            print prior.name, guess[i], prior.low, prior.high
             stacked_val[:, i] += np.random.normal(loc=0.0, scale=0.05 *
                                                   min((guess[i] - prior.low),
                                                       (prior.high - guess[i])),

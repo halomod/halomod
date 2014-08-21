@@ -214,7 +214,7 @@ def param_setup(**params):
 
     # Get the guess
     guess = []
-    for k in allparams:
+    for k in keys:
         val = json.loads(allparams[k])
         guess.append(val[-1])
 
