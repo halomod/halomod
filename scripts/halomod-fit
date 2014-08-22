@@ -248,8 +248,8 @@ def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options, prefix)
     burnin = int(options["MCMC"]["burnin"])
     nthreads = int(options["RunOptions"]["nthreads"])
     chunks = int(options["IO"]["chunks"])
+    relax = bool(options["RunOptions"]["relax"])
 
-    print type(nwalkers), type(nsamples), type(burnin)
     start = time.time()
     h = HaloModel(rmin=r[0], rmax=r[-1], rnum=len(r), **kwargs)
     h.corr_gal
@@ -259,7 +259,7 @@ def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options, prefix)
                    nwalkers, nsamples, burnin, nthreads, blobs,
                    prefix + "chain", chunks,
                    options["IO"]["verbose"],
-                   sd=sd, covar=cov, quantity=quantity)
+                   sd=sd, covar=cov, quantity=quantity, relax=relax)
 
     acceptance = np.mean(s.acceptance_fraction)
     chain = s.flatchain

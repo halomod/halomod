@@ -21,7 +21,8 @@ import time
 # The Model
 #===============================================================================
 
-def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=None, verbose=0):
+def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=None,
+          verbose=0, relax=False):
     """
     Calculate the log probability of a HaloModel model given correlation data
     
@@ -58,6 +59,12 @@ def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=Non
         
     verbose : int, default 0
         How much to write to screen.
+        
+    relax : bool, default False
+        If relax is true, the call to get the quantity is wrapped in a try:except:.
+        If an error occurs, the lognorm is set to -inf, rather than raising an exception.
+        This can be helpful if a flat prior is used on cosmology, for which extreme
+        values can sometimes cause exceptions. 
         
     Returns
     -------
@@ -98,11 +105,18 @@ def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=Non
                 hoddict[attr] = val
 
         h.update(**hoddict)
+        try:
+            q = getattr(h, quantity)
+        except:
+            print "WARNING: PARAMETERS FAILED, RETURNING INF: ", zip(attrs, parm)
+            return -np.inf, blobs
+
         # The logprob of the model
         if covar is not None:
-            ll += _lognormpdf(getattr(h, quantity), data, covar)
+            ll += _lognormpdf(q, data, covar)
         else:
-            ll += np.sum(norm.logpdf(data, loc=getattr(h, quantity), scale=sd))
+            ll += np.sum(norm.logpdf(data, loc=q, scale=sd))
+
     if verbose > 0:
         print parm
         print "Likelihood: ", ll
@@ -121,7 +135,7 @@ def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=Non
 def fit_hod(data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
             nthreads=0, blobs=None, filename=None, chunks=None, verbose=0,
             find_peak_first=False, sd=None, covar=None,
-            quantity="projected_corr_gal", **kwargs):
+            quantity="projected_corr_gal", relax=False, **kwargs):
     """
     Estimate the parameters in :attr:`.priors` using AIES MCMC.
     
@@ -187,6 +201,12 @@ def fit_hod(data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
     covar : 2d array, default ``None``
         Covariance matrix of the data. Either `sd` or `covar` must be given,
         but if both are given, `covar` takes precedence.
+        
+    relax : bool, default False
+        If relax is true, the call to get the quantity is wrapped in a try:except:.
+        If an error occurs, the lognorm is set to -inf, rather than raising an exception.
+        This can be helpful if a flat prior is used on cosmology, for which extreme
+        values can sometimes cause exceptions. 
         
     \*\*kwargs :
         Arguments passed to :func:`fit_hod_minimize` if :attr:`find_peak_first`
@@ -279,9 +299,9 @@ def fit_hod(data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
         nthreads = 1
 
     if covar is not None:
-        arglist = [priors, h, attrs, data, quantity, blobs, None, covar, verbose]
+        arglist = [priors, h, attrs, data, quantity, blobs, None, covar, verbose, relax]
     else:
-        arglist = [priors, h, attrs, data, quantity, blobs, sd, None, verbose]
+        arglist = [priors, h, attrs, data, quantity, blobs, sd, None, verbose, relax]
     sampler = emcee.EnsembleSampler(nwalkers, ndim, model,
                                     args=arglist,
                                     threads=nthreads)
