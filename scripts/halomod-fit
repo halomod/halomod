@@ -186,22 +186,20 @@ def param_setup(**params):
                 priors += set_prior(k[:-6] + ":" + kk, vv)
 
         # Now cosmo params
-        from hod._covardata import data
-        data = data[covar_data]
+        from halomod._covardata import data
+        data = data[covdata]
         all_params = ["omegab_h2", "omegac_h2", "n", "sigma_8", "H0"]
-        cov_params = [k for k in cov_vars]
-        var_params = [k for k in var_vars]
 
-        if cov_params:
-            indices = [cov_params.index(v) for v in cov_params]
-            data['cov'] = data['cov'][indices, indices]
+        if cov_vars:
+            indices = [all_params.index(k) for k in cov_vars]
+            data['cov'] = data['cov'][indices, :][:, indices]
             data['mean'] = data['mean'][indices]
-            priors += [mc.MultiNorm(cov_params, data['mean'], data['cov'])]
-        if var_params:
-            indices = [var_params.index(v) for v in var_params]
-            data['cov'] = data['cov'][indices, indices]
+            priors += [mc.MultiNorm([all_params[i] for i in indices], data['mean'], data['cov'])]
+        if var_vars:
+            indices = [all_params.index(v) for v in var_vars]
+            data['cov'] = data['cov'][indices, :][:, indices]
             data['mean'] = data['mean'][indices]
-            priors += [mc.Normal(use_params[i], data['mean'][i], np.sqrt(data['cov'][i, i])) for i in range(len(data['mean']))]
+            priors += [mc.Normal(all_params[i], data['mean'][i], np.sqrt(data['cov'][i, i])) for i in range(len(data['mean']))]
 
     # A list of all the names of parameters.
     keys = []
@@ -209,8 +207,7 @@ def param_setup(**params):
         if isinstance(prior.name, basestring):
             keys += [prior.name]
         else:
-
-            keys += prior.name.split(":")[-1]
+            keys += prior.name
 
     # Get the guess
     guess = []
