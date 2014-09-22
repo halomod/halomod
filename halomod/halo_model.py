@@ -342,12 +342,12 @@ class HaloModel(MassFunction):
         return c / self.mean_gal_den ** 2
 
     @cached_property("r", "M", "dndm", "n_cen", "n_sat", "hod", "mean_dens", "delta_halo",
-                     "mean_gal_dens", "_corr_gal_1h_cs", "_corr_gal_1h_ss")
+                     "mean_gal_den", "_corr_gal_1h_cs", "_corr_gal_1h_ss")
     def corr_gal_1h(self):
         """The 1-halo term of the galaxy correlations"""
         if self.profile.has_lam:
             rho = self.profile.rho(self.r, self.M, norm="m")
-            lam = self.profile.lam(self.r, self.M)
+            lam = self.profile.lam(self.r, self.M, norm="m")
             c = fort.corr_gal_1h(nr=len(self.r),
                                  nm=len(self.M),
                                  r=self.r,
@@ -372,12 +372,21 @@ class HaloModel(MassFunction):
     def corr_gal_2h(self):
         """The 2-halo term of the galaxy correlation"""
         u = self.profile.u(np.exp(self.lnk), self.M , norm='m')
-        return thalo(self.halo_exclusion, self.scale_dependent_bias,
+        corr_2h = np.zeros_like(self.r)
+        corr_2h[self.r > 0.67] = thalo(self.halo_exclusion, self.scale_dependent_bias,
                      self.M, self.bias, self.n_tot,
                      self.dndm, self.lnk,
                      np.exp(self.matter_power), u, self.r, self.dm_corr,
                      self.mean_gal_den, self.delta_halo,
-                     self.mean_dens, self.nthreads_2halo)
+                     self.mean_dens, self.nthreads_2halo)[self.r > 0.67]
+        return corr_2h
+#         return thalo(self.halo_exclusion, self.scale_dependent_bias,
+#                     self.M, self.bias, self.n_tot,
+#                     self.dndm, self.lnk,
+#                     np.exp(self.matter_power), u, self.r, self.dm_corr,
+#                     self.mean_gal_den, self.delta_halo,
+#                     self.mean_dens, self.nthreads_2halo)
+    # FIXME
 
     @cached_property("corr_gal_1h", "corr_gal_2h")
     def  corr_gal(self):

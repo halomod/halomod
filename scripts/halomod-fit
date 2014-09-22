@@ -209,6 +209,8 @@ def param_setup(**params):
         else:
             keys += prior.name
 
+    keys = [k.split(":")[1] for k in keys]
+
     # Get the guess
     guess = []
     for k in keys:
@@ -236,7 +238,7 @@ def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options, prefix)
     kwargs = options["Model"]
     for k in kwargs:
         try:
-            kwargs[k] = float(kwargs[k])
+            kwargs[k] = json.loads(kwargs[k])
         except:
             pass
 

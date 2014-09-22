@@ -111,6 +111,7 @@ def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=Non
             print "WARNING: PARAMETERS FAILED, RETURNING INF: ", zip(attrs, parm)
             return -np.inf, blobs
 
+        print "THE ACTUAL MODEL RETURNS: ", q
         # The logprob of the model
         if covar is not None:
             ll += _lognormpdf(q, data, covar)
@@ -296,7 +297,9 @@ def fit_hod(data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
 
     # If using CAMB, nthreads MUST BE 1
     if h.transfer_fit == "CAMB":
-        nthreads = 1
+        for pp in h.pycamb_dict:
+            if pp in attrs:
+                nthreads = 1
 
     if covar is not None:
         arglist = [priors, h, attrs, data, quantity, blobs, None, covar, verbose, relax]
@@ -496,14 +499,7 @@ class MultiNorm(object):
         self.cov = cov
 
 def _lognormpdf(x, mu, S):
-    """ Calculate gaussian probability density of x, when x ~ N(mu,sigma) """
-    nx = len(S)
-    tmp = -0.5 * (nx * np.log(2 * np.pi) + np.linalg.slogdet(S)[1])
-
+    """ Log of Multinormal PDF at x, up to scale-factors."""
     err = x - mu
-    if (sp.issparse(S)):
-        numerator = spln.spsolve(S, err).T.dot(err)
-    else:
-        numerator = np.linalg.solve(S, err).T.dot(err)
+    return -0.5 * np.linalg.solve(S, err).T.dot(err)
 
-    return tmp - numerator

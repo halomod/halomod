@@ -229,7 +229,7 @@ class Profile(object):
 
     def u(self, k, m, norm=None, c=None, coord="k"):
         """
-        The fourier-transform of the density profile 
+        The (optionally normalised) Fourier-transform of the density profile 
         
         Parameters
         ----------

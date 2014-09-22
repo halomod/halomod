@@ -275,7 +275,11 @@ module twohalo_calc
 
         integrand = 0.d0
         where (m<mlim) integrand = m*ntot*dndm
-        call simps(log(m(2))-log(m(1)),integrand,ng_dash)
+        if (m(0)>0.d0)then
+            call simps(log(m(2))-log(m(1)),integrand,ng_dash)
+        else
+            ng_dash=0.d0
+        end if
     end function
 
     subroutine overlapping_halo_prob(r,n1,n2,outersum,res)
@@ -302,9 +306,6 @@ module twohalo_calc
 
         out = ((3 * m) / (4 * pi * mean_dens * dhalo)) ** (1. / 3.)
     end subroutine virial_radius
-    ! I think the best way to do this is to have a subroutine for each type
-    ! of calculation. So we could have no exclusion, but have it scale-dependent
-    ! or not, etc.
 
     subroutine twohalo(nm,nk,nr,m,bias,ntot,dndm,lnk,dmpower,u,r,dmcorr,nbar,&
                        &dhalo,rhob,exc_type,scale_dep,n_cores,corr)
@@ -326,12 +327,12 @@ module twohalo_calc
         integer :: i,j, k
 
         !!! VARIABLES FOR NG-MATCHED AND ELLIPSOIDAL !!!
-        real(8) :: rvir(nm),ngdash(nr),mlim,val
+        real(8) :: rvir(nm),ngdash(nr),mlim,val,preval
         real(8), allocatable :: prob(:,:), outersum(:,:), integprod(:,:),integprod2(:,:)
         integer :: final_index
 
         !!! VARIABLES FOR SCHNEIDER !!!
-        real(8) :: x(nk), window(nk)
+        real(8),allocatable :: x(:), window(:)
 
         ! General quantities
         !integrand = 0.d0
@@ -352,6 +353,7 @@ module twohalo_calc
                 integprod(:,i) =  ng_integrand(i)*ng_integrand
             end do
         elseif(exc_type==2)then !Schneider
+            allocate(x(nk),window(nk))
             x = exp(lnk)*3.d0
             window = (3 * (sin(x) - x * cos(x)) / x ** 3)
         endif
@@ -371,20 +373,37 @@ module twohalo_calc
                 call dblsimps(prob,nm,nm,dlogm,dlogm,ngdash(j))
                 ngdash(j) = sqrt(ngdash(j))
 
+                !!! TEMPORARY OUTPUT !!!
+              !  if (r(j)<40.0.and.r(j)>39.0) then
+
+!                    open(UNIT=12,FILE="halohalo_dump_steven.txt")
+!                    write(*,*) "USING R = ", r(j)
+!                    do i=1,nm
+!                        call simps(dlogm, integrand_m(1:i),val)
+!                        write(12,*) val/ngdash(j), m(i),dndm(i), ntot(i), bias(i), scale_dep_bias(dmcorr(j))*bias(i)
+!                    end do
+!                    close(12)
+!                end if
+                !!!!!!!
+
                 if(exc_type==4)then !!ng-matched
 
                     !! GET INDEX WHERE ng_integral goes bigger than ng
                     val = ng_integrand(1)*dlogm/2
                     do i=2,nm-1
-                        val = val + 2*ng_integrand(i)*dlogm/2
+                        val = val + ng_integrand(i)*dlogm/2
                         if (val.ge.ngdash(j)) exit
+                        val = val + ng_integrand(i)*dlogm/2
                     end do
                     if (i==nm-1)then
-                        val = val + ng_integrand(nm)
+                        val = val + ng_integrand(nm)*dlogm/2
                         i = nm
                     end if
                     final_index = i
-                    mlim = m(final_index)
+
+                    preval = val - (ng_integrand(i) + ng_integrand(i-1))*dlogm/2
+                    mlim = m(final_index-1) + (m(final_index)-m(final_index-1))*(ngdash(j)-preval)/(val-preval)
+!                    write(*,*) "ngdash: ", r(j), ngdash(j), log10(mlim), (ng_integrand(i) + ng_integrand(i-1))*dlogm/2
                 else
                     prob = prob/integprod
                 end if
@@ -426,16 +445,9 @@ module twohalo_calc
         end if
 
         if(exc_type.ge.3)then
-            !open(10,FILE="ngdash.dat")
-            do i=1,nr
-                if(r(i).lt.20.d0)then
-                    corr(i) = (ngdash(i)/nbar)**2*(1.d0+corr(i))-1.d0
-                    if(corr(i)<-0.d0) corr(i) = 1e-15
-                end if
-             !   write(10,*) r(i), ngdash(i)
-            end do
-            !close(10)
+            corr = (ngdash/nbar)**2*(1.d0+corr)-1.d0
         end if
+
     end subroutine
     ! ============== UTILITIES =================================================
 subroutine dblsimps(X,nx,ny, dx, dy,out)
@@ -485,16 +497,22 @@ subroutine dblsimps(X,nx,ny, dx, dy,out)
         real(8) :: endbit
 
         n = size(func)
-
-        if (mod(n,2)==0) then
-            end =  n-1
-            endbit = (func(n)+func(n-1))*dx/2
+        if(n==1)then
+            val = 0.d0
+            return
+        else if (n==2) then
+            val = (func(1) + func(2))*dx/2
         else
-            end=n
-            endbit=0.d0
-        end if
+            if (mod(n,2)==0) then
+                end =  n-1
+                endbit = (func(n)+func(n-1))*dx/2
+            else
+                end=n
+                endbit=0.d0
+            end if
 
-        val = sum(func(1:end-2:2) + func(3:end:2) + 4*func(2:end-1:2))
-        val = val*dx/3 + endbit
+            val = sum(func(1:end-2:2) + func(3:end:2) + 4*func(2:end-1:2))
+            val = val*dx/3 + endbit
+        end if
     end subroutine simps
 end module
