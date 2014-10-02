@@ -297,7 +297,6 @@ def read_config(fname):
         res["CosmoParams"]["covar_data"] = ""
     return res
 
-
 if __name__ == "__main__":
     if DEBUG:
         sys.argv.append("-v")

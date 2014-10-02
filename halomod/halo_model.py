@@ -181,10 +181,13 @@ class HaloModel(MassFunction):
 #===============================================================================
     @cached_property("rmin", "rmax", "rnum")
     def r(self):
-        if self.rlog:
-            return np.exp(np.linspace(np.log(self.rmin), np.log(self.rmax), self.rnum))
+        if type(self.rmin) == list or type(self.rmin) == np.ndarray:
+            self.r = np.array(self.rmin)
         else:
-            return np.linspace(self.rmin, self.rmax, self.rnum)
+            if self.rlog:
+                return np.exp(np.linspace(np.log(self.rmin), np.log(self.rmax), self.rnum))
+            else:
+                return np.linspace(self.rmin, self.rmax, self.rnum)
 
     @cached_property("hod_model", "hod_params")
     def hod(self):
