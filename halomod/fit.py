@@ -17,6 +17,7 @@ from multiprocessing import cpu_count
 import scipy.sparse as sp
 import scipy.sparse.linalg as spln
 import time
+import cosmolopy as cp
 #===============================================================================
 # The Model
 #===============================================================================
@@ -90,7 +91,7 @@ def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=Non
             ll += _lognormpdf(np.array(parm[indices]), np.array(prior.means),
                               prior.cov)
 
-
+    h_before = h.h
     if not np.isinf(ll):
         # Rebuild the hod dict from given vals
         # Any attr starting with <name>: is put into a dictionary.
@@ -105,6 +106,12 @@ def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=Non
                 hoddict[attr] = val
 
         h.update(**hoddict)
+
+        # Get r correct (with h)
+        if h_before != h.h:
+            h.update(rmin=h.rmin * h_before / h.h,
+                     rmax=h.rmax * h_before / h.h)
+
         try:
             q = getattr(h, quantity)
         except:
@@ -209,6 +216,13 @@ def fit_hod(data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
         This can be helpful if a flat prior is used on cosmology, for which extreme
         values can sometimes cause exceptions. 
         
+    dependent_params : ``func``, default None
+        A function which returns a dictionary of values for parameters which
+        are dependent on combinations of other parameters for a given dataset.
+        The signature is ``func(h,dict)``, where h is an instance of `HaloModel`
+        pre-updating with new parameters, and dict is the dictionary that will
+        serve to update `h` (pre-update with this function).
+        
     \*\*kwargs :
         Arguments passed to :func:`fit_hod_minimize` if :attr:`find_peak_first`
         is ``True``.
@@ -302,9 +316,12 @@ def fit_hod(data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
                 nthreads = 1
 
     if covar is not None:
-        arglist = [priors, h, attrs, data, quantity, blobs, None, covar, verbose, relax]
+        arglist = [priors, h, attrs, data, quantity, blobs, None, covar, verbose,
+                   relax]
     else:
-        arglist = [priors, h, attrs, data, quantity, blobs, sd, None, verbose, relax]
+        arglist = [priors, h, attrs, data, quantity, blobs, sd, None, verbose,
+                   relax]
+
     sampler = emcee.EnsembleSampler(nwalkers, ndim, model,
                                     args=arglist,
                                     threads=nthreads)
@@ -425,8 +442,8 @@ def fit_hod_minimize(data, priors, h, sd=None, covar=None, guess=[], verbose=0,
 
     guess = np.array(guess)
 
-    def negmod(parm, priors, h, attrs, data, sd, covar, verbose):
-        return -model(parm, priors, h, attrs, data, sd, covar, verbose)
+    def negmod(*args):
+        return -model(*args)
 
     res = minimize(negmod, guess, (priors, h, attrs, data, sd, covar, verbose), tol=tol,
                    method=method, options={"disp":disp, "maxiter":maxiter})
@@ -437,6 +454,22 @@ def fit_hod_minimize(data, priors, h, sd=None, covar=None, guess=[], verbose=0,
 #          "omegav", "omegak", "H0", "M_1", 'alpha', "M_min", 'gauss_width',
 #          'M_0', 'fca', 'fcb', 'fs', 'delta', 'x', 'omegab_h2', 'omegac_h2', 'h']
 
+#===============================================================================
+# Some helpful functions to pass as dependent_params
+#===============================================================================
+def change_r(h, d, **kwargs):
+    """
+    Modifies the r...
+    """
+    input_z = kwargs['z']
+    h.update(**d)
+    r = cp.distance.comoving_distance(input_z, **h.cosmolopy_dict) * h.h
+    # return rmin as vector, so we use correct values, not just logspace.
+    return {"rmin":r}
+
+#===============================================================================
+# Classes for different prior models
+#===============================================================================
 class Uniform(object):
     """
     A Uniform prior.

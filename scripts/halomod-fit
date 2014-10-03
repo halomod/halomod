@@ -23,6 +23,7 @@ import time
 from halomod import HaloModel
 import errno
 from os.path import join
+import cosmolopy as cp
 
 __all__ = []
 __version__ = 0.1
@@ -209,7 +210,7 @@ def param_setup(**params):
         else:
             keys += prior.name
 
-    keys = [k.split(":")[1] for k in keys]
+    keys = [k.split(":")[-1] for k in keys]
 
     # Get the guess
     guess = []
@@ -250,7 +251,15 @@ def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options, prefix)
     relax = bool(options["RunOptions"]["relax"])
 
     start = time.time()
-    h = HaloModel(rmin=r[0], rmax=r[-1], rnum=len(r), **kwargs)
+    h = HaloModel(**kwargs)
+    # The following is a little hacky, but will do for low-redshift data
+    # Need to get correct units of r, transformed with THIS h.
+    func = None
+    if "H0" not in keys and "h" not in keys:
+        h.update(rmin=r.min() * h.h, rmax=r.max() * h.h, rnum=len(r))
+    else:
+        h.update(rnum=len(r))  # Everything else will be updated anyhow.
+
     h.corr_gal
 
     prefix = join(options["IO"]["outdir"], prefix)
