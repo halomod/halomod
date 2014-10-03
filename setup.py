@@ -30,7 +30,7 @@ fort = Extension('halomod.fort.routines', ['halomod/fort/routines.f90'],
 
 corr_2h = Extension('halomod.fort.twohalo', ['halomod/fort/twohalo.f90'],
                     extra_f90_compile_args=['-Wall', '-Wtabs', '-fopenmp'],
-                    f2py_options=['only:', "power_to_corr", "twohalo", ":"],
+                    f2py_options=['only:', "power_to_corr", "twohalo", "dblsimps", ":"],
                     libraries=['gomp']
                     )
 

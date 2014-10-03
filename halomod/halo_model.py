@@ -16,6 +16,7 @@ import hod
 from bias import get_bias, tinker10
 from fort.routines import hod_routines as fort
 from twohalo_wrapper import twohalo_wrapper as thalo
+from twohalo_wrapper import dblsimps
 
 from copy import deepcopy
 
@@ -464,24 +465,10 @@ class HaloModel(MassFunction):
 
         To integrate perform a substitution y = x - r_p.
         """
-        # We make a copy of the current instance but increase the number of
-        # r and extend the range
-
-    #    cr_max = max(80.0, 5 * self.r.max())
-
-        # This is a bit of a hack, but make sure self has all parent attributes
-        # self.dndm; self.matter_power
         self.dndm
         self.matter_power
 
-        # c = deepcopy(self)
-#
-   #     rnum = int((np.log10(cr_max) - np.log10(self.r.min())) / 0.05) + 1
-        # c.update(rmin=self.r.min(), rmax=cr_max, rnum=rnum)
 
-
-  #      print "corr_gal: ", c.corr_gal[10:]
-        # fit = spline(np.log(c.r[c.corr_gal > 0]), np.log(c.corr_gal[c.corr_gal > 0]), k=3)
         fit = spline(np.log(self.r[self.corr_gal > 0]), np.log(self.corr_gal[self.corr_gal > 0]), k=3)
         p = np.zeros(len(self.r))
 
@@ -508,7 +495,63 @@ class HaloModel(MassFunction):
         frac /= (a - 1) ** 2 * (-1 + 2 * a + np.sqrt(5 - 8 * a + 4 * a ** 2))
         return frac
 
+    def angular_corr_gal(self, f, theta_min, theta_max, theta_num, logtheta=True,
+                         x_min=0, x_max=10000):
+        """
+        Calculate the angular correlation function w(theta).
+        
+        From Blake+08, Eq. 33
+        
+        Parameters
+        ----------
+        f : function
+            A function of a single variable which returns the normalised
+            quantity of sources at a given comoving distance x.
+            
+        theta_min : float
+            Minimum theta value (in radians)
+            
+        theta_max : float
+            Maximum theta value (in radians)
+            
+        theta_num : int
+            Number of theta values
+            
+        logtheta : bool, True
+            Whether to use logspace for theta values
+        """
+        # Set up theta values
+        if theta_min <= 0 or theta_min >= theta_max:
+            raise ValueError("theta_min must be > 0 and < theta_max")
+        if theta_max >= 180.0:
+            raise ValueError("theta_max must be < pi")
 
+        if logtheta:
+            theta = 10 ** np.linspace(np.log10(theta_min), np.log10(theta_max), theta_num)
+        else:
+            theta = np.linspace(theta_min, theta_max, theta_num)
+
+        # Initialise result
+        w = np.zeros_like(theta)
+
+        # Setup vectors u^2,x^2 and f(x)
+        u = np.linspace(0, 100, 500)
+        u2 = u * u
+        x = np.linspace(x_min, x_max, 500)
+        x2 = x * x
+        xi = spline(self.r, self.corr_gal, k=3)
+        du = u[1] - u[0]
+        dx = x[1] - x[0]
+        fx = f(x) ** 2
+        del x
+
+        for i, th in enumerate(theta):
+            # Set up matrix integrand (for double-integration).
+            r = np.sqrt(np.add.outer(th * th * x2, u2)).flatten()  # # shape is len(x2),len(u2)
+            integrand = np.einsum("ij,i->ij", xi(r).reshape((len(x2), len(u2))), fx)
+            w[i] = 2 * dblsimps(integrand, dx, du)
+
+        return w, theta
 class NGException(Exception):
     pass
 
