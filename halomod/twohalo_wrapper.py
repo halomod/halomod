@@ -72,3 +72,6 @@ def twohalo_wrapper(excl, sdb, m, bias, ntot, dndm, lnk, dmpower, u, r, dmcorr,
                          dhalo, rhob, exc_type[excl], sdb, ncores)
 
     return corr
+
+def dblsimps(X, dx, dy):
+    return thalo.dblsimps(X, dx, dy)

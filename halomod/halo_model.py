@@ -531,27 +531,39 @@ class HaloModel(MassFunction):
         else:
             theta = np.linspace(theta_min, theta_max, theta_num)
 
+        if x_min <= 0 or x_min >= x_max:
+            raise ValueError("x_min must be >0 and < x_max")
+
+
         # Initialise result
         w = np.zeros_like(theta)
 
+        umin = -3
+        umax = 2.2
+
+        rmax = np.sqrt((10 ** umax) ** 2 + theta_max ** 2 * x_max ** 2)
+        if rmax > 1.2 * self.rmax:
+            print "WARNING: likely bad extrapolation in angular c.f. rmax = %s >> %s" % (rmax, self.rmax)
+
         # Setup vectors u^2,x^2 and f(x)
-        u = np.linspace(0, 100, 500)
+        u = np.logspace(umin, umax, 500)
         u2 = u * u
-        x = np.linspace(x_min, x_max, 500)
+        x = np.logspace(np.log10(x_min), np.log10(x_max), 500)
         x2 = x * x
-        xi = spline(self.r, self.corr_gal, k=3)
         du = u[1] - u[0]
         dx = x[1] - x[0]
-        fx = f(x) ** 2
-        del x
+        xfx = x * f(x) ** 2  # multiply by x because of log integration
+
+        # Set up spline for xi(r)
+        xi = spline(self.r, self.corr_gal, k=3)
 
         for i, th in enumerate(theta):
             # Set up matrix integrand (for double-integration).
-            r = np.sqrt(np.add.outer(th * th * x2, u2)).flatten()  # # shape is len(x2),len(u2)
-            integrand = np.einsum("ij,i->ij", xi(r).reshape((len(x2), len(u2))), fx)
-            w[i] = 2 * dblsimps(integrand, dx, du)
+            r = np.sqrt(np.add.outer(th * th * x2, u2)).flatten()  # # needs to be 1d for spline eval
+            integrand = np.einsum("ij,i,j->ij", xi(r).reshape((len(x2), len(u2))), xfx, u)  # reshape here for dblsimps, mult by u for log int
+            w[i] = dblsimps(integrand, dx, du)
 
-        return w, theta
+        return w * 2 * np.log(10) ** 2, theta
 class NGException(Exception):
     pass
 
