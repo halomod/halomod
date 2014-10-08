@@ -83,7 +83,7 @@ def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=Non
         if isinstance(prior, Uniform):
             index = attrs.index(prior.name)
             if parm[index] < prior.low or parm[index] > prior.high:
-                ll = -np.inf
+                return -np.inf, blobs
 
         elif isinstance(prior, Normal):
             index = attrs.index(prior.name)
