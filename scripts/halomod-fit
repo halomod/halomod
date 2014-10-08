@@ -258,11 +258,8 @@ def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options, prefix)
 
     # The following is a little hacky, but will do for low-redshift data
     # Need to get correct units of r, transformed with THIS h.
-    func = None
-    if "H0" not in keys and "h" not in keys:
-        h.update(rmin=r.min() * h.h, rmax=r.max() * h.h, rnum=len(r))
-    else:
-        h.update(rnum=len(r))  # Everything else will be updated anyhow.
+    h.update(rmin=r.min() * h.h, rmax=r.max() * h.h, rnum=len(r))
+
 
     h.corr_gal
 
