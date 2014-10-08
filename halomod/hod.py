@@ -2,6 +2,7 @@
 import numpy as np
 import scipy.special as sp
 import sys
+import copy
 _allmodels = ["Zehavi05", "Zheng05", "Contreras"]
 
 def get_hod(hod):
@@ -50,7 +51,7 @@ class HOD(object):
             if k not in self._defaults:
                 raise ValueError("%s is not a valid argument for the HOD" % k)
 
-        self.params = self._defaults
+        self.params = copy.copy(self._defaults)
         self.params.update(model_parameters)
         self._central = central
 
