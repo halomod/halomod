@@ -23,7 +23,7 @@ import cosmolopy as cp
 #===============================================================================
 
 def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=None,
-          verbose=0, relax=False):
+          verbose=0, store_class=False, relax=False):
     """
     Calculate the log probability of a HaloModel model given correlation data
     
@@ -60,6 +60,9 @@ def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=Non
         
     verbose : int, default 0
         How much to write to screen.
+        
+    store_class : bool, default False
+        If True, return an ordered list of HaloModel objects. 
         
     relax : bool, default False
         If relax is true, the call to get the quantity is wrapped in a try:except:.
@@ -109,8 +112,8 @@ def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=Non
 
         # Get r correct (with h)
         if h_before != h.h:
-            h.update(rmin=h.rmin * h_before / h.h,
-                     rmax=h.rmax * h_before / h.h)
+            h.update(rmin=h.rmin * h.h / h_before,
+                     rmax=h.rmax * h.h / h_before)
 
         try:
             q = getattr(h, quantity)
@@ -118,7 +121,6 @@ def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=Non
             print "WARNING: PARAMETERS FAILED, RETURNING INF: ", zip(attrs, parm)
             return -np.inf, blobs
 
-        print "THE ACTUAL MODEL RETURNS: ", q
         # The logprob of the model
         if covar is not None:
             ll += _lognormpdf(q, data, covar)
@@ -129,8 +131,10 @@ def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=Non
         print parm
         print "Likelihood: ", ll
 
-    if blobs is not None:
+    if blobs is not None or store_class:
         out = []
+        if store_class:
+            out.append(h)
         for b in blobs:
             if ":" not in b:
                 out.append(getattr(h, b))
@@ -143,7 +147,7 @@ def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=Non
 def fit_hod(data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
             nthreads=0, blobs=None, filename=None, chunks=None, verbose=0,
             find_peak_first=False, sd=None, covar=None,
-            quantity="projected_corr_gal", relax=False, **kwargs):
+            quantity="projected_corr_gal", store_class=False, relax=False, **kwargs):
     """
     Estimate the parameters in :attr:`.priors` using AIES MCMC.
     
@@ -209,7 +213,10 @@ def fit_hod(data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
     covar : 2d array, default ``None``
         Covariance matrix of the data. Either `sd` or `covar` must be given,
         but if both are given, `covar` takes precedence.
-        
+    
+    store_class : bool, default False
+        If True, return an ordered list of HaloModel objects. 
+    
     relax : bool, default False
         If relax is true, the call to get the quantity is wrapped in a try:except:.
         If an error occurs, the lognorm is set to -inf, rather than raising an exception.
@@ -317,10 +324,10 @@ def fit_hod(data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
 
     if covar is not None:
         arglist = [priors, h, attrs, data, quantity, blobs, None, covar, verbose,
-                   relax]
+                   store_class, relax]
     else:
         arglist = [priors, h, attrs, data, quantity, blobs, sd, None, verbose,
-                   relax]
+                   store_class, relax]
 
     sampler = emcee.EnsembleSampler(nwalkers, ndim, model,
                                     args=arglist,

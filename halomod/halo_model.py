@@ -376,13 +376,12 @@ class HaloModel(MassFunction):
     def corr_gal_2h(self):
         """The 2-halo term of the galaxy correlation"""
         u = self.profile.u(np.exp(self.lnk), self.M , norm='m')
-        corr_2h = np.zeros_like(self.r)
-        corr_2h[self.r > 0.67] = thalo(self.halo_exclusion, self.scale_dependent_bias,
+        corr_2h = thalo(self.halo_exclusion, self.scale_dependent_bias,
                      self.M, self.bias, self.n_tot,
                      self.dndm, self.lnk,
                      np.exp(self.matter_power), u, self.r, self.dm_corr,
                      self.mean_gal_den, self.delta_halo,
-                     self.mean_dens, self.nthreads_2halo)[self.r > 0.67]
+                     self.mean_dens, self.nthreads_2halo)
         return corr_2h
 #         return thalo(self.halo_exclusion, self.scale_dependent_bias,
 #                     self.M, self.bias, self.n_tot,

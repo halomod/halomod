@@ -192,4 +192,3 @@ def populate(centres, masses, delta_halo, omegam, z, profile, cm_relation,
     print "Took ", time.time() - start, " seconds, or ", (time.time() - start) / nhalos_with_gal, " each."
     print "z: ", z, "Centrals: ", float(len(masses)) / np.sum(cgal), "MeanGal: ", np.mean(sgal + 1) , "MostGal: ", sgal.max() + 1
     return allpos
-

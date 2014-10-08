@@ -24,6 +24,8 @@ from halomod import HaloModel
 import errno
 from os.path import join
 import cosmolopy as cp
+from numbers import Number
+import pickle
 
 __all__ = []
 __version__ = 0.1
@@ -249,9 +251,11 @@ def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options, prefix)
     nthreads = int(options["RunOptions"]["nthreads"])
     chunks = int(options["IO"]["chunks"])
     relax = bool(options["RunOptions"]["relax"])
+    store_class = bool(options["RunOptions"]["store_class"])
 
     start = time.time()
     h = HaloModel(**kwargs)
+
     # The following is a little hacky, but will do for low-redshift data
     # Need to get correct units of r, transformed with THIS h.
     func = None
@@ -267,21 +271,49 @@ def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options, prefix)
                    nwalkers, nsamples, burnin, nthreads, blobs,
                    prefix + "chain", chunks,
                    options["IO"]["verbose"],
-                   sd=sd, covar=cov, quantity=quantity, relax=relax)
+                   sd=sd, covar=cov, quantity=quantity, store_class=store_class,
+                   relax=relax)
 
     acceptance = np.mean(s.acceptance_fraction)
     chain = s.flatchain
 
-    if blobs:
-        blobdata = np.array(s.blobs)
-        s = blobdata.shape
-        print "SHAPE OF BLOBDATA: ", s
-        blobdata = blobdata.reshape(s[0] * s[1], s[2])
-        print "MOdified shape of blobs: ", blobdata.shape
-        chain = np.hstack((chain, blobdata))
-        for b in blobs:
-            keys.append(b.split(":")[-1])
+    # If storing the whole class, add the label to front of blobs
+    if store_class:
+        try:
+            blobs = ["HaloModel"] + blobs
+        except TypeError:
+            blobs = ["HaloModel"]
 
+    # If we have any blobs, write them out
+    if blobs:
+        # All floats go together.
+        # Note s.blobs has structure [[[<nblobs>]*<nwalkers]*<nsamples>]
+        ind_float = [i for i, b in enumerate(s.blobs[0][0]) if isinstance(b, Number)]
+        numblobs = np.array([[[b[i] for i in ind_float] for b in c] for c in s.blobs])
+
+        # Everything else gets treated with pickle
+        pickledict = {}
+        if len(ind_float) != len(blobs):
+            ind_pickle = [i for i, b in enumerate(s.blobs[0][0]) if not isinstance(b, Number)]
+            for i in ind_pickle:
+                pickledict[blobs[i]] = []
+                for c in s.blobs:
+                    pickledict[blobs[i]].append([b[i] for b in c])
+
+        # Write out numblobs
+        sh = numblobs.shape
+        numblobs = numblobs.reshape(sh[0] * sh[1], sh[2])
+        np.savetxt(prefix + "derived_parameters", numblobs, header="\t".join(blobs[i] for i in ind_float))
+
+        # Write out pickle blobs
+        if pickledict:
+            with open(prefix + "blobs", 'w') as f:
+                pickle.dump(pickledict, f)
+
+    # Write out final chain
+    np.savetxt(prefix + "chain", chain, header="\t".join(keys))
+
+    # Write out the logfile
     with open(prefix + "log", 'w') as f:
         f.write("Average time: %s\n" % ((time.time() - start) / (nwalkers * nsamples + nwalkers * burnin)))
         f.write("Mean values = %s\n" % np.mean(chain, axis=0))
@@ -289,9 +321,11 @@ def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options, prefix)
         f.write("Acceptance Fraction: %s\n" % acceptance)
         f.write("Nsamples:  %s\n" % nsamples)
         f.write("Nwalkers: %s\n" % nwalkers)
+        f.write("Acorr: %s\n" % s.acor)
 
-    # Write out final chain
-    np.savetxt(prefix + "chain", chain, header="\t".join(keys))
+    # Write out likelihoods
+    np.savetxt(prefix + "likelihoods", np.array(s.lnprobability).T)
+
 
 #===============================================================================
 # READ CONFIG

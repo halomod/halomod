@@ -8,7 +8,7 @@ from numpy.distutils.core import setup, Extension
 import os
 import sys
 
-version = '1.2.0'
+version = '1.2.2'
 
 if sys.argv[-1] == "publish":
     os.system("python setup.py install")

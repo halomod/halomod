@@ -60,6 +60,9 @@ of this code.
 
 HISTORY
 -------
+1.2.2 - October 7, 2014
+		Many changes again
+		
 1.2.1 - June 18, 2014
 		Changed package name to halomod
 		Fixed some import issues that were being covered up in my system.

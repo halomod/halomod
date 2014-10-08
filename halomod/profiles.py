@@ -405,10 +405,10 @@ class Profile(object):
         """
         The concentration-mass relation
         """
-        if isinstance(self._cm_relation, str):
+        if isinstance(self._cm_relation, basestring):
             return getattr(self, "_cm_" + self._cm_relation)(m)
         else:
-            return self._cm_relation
+            return self._cm_relation(m)
 
     def _get_r_variables(self, r, m, c=None, coord="r"):
         if c is None:
@@ -424,10 +424,6 @@ class Profile(object):
                 x = np.outer(r, c)
         else:
             if coord == "r":
-                print "r: ", r
-                print "rs: ", r_s
-                print "m: ", m
-                print "c: ", c
                 x = r / r_s
             elif coord == "x":
                 x = x
