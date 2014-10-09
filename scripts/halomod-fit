@@ -310,6 +310,9 @@ def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options, prefix)
     # Write out final chain
     np.savetxt(prefix + "chain", chain, header="\t".join(keys))
 
+    # Write out likelihoods
+    np.savetxt(prefix + "likelihoods", np.array(s.lnprobability).T)
+
     # Write out the logfile
     with open(prefix + "log", 'w') as f:
         f.write("Average time: %s\n" % ((time.time() - start) / (nwalkers * nsamples + nwalkers * burnin)))
@@ -320,8 +323,7 @@ def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options, prefix)
         f.write("Nwalkers: %s\n" % nwalkers)
         f.write("Acorr: %s\n" % s.acor)
 
-    # Write out likelihoods
-    np.savetxt(prefix + "likelihoods", np.array(s.lnprobability).T)
+
 
 
 #===============================================================================
