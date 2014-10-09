@@ -94,43 +94,52 @@ def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=Non
             ll += _lognormpdf(np.array(parm[indices]), np.array(prior.means),
                               prior.cov)
 
+    # Store initial H0 value for use in renormalising
     h_before = h.h
-    if not np.isinf(ll):
-        # Rebuild the hod dict from given vals
-        # Any attr starting with <name>: is put into a dictionary.
-        hoddict = {}
-        for attr, val in zip(attrs, parm):
-            if ":" in attr:
-                if attr.split(":")[0] not in hoddict:
-                    hoddict[attr.split(":")[0]] = {}
 
-                hoddict[attr.split(":")[0]][attr.split(":")[1]] = val
-            else:
-                hoddict[attr] = val
+    # Rebuild the hod dict from given vals
+    # Any attr starting with <name>: is put into a dictionary.
+    hoddict = {}
+    for attr, val in zip(attrs, parm):
+        if ":" in attr:
+            if attr.split(":")[0] not in hoddict:
+                hoddict[attr.split(":")[0]] = {}
 
-        h.update(**hoddict)
-
-        # Get r correct (with h)
-        if h_before != h.h:
-            h.update(rmin=h.rmin * h.h / h_before,
-                     rmax=h.rmax * h.h / h_before)
-
-        try:
-            q = getattr(h, quantity)
-        except:
-            print "WARNING: PARAMETERS FAILED, RETURNING INF: ", zip(attrs, parm)
-            return -np.inf, blobs
-
-        # The logprob of the model
-        if covar is not None:
-            ll += _lognormpdf(q, data, covar)
+            hoddict[attr.split(":")[0]][attr.split(":")[1]] = val
         else:
-            ll += np.sum(norm.logpdf(data, loc=q, scale=sd))
+            hoddict[attr] = val
+
+    # Update the actual model
+    h.update(**hoddict)
+
+    # Get r correct (with h)
+    if h_before != h.h:
+        h.update(rmin=h.rmin * h.h / h_before,
+                 rmax=h.rmax * h.h / h_before)
+
+    # Get the quantity to compare (if exceptions are raise, treat properly)
+    try:
+        q = getattr(h, quantity)
+    except Exception as e:
+        if relax:
+            print "WARNING: PARAMETERS FAILED, RETURNING INF: ", zip(attrs, parm)
+            print "EXCEPTION RAISED: ", e
+            return -np.inf, blobs
+        else:
+            raise e
+
+    # The logprob of the model
+    if covar is not None:
+        ll += _lognormpdf(q, data, covar)
+    else:
+        ll += np.sum(norm.logpdf(data, loc=q, scale=sd))
+
 
     if verbose > 0:
-        print parm
+        print "Update Dictionary: ", hoddict
         print "Likelihood: ", ll
 
+    # Get blobs to return as well.
     if blobs is not None or store_class:
         out = []
         if store_class:

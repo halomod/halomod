@@ -98,6 +98,7 @@ USAGE
         r, data, sd, cov = get_data(options["Data"])
 
         # Get params that are part of a dict (eg. HOD)
+        print "OPTIONS: ", options
         dict_p = {k:options[k] for k in options if k.endswith("Params")}
         priors, keys, guess = param_setup(**dict_p)
 
@@ -143,31 +144,33 @@ def get_data(opts):
     return r, xi, sd, cov
 
 def param_setup(**params):
+    from halomod._covardata import data
 
+    # Set-up returned lists of parameters
     priors = []
     guess = []
-    allparams = {}
+    keys = []
 
+    # Get covariance data for the cosmology
     covdata = params["CosmoParams"].pop("covar_data")
 
+    # Get all parmeters to be set as a flat dictionary
+    allparams = {}
     for pset, vset in params.iteritems():
         for p, val in vset.iteritems():
             allparams[p] = val
 
-    print "allparams: ", allparams
+    # The cosmological params are special, and other simple paramss
     cosmoparams = params.pop("CosmoParams")
     otherparams = params.pop("OtherParams")
 
-    av_data = ["WMAP3", "WMAP5", "WMAP9", "PLANCK"]
-
-
+    # Deal specifically with cosmology priors, separating covariant from normal
     cosmo_priors = {k:json.loads(v) for k, v in cosmoparams.iteritems()}
-
     cov_vars = {k:v for k, v in cosmo_priors.iteritems() if v[0] == "cov"}
     var_vars = {k:v for k, v in cosmo_priors.iteritems() if v[0] == "var"}
 
     # SIMPLE CASE (Cosmology params all flat priors)
-    if covdata not in av_data or len(cov_vars) + len(var_vars) == 0:
+    if covdata not in data or len(cov_vars) + len(var_vars) == 0:
         # Do simple parameters
         otherparams.update(cosmoparams)
         for param, val in otherparams.iteritems():
@@ -189,7 +192,6 @@ def param_setup(**params):
                 priors += set_prior(k[:-6] + ":" + kk, vv)
 
         # Now cosmo params
-        from halomod._covardata import data
         data = data[covdata]
         all_params = ["omegab_h2", "omegac_h2", "n", "sigma_8", "H0"]
 
@@ -204,26 +206,28 @@ def param_setup(**params):
             data['mean'] = data['mean'][indices]
             priors += [mc.Normal(all_params[i], data['mean'][i], np.sqrt(data['cov'][i, i])) for i in range(len(data['mean']))]
 
-    # A list of all the names of parameters.
-    keys = []
+    # Create list of all the names of parameters (pure name without :)
     for prior in priors:
         if isinstance(prior.name, basestring):
             keys += [prior.name]
         else:
             keys += prior.name
-
     keys = [k.split(":")[-1] for k in keys]
 
-    # Get the guess
+    # Get the guesses
     guess = []
     for k in keys:
         val = json.loads(allparams[k])
         guess.append(val[-1])
 
-    print keys
-    print guess
+
+    print "KEY NAMES: ", keys
+    print "INITIAL GUESSES: ", guess
+
+    print "PRIORS:"
     for p in priors:
         print p.__dict__
+
     return priors, keys, guess
 
 def set_prior(param, val):
@@ -237,6 +241,10 @@ def set_prior(param, val):
 # MAIN
 #===============================================================================
 def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options, prefix):
+
+    if prefix:
+        if not prefix.endswith("."):
+            prefix += "."
 
     kwargs = options["Model"]
     for k in kwargs:
