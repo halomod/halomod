@@ -26,7 +26,7 @@ from os.path import join
 import cosmolopy as cp
 from numbers import Number
 import pickle
-
+from emcee import autocorr
 __all__ = []
 __version__ = 0.1
 __date__ = '2014-05-14'
@@ -81,6 +81,7 @@ USAGE
 
         parser.add_argument("conf", help="config file")
         parser.add_argument("-p", "--prefix", default="", help="an optional prefix for the output files.")
+        parser.add_argument("-r", "--restart", default=False, action="store_true", help="restart (continue) from file")
 
         # Process arguments
         args = parser.parse_args()
@@ -98,14 +99,19 @@ USAGE
         r, data, sd, cov = get_data(options["Data"])
 
         # Get params that are part of a dict (eg. HOD)
-        print "OPTIONS: ", options
         dict_p = {k:options[k] for k in options if k.endswith("Params")}
         priors, keys, guess = param_setup(**dict_p)
 
         quantity = options["RunOptions"]["quantity"]
         blobs = json.loads(options["RunOptions"]["der_params"])
 
-        run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options, args.prefix)
+        if args.restart:
+            initial, prev_samples = get_initial(args.prefix, int(options["MCMC"]["nwalkers"]))
+        else:
+            initial, prev_samples = None, 0
+
+        run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options,
+            args.prefix, initial, prev_samples)
 
         return 0
     except KeyboardInterrupt:
@@ -176,20 +182,11 @@ def param_setup(**params):
         for param, val in otherparams.iteritems():
             priors += set_prior(param, val)
 
-        # Do nested parameters
-        for k, v in params.iteritems():
-            for kk, vv in v.iteritems():
-                priors += set_prior(k[:-6] + ":" + kk, vv)
-
+    # NON-FLAT CASES
     else:
         # # First do all params other than cosmo
         for param, val in otherparams.iteritems():
             priors += set_prior(param, val)
-
-        # Nested parameters
-        for k, v in params.iteritems():
-            for kk, vv in v.iteritems():
-                priors += set_prior(k[:-6] + ":" + kk, vv)
 
         # Now cosmo params
         data = data[covdata]
@@ -205,6 +202,11 @@ def param_setup(**params):
             data['cov'] = data['cov'][indices, :][:, indices]
             data['mean'] = data['mean'][indices]
             priors += [mc.Normal(all_params[i], data['mean'][i], np.sqrt(data['cov'][i, i])) for i in range(len(data['mean']))]
+
+    # Nested parameters
+    for k, v in params.iteritems():
+        for kk, vv in v.iteritems():
+            priors += set_prior(k[:-6] + ":" + kk, vv)
 
     # Create list of all the names of parameters (pure name without :)
     for prior in priors:
@@ -240,8 +242,10 @@ def set_prior(param, val):
 #===============================================================================
 # MAIN
 #===============================================================================
-def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options, prefix):
+def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options, prefix,
+        initial, prev_samples):
 
+    print initial
     if prefix:
         if not prefix.endswith("."):
             prefix += "."
@@ -261,7 +265,7 @@ def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options, prefix)
     relax = bool(options["RunOptions"]["relax"])
     store_class = bool(options["RunOptions"]["store_class"])
 
-    start = time.time()
+
     h = HaloModel(**kwargs)
 
     # The following is a little hacky, but will do for low-redshift data
@@ -272,68 +276,62 @@ def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options, prefix)
     h.corr_gal
 
     prefix = join(options["IO"]["outdir"], prefix)
+
+    start = time.time()
     s = mc.fit_hod(data, priors, h, guess,
                    nwalkers, nsamples, burnin, nthreads, blobs,
-                   prefix + "chain", chunks,
+                   prefix, chunks,
                    options["IO"]["verbose"],
                    sd=sd, covar=cov, quantity=quantity, store_class=store_class,
-                   relax=relax)
+                   relax=relax, initial_pos=initial)
 
-    acceptance = np.mean(s.acceptance_fraction)
-    chain = s.flatchain
 
-    # If storing the whole class, add the label to front of blobs
-    if store_class:
-        try:
-            blobs = ["HaloModel"] + blobs
-        except TypeError:
-            blobs = ["HaloModel"]
 
-    # If we have any blobs, write them out
-    if blobs:
-        # All floats go together.
-        # Note s.blobs has structure [[[<nblobs>]*<nwalkers]*<nsamples>]
-        ind_float = [i for i, b in enumerate(s.blobs[0][0]) if isinstance(b, Number)]
-        numblobs = np.array([[[b[i] for i in ind_float] for b in c] for c in s.blobs])
+    # Grab acceptance fraction from initial run if possible
+    new_accepted = np.mean(s.acceptance_fraction) * nsamples * nwalkers
+    if initial is not None:
+        with open(prefix + "log", 'r') as f:
+            for line in f:
+                if line.startswith("Acceptance Fraction:"):
+                    af = float(line[20:])
+                    naccepted = af * prev_samples
+    else:
+        naccepted = 0
+    acceptance = (naccepted + new_accepted) / (prev_samples + nwalkers * nsamples)
 
-        # Everything else gets treated with pickle
-        pickledict = {}
-        if len(ind_float) != len(blobs):
-            ind_pickle = [i for i, b in enumerate(s.blobs[0][0]) if not isinstance(b, Number)]
-            for i in ind_pickle:
-                pickledict[blobs[i]] = []
-                for c in s.blobs:
-                    pickledict[blobs[i]].append([b[i] for b in c])
+    # Ditch the sampler from memory
+    del s
 
-        # Write out numblobs
-        sh = numblobs.shape
-        numblobs = numblobs.reshape(sh[0] * sh[1], sh[2])
-        np.savetxt(prefix + "derived_parameters", numblobs, header="\t".join(blobs[i] for i in ind_float))
-
-        # Write out pickle blobs
-        if pickledict:
-            with open(prefix + "blobs", 'w') as f:
-                pickle.dump(pickledict, f)
-
-    # Write out final chain
-    np.savetxt(prefix + "chain", chain, header="\t".join(keys))
-
-    # Write out likelihoods
-    np.savetxt(prefix + "likelihoods", np.array(s.lnprobability).T)
-
+    # Read in total chain
+    chain = np.genfromtxt(prefix + "chain").reshape((nwalkers, nsamples, -1))
+    acorr = autocorr.integrated_time(np.mean(chain, axis=0), axis=0,
+                                     window=50, fast=False)
     # Write out the logfile
     with open(prefix + "log", 'w') as f:
         f.write("Average time: %s\n" % ((time.time() - start) / (nwalkers * nsamples + nwalkers * burnin)))
+        f.write("Nsamples:  %s\n" % nsamples)
+        f.write("Nwalkers: %s\n" % nwalkers)
         f.write("Mean values = %s\n" % np.mean(chain, axis=0))
         f.write("Covariance Matrix: %s\n" % np.cov(chain.T))
         f.write("Acceptance Fraction: %s\n" % acceptance)
-        f.write("Nsamples:  %s\n" % nsamples)
-        f.write("Nwalkers: %s\n" % nwalkers)
-        f.write("Acorr: %s\n" % s.acor)
+        f.write("Acorr: %s\n" % json.dumps(acorr.tolist()))
 
 
+#===============================================================================
+# Get initial data if continuing from previous calculations
+#===============================================================================
+def get_initial(prefix, nwalkers):
+    if prefix:
+        if not prefix.endswith("."):
+            prefix += "."
 
-
+    try:
+        x = np.genfromtxt(prefix + "chain")
+        nsamples = x.shape[0]
+        return x[-nwalkers:, :].T, nsamples
+    except:
+        warnings.warn("Problem importing old file, starting afresh")
+        return None, 0
 #===============================================================================
 # READ CONFIG
 #===============================================================================

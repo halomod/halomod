@@ -18,6 +18,9 @@ import scipy.sparse as sp
 import scipy.sparse.linalg as spln
 import time
 import cosmolopy as cp
+import warnings
+import pickle
+from numbers import Number
 #===============================================================================
 # The Model
 #===============================================================================
@@ -117,7 +120,7 @@ def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=Non
         h.update(rmin=h.rmin * h.h / h_before,
                  rmax=h.rmax * h.h / h_before)
 
-    # Get the quantity to compare (if exceptions are raise, treat properly)
+    # Get the quantity to compare (if exceptions are raised, treat properly)
     try:
         q = getattr(h, quantity)
     except Exception as e:
@@ -154,9 +157,10 @@ def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=Non
         return ll
 
 def fit_hod(data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
-            nthreads=0, blobs=None, filename=None, chunks=None, verbose=0,
+            nthreads=0, blobs=None, prefix=None, chunks=None, verbose=0,
             find_peak_first=False, sd=None, covar=None,
-            quantity="projected_corr_gal", store_class=False, relax=False, **kwargs):
+            quantity="projected_corr_gal", store_class=False, relax=False,
+            initial_pos=None, **kwargs):
     """
     Estimate the parameters in :attr:`.priors` using AIES MCMC.
     
@@ -201,8 +205,8 @@ def fit_hod(data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
         Names of quantities to be returned along with the chain
         MUST be immediate properties of the :class:`HaloModel` class.
         
-    filename : str, default ``None``
-        A path to a file to which to write results sequentially. If ``None``,
+    prefix : str, default ``None``
+        The prefix for files to which to write results sequentially. If ``None``,
         will not write anything out.
         
     chunks : int, default ``None``
@@ -239,6 +243,11 @@ def fit_hod(data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
         pre-updating with new parameters, and dict is the dictionary that will
         serve to update `h` (pre-update with this function).
         
+    initial_pos : array_like shape=``(nparams,nwalkers)``, default None
+        Starting positions of the parameters (for each walker). If None,
+        these will be calculated in a small ball around the guess for each.
+        This is useful for re-starting the calculation from a saved position.
+        
     \*\*kwargs :
         Arguments passed to :func:`fit_hod_minimize` if :attr:`find_peak_first`
         is ``True``.
@@ -259,7 +268,7 @@ def fit_hod(data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
     if len(priors) == 0:
         raise ValueError("priors must be at least length 1")
 
-    # Save which attributes are updatable for HOD as a list
+    # Save which attributes are updatable for HaloModel as a list
     attrs = []
     for prior in priors:
         if isinstance(prior.name, basestring):
@@ -270,67 +279,25 @@ def fit_hod(data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
     # Get the number of variables for MCMC
     ndim = len(attrs)
 
-    # Check that attrs are all applicable
-#     for a in attrs:
-#         if a not in _vars:
-#             raise ValueError(a + " is not a valid variable for MCMC in HaloModel")
-
-    # auto-calculate the number of threads to use if not set.
-    if not nthreads:
-        nthreads = cpu_count()
-
-    if nthreads > 1:
-        h.update(transfer_options={"ThreadNum":1})
-
-    # Set guess if not set
-    if len(guess) != len(attrs):
-        guess = []
-        for prior in priors:
-            if isinstance(prior, Uniform):
-                guess += [(prior.high + prior.low) / 2]
-            elif isinstance(prior, Normal):
-                guess += [prior.mean]
-            elif isinstance(prior, MultiNorm):
-                guess += prior.means.tolist()
-
-    guess = np.array(guess)
-
-    if find_peak_first:
-        res = fit_hod_minimize(data, sd, priors, h, guess=guess,
-                               verbose=verbose, **kwargs)
-        guess = res.x
-
-    # Get an initial value for all walkers, around a small ball near the initial guess
-    stacked_val = guess.copy()
-    for i in range(nwalkers - 1):
-        stacked_val = np.vstack((guess, stacked_val))
-
-    i = 0
-    for prior in priors:
-        if isinstance(prior, Uniform):
-            stacked_val[:, i] += np.random.normal(loc=0.0, scale=0.05 *
-                                                  min((guess[i] - prior.low),
-                                                      (prior.high - guess[i])),
-                                                  size=nwalkers)
-            i += 1
-        elif isinstance(prior, Normal):
-            stacked_val[:, i] += np.random.normal(loc=0.0, scale=prior.sd,
-                                                  size=nwalkers)
-            i += 1
-        elif isinstance(prior, MultiNorm):
-            for j in range(len(prior.name)):
-                stacked_val[:, i] += np.random.normal(loc=0.0, scale=np.sqrt(prior.cov[j, j]),
-                                                      size=nwalkers)
-                i += 1
-
-    getattr(h, quantity)
+    # Ensure guess was set correctly.
+    if guess and len(guess) != ndim:
+            warnings.warn("Guess was set incorrectly: %s" % guess)
+            guess = []
 
     # If using CAMB, nthreads MUST BE 1
     if h.transfer_fit == "CAMB":
         for pp in h.pycamb_dict:
             if pp in attrs:
                 nthreads = 1
+    elif not nthreads:
+        # auto-calculate the number of threads to use if not set.
+        nthreads = cpu_count()
 
+    # This just makes sure that the caching works
+    getattr(h, quantity)
+
+
+    # Setup the Ensemble Sampler
     if covar is not None:
         arglist = [priors, h, attrs, data, quantity, blobs, None, covar, verbose,
                    store_class, relax]
@@ -342,38 +309,49 @@ def fit_hod(data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
                                     args=arglist,
                                     threads=nthreads)
 
-    if verbose:
-        print "Parameters for MCMC: ", attrs
+    # Get initial positions if required
+    if initial_pos is None:
+        initial_pos = get_initial_pos(guess, priors, nwalkers, find_peak_first,
+                                      data, sd, h, verbose, **kwargs)
+        extend = False
+    else:
+        extend = True
 
     # Run a burn-in
     if burnin:
-        pos = sampler.run_mcmc(stacked_val, burnin)[0]
+        initial_pos = sampler.run_mcmc(initial_pos, burnin)[0]
         sampler.reset()
-    else:
-        pos = stacked_val
 
     # Run the actual run
-    if filename is None:
-        sampler.run_mcmc(pos, nsamples)
+    if prefix is None:
+        sampler.run_mcmc(initial_pos, nsamples)
     else:
         header = "# " + "\t".join(attrs) + "\n"
-        with open(filename, "w") as f:
-            f.write(header)
 
-        if chunks == 0:
+        if not extend:
+            with open(prefix + "chain", "w") as f:
+                f.write(header)
+
+
+        # If storing the whole class, add the label to front of blobs
+        if store_class:
+            try:
+                blobs = ["HaloModel"] + blobs
+            except TypeError:
+                blobs = ["HaloModel"]
+
+        if chunks == 0 or chunks > nsamples:
             chunks = nsamples
 
         start = time.time()
-        for i, result in enumerate(sampler.sample(pos, iterations=nsamples)):
-            if (i + 1) % chunks == 0:
+        for i, result in enumerate(sampler.sample(initial_pos, iterations=nsamples)):
+            if (i + 1) % chunks == 0 or i + 1 == nsamples:
                 if verbose:
                     print "Done ", 100 * float(i + 1) / nsamples ,
                     print "%. Time per sample: ", (time.time() - start) / ((i + 1) * nwalkers)
-                with open(filename, "w") as f:
-                    # need to write out nwalkers to be able to read the file back in properly
-                    f.write("# %s\n" % (nwalkers))
-                    f.write(header)
-                    np.savetxt(f, sampler.flatchain[sampler.flatchain[:, 0] != 0.0, :])
+
+                # Write out files
+                write_iter(sampler, i, nwalkers, chunks, prefix, blobs, extend)
 
     return sampler
 
@@ -440,10 +418,6 @@ def fit_hod_minimize(data, priors, h, sd=None, covar=None, guess=[], verbose=0,
         else:
             attrs += prior.name
 
-    # Check that attrs are all applicable
-    for a in attrs:
-        if a not in _vars:
-            raise ValueError(a + " is not a valid variable for optimization in HaloModel")
 
     # Set guess if not set
     if len(guess) != len(attrs):
@@ -469,6 +443,107 @@ def fit_hod_minimize(data, priors, h, sd=None, covar=None, guess=[], verbose=0,
 # _vars = ["wdm_mass", "delta_halo", "sigma_8", "n", "omegab", 'omegac',
 #          "omegav", "omegak", "H0", "M_1", 'alpha', "M_min", 'gauss_width',
 #          'M_0', 'fca', 'fcb', 'fs', 'delta', 'x', 'omegab_h2', 'omegac_h2', 'h']
+
+#===============================================================================
+# Function for getting initial positions
+#===============================================================================
+def get_initial_pos(guess, priors, nwalkers, find_peak_first=False, data=None,
+                    sd=None, h=None, verbose=0, **kwargs):
+
+    # Set guess if not set
+    if not guess:
+        for prior in priors:
+            if isinstance(prior, Uniform):
+                guess += [(prior.high + prior.low) / 2]
+            elif isinstance(prior, Normal):
+                guess += [prior.mean]
+            elif isinstance(prior, MultiNorm):
+                guess += prior.means.tolist()
+
+    guess = np.array(guess)
+
+    if find_peak_first:
+        res = fit_hod_minimize(data, sd, priors, h, guess=guess,
+                               verbose=verbose, **kwargs)
+        guess = res.x
+
+    # Get an initial value for all walkers, around a small ball near the initial guess
+    stacked_val = guess.copy()
+    for i in range(nwalkers - 1):
+        stacked_val = np.vstack((guess, stacked_val))
+
+    i = 0
+    for prior in priors:
+        if isinstance(prior, Uniform):
+            stacked_val[:, i] += np.random.normal(loc=0.0, scale=0.05 *
+                                                  min((guess[i] - prior.low),
+                                                      (prior.high - guess[i])),
+                                                  size=nwalkers)
+            i += 1
+        elif isinstance(prior, Normal):
+            stacked_val[:, i] += np.random.normal(loc=0.0, scale=prior.sd,
+                                                  size=nwalkers)
+            i += 1
+        elif isinstance(prior, MultiNorm):
+            for j in range(len(prior.name)):
+                stacked_val[:, i] += np.random.normal(loc=0.0, scale=np.sqrt(prior.cov[j, j]),
+                                                      size=nwalkers)
+                i += 1
+
+    return stacked_val
+
+#===============================================================================
+# Write out sequential results
+#===============================================================================
+def write_iter(sampler, i, nwalkers, chunks, prefix, blobs, extend):
+    fc = sampler.chain[:, (i + 1 - chunks):i + 1, :].reshape((nwalkers * chunks, -1))
+    ll = sampler.lnprobability[:, (i + 1 - chunks):i + 1].flatten()
+
+    with open(prefix + "chain", "a") as f:
+        np.savetxt(f, fc)
+
+    with open(prefix + "likelihoods", "a") as f:
+        np.savetxt(f, ll)
+
+    if blobs:
+        # All floats go together.
+        # Note s.blobs has structure [[[<nblobs>]*<nwalkers]*<nsamples>]
+
+        ind_float = [ii for ii, b in enumerate(sampler.blobs[0][0]) if isinstance(b, Number)]
+        if not extend and ind_float:
+            with open(prefix + "derived_parameters", "w") as f:
+                f.write("# %s\n" % ("\t".join([blobs[ii] for ii in ind_float])))
+
+        if ind_float:
+            numblobs = np.array([[[b[ii] for ii in ind_float] for b in c]
+                                 for c in sampler.blobs[(i + 1 - chunks):i + 1]])
+
+            # Write out numblobs
+            sh = numblobs.shape
+            numblobs = numblobs.reshape(sh[0] * sh[1], sh[2])
+            with open(prefix + "derived_parameters", "a") as f:
+                np.savetxt(f, numblobs)
+
+        # Everything else gets treated with pickle
+        pickledict = {}
+        # If file already exists, read in those blobs first
+        if extend:
+            with open(prefix + "blobs", "r") as f:
+                pickledict = pickle.load(f)
+
+        # Append current blobs
+        if len(ind_float) != len(blobs):
+            ind_pickle = [ii for ii in range(len(blobs)) if ii not in ind_float]
+            for ii in ind_pickle:
+                if not pickledict:
+                    pickledict[blobs[ii]] = []
+                for c in sampler.blobs:
+                    pickledict[blobs[ii]].append([b[ii] for b in c])
+
+        # Write out pickle blobs
+        if pickledict:
+            with open(prefix + "blobs", 'w') as f:
+                pickle.dump(pickledict, f)
 
 #===============================================================================
 # Some helpful functions to pass as dependent_params
