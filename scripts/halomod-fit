@@ -259,7 +259,7 @@ def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options, prefix,
 
     nwalkers = int(options["MCMC"]["nwalkers"])
     nsamples = int(options["MCMC"]["nsamples"])
-    burnin = int(options["MCMC"]["burnin"])
+    burnin = json.loads(options["MCMC"]["burnin"])
     nthreads = int(options["RunOptions"]["nthreads"])
     chunks = int(options["IO"]["chunks"])
     relax = bool(options["RunOptions"]["relax"])
@@ -281,7 +281,7 @@ def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options, prefix,
     s = mc.fit_hod(data, priors, h, guess,
                    nwalkers, nsamples, burnin, nthreads, blobs,
                    prefix, chunks,
-                   options["IO"]["verbose"],
+                   int(options["IO"]["verbose"]),
                    sd=sd, covar=cov, quantity=quantity, store_class=store_class,
                    relax=relax, initial_pos=initial)
 
@@ -308,7 +308,10 @@ def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options, prefix,
                                      window=50, fast=False)
     # Write out the logfile
     with open(prefix + "log", 'w') as f:
-        f.write("Average time: %s\n" % ((time.time() - start) / (nwalkers * nsamples + nwalkers * burnin)))
+        if isinstance(burnin, int):
+            f.write("Average time: %s\n" % ((time.time() - start) / (nwalkers * nsamples + nwalkers * burnin)))
+        else:
+            f.write("Average time (discounting burnin): %s\n" % ((time.time() - start) / (nwalkers * nsamples)))
         f.write("Nsamples:  %s\n" % nsamples)
         f.write("Nwalkers: %s\n" % nwalkers)
         f.write("Mean values = %s\n" % np.mean(chain, axis=0))

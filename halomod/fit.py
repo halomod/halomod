@@ -139,8 +139,9 @@ def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=Non
 
 
     if verbose > 0:
-        print "Update Dictionary: ", hoddict
         print "Likelihood: ", ll
+    if verbose > 1 :
+        print "Update Dictionary: ", hoddict
 
     # Get blobs to return as well.
     if blobs is not None or store_class:
@@ -284,6 +285,10 @@ def fit_hod(data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
             warnings.warn("Guess was set incorrectly: %s" % guess)
             guess = []
 
+    # Ensure no burn-in if restarting from old run
+    if initial_pos is not None:
+        burnin = 0
+
     # If using CAMB, nthreads MUST BE 1
     if h.transfer_fit == "CAMB":
         for pp in h.pycamb_dict:
@@ -319,9 +324,27 @@ def fit_hod(data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
 
     # Run a burn-in
     if burnin:
-        initial_pos = sampler.run_mcmc(initial_pos, burnin)[0]
-        sampler.reset()
+        if type(burnin) == int:
+            initial_pos, lnprob, rstate = sampler.run_mcmc(initial_pos, burnin)
+            sampler.reset()
 
+        else:
+            sampler.run_mcmc(initial_pos, burnin[0])
+            print burnin[1] * np.max(sampler.acor), sampler.iterations
+            while burnin[1] * np.max(sampler.acor) > sampler.iterations:
+                initial_pos, lnprob, rstate, blobs0 = sampler.run_mcmc(None, 5)
+                print burnin[1] * np.max(sampler.acor), sampler.iterations
+                if sampler.iterations > burnin[2]:
+                    warnings.warn("Burnin FAILED... continuing (acor=%s)" % (np.max(sampler.acor)))
+
+            if verbose > 0:
+                burnin = sampler.iterations
+                print "Used %s samples for burnin" % sampler.iterations
+            sampler.reset()
+    else:
+        lnprob = None
+        rstate = None
+        blobs0 = None
     # Run the actual run
     if prefix is None:
         sampler.run_mcmc(initial_pos, nsamples)
@@ -344,7 +367,9 @@ def fit_hod(data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
             chunks = nsamples
 
         start = time.time()
-        for i, result in enumerate(sampler.sample(initial_pos, iterations=nsamples)):
+        for i, result in enumerate(sampler.sample(initial_pos, iterations=nsamples,
+                                                  lnprob0=lnprob, rstate0=rstate,
+                                                  blobs0=blobs0)):
             if (i + 1) % chunks == 0 or i + 1 == nsamples:
                 if verbose:
                     print "Done ", 100 * float(i + 1) / nsamples ,
@@ -507,8 +532,6 @@ def write_iter(sampler, i, nwalkers, chunks, prefix, blobs, extend):
 
     if blobs:
         # All floats go together.
-        # Note s.blobs has structure [[[<nblobs>]*<nwalkers]*<nsamples>]
-
         ind_float = [ii for ii, b in enumerate(sampler.blobs[0][0]) if isinstance(b, Number)]
         if not extend and ind_float:
             with open(prefix + "derived_parameters", "w") as f:
