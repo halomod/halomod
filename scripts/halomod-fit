@@ -290,11 +290,15 @@ def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options, prefix,
     # Grab acceptance fraction from initial run if possible
     new_accepted = np.mean(s.acceptance_fraction) * nsamples * nwalkers
     if initial is not None:
-        with open(prefix + "log", 'r') as f:
-            for line in f:
-                if line.startswith("Acceptance Fraction:"):
-                    af = float(line[20:])
-                    naccepted = af * prev_samples
+        try:
+            with open(prefix + "log", 'r') as f:
+                for line in f:
+                    if line.startswith("Acceptance Fraction:"):
+                        af = float(line[20:])
+                        naccepted = af * prev_samples
+        except IOError:
+            naccepted = 0
+            prev_samples = 0
     else:
         naccepted = 0
     acceptance = (naccepted + new_accepted) / (prev_samples + nwalkers * nsamples)
