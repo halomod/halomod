@@ -175,7 +175,7 @@ def param_setup(**params):
     cov_vars = {k:v for k, v in cosmo_priors.iteritems() if v[0] == "cov"}
     var_vars = {k:v for k, v in cosmo_priors.iteritems() if v[0] == "var"}
 
-    # SIMPLE CASE (Cosmology params all flat priors)
+    # SIMPLE CASE (Cosmology params all flat/log priors)
     if covdata not in data or len(cov_vars) + len(var_vars) == 0:
         # Do simple parameters
         otherparams.update(cosmoparams)
@@ -195,8 +195,7 @@ def param_setup(**params):
         if cov_vars:
             indices = [all_params.index(k) for k in cov_vars]
             data['cov'] = data['cov'][indices, :][:, indices]
-            data['mean'] = data['mean'][indices]
-            priors += [mc.MultiNorm([all_params[i] for i in indices], data['mean'], data['cov'])]
+            priors += [mc.MultiNorm([all_params[i] for i in indices], data['mean'][indices], data['cov'])]
         if var_vars:
             indices = [all_params.index(v) for v in var_vars]
             data['cov'] = data['cov'][indices, :][:, indices]
@@ -220,7 +219,15 @@ def param_setup(**params):
     guess = []
     for k in keys:
         val = json.loads(allparams[k])
-        guess.append(val[-1])
+        if val[-1] is None:
+            if val[0] == "flat":
+                guess.append((val[1] + val[2]) / 2)
+            elif val[0] == "var":
+                guess.append(val[1])
+            elif val[0] == "cov":
+                guess.append(data['mean'][all_params.index(k)])
+        else:
+            guess.append(val[-1])
 
 
     print "KEY NAMES: ", keys
@@ -236,8 +243,10 @@ def set_prior(param, val):
     val = json.loads(val)
     if val[0] == 'flat':
         return [mc.Uniform(param, val[1], val[2])]
-    elif val[1] == 'var':
+    elif val[0] == 'var':
         return [mc.Normal(param, val[1], val[2])]
+    elif val[0] == "log":
+        return [mc.Log(param, val[1], val[2])]
 
 #===============================================================================
 # MAIN
@@ -245,7 +254,6 @@ def set_prior(param, val):
 def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options, prefix,
         initial, prev_samples):
 
-    print initial
     if prefix:
         if not prefix.endswith("."):
             prefix += "."
@@ -310,6 +318,7 @@ def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options, prefix,
     chain = np.genfromtxt(prefix + "chain").reshape((nwalkers, nsamples, -1))
     acorr = autocorr.integrated_time(np.mean(chain, axis=0), axis=0,
                                      window=50, fast=False)
+    chain = chain.reshape((nwalkers * nsamples, -1))
     # Write out the logfile
     with open(prefix + "log", 'w') as f:
         if isinstance(burnin, int):
@@ -335,7 +344,7 @@ def get_initial(prefix, nwalkers):
     try:
         x = np.genfromtxt(prefix + "chain")
         nsamples = x.shape[0]
-        return x[-nwalkers:, :].T, nsamples
+        return x[-nwalkers:, :], nsamples
     except:
         warnings.warn("Problem importing old file, starting afresh")
         return None, 0

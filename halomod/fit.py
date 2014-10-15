@@ -21,6 +21,8 @@ import cosmolopy as cp
 import warnings
 import pickle
 from numbers import Number
+import copy
+
 #===============================================================================
 # The Model
 #===============================================================================
@@ -81,12 +83,16 @@ def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=Non
     """
     ll = 0
 
+    p = copy.copy(parm)
     for prior in priors:
         # A uniform prior doesn't change likelihood but returns -inf if outside bounds
         if isinstance(prior, Uniform):
             index = attrs.index(prior.name)
             if parm[index] < prior.low or parm[index] > prior.high:
                 return -np.inf, blobs
+            # If it is a log distribution, un-log it for use.
+            if isinstance(prior, Log):
+                p[index] = 10 ** parm[index]
 
         elif isinstance(prior, Normal):
             index = attrs.index(prior.name)
@@ -103,7 +109,7 @@ def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=Non
     # Rebuild the hod dict from given vals
     # Any attr starting with <name>: is put into a dictionary.
     hoddict = {}
-    for attr, val in zip(attrs, parm):
+    for attr, val in zip(attrs, p):
         if ":" in attr:
             if attr.split(":")[0] not in hoddict:
                 hoddict[attr.split(":")[0]] = {}
@@ -112,6 +118,7 @@ def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=Non
         else:
             hoddict[attr] = val
 
+    print "HODDICT: ", hoddict
     # Update the actual model
     h.update(**hoddict)
 
@@ -123,6 +130,7 @@ def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=Non
     # Get the quantity to compare (if exceptions are raised, treat properly)
     try:
         q = getattr(h, quantity)
+        print q[:4]
     except Exception as e:
         if relax:
             print "WARNING: PARAMETERS FAILED, RETURNING INF: ", zip(attrs, parm)
@@ -140,8 +148,8 @@ def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=Non
 
     if verbose > 0:
         print "Likelihood: ", ll
-    if verbose > 1 :
-        print "Update Dictionary: ", hoddict
+#     if verbose > 1 :
+    print "Update Dictionary: ", hoddict
 
     # Get blobs to return as well.
     if blobs is not None or store_class:
@@ -345,6 +353,12 @@ def fit_hod(data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
         lnprob = None
         rstate = None
         blobs0 = None
+#     else: TODO
+#         try:
+#             lnprob = np.genfromtxt(prefix+"likelihoods")[-nwalkers:,:]
+#             rstate = None
+#             blobs0
+#
     # Run the actual run
     if prefix is None:
         sampler.run_mcmc(initial_pos, nsamples)
@@ -354,8 +368,11 @@ def fit_hod(data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
         if not extend:
             with open(prefix + "chain", "w") as f:
                 f.write(header)
+        else:
+            with open(prefix + "chain", 'r') as f:
+                nsamples -= (sum(1 for line in f) - 1) / nwalkers
 
-
+        print "NSAMPLES: ", nsamples
         # If storing the whole class, add the label to front of blobs
         if store_class:
             try:
@@ -521,8 +538,9 @@ def get_initial_pos(guess, priors, nwalkers, find_peak_first=False, data=None,
 # Write out sequential results
 #===============================================================================
 def write_iter(sampler, i, nwalkers, chunks, prefix, blobs, extend):
-    fc = sampler.chain[:, (i + 1 - chunks):i + 1, :].reshape((nwalkers * chunks, -1))
-    ll = sampler.lnprobability[:, (i + 1 - chunks):i + 1].flatten()
+    # The reshaping and transposing here is important to get the output correct
+    fc = np.transpose(sampler.chain[:, (i + 1 - chunks):i + 1, :], (1, 0, 2)).reshape((nwalkers * chunks, -1))
+    ll = sampler.lnprobability[:, (i + 1 - chunks):i + 1].T.flatten()
 
     with open(prefix + "chain", "a") as f:
         np.savetxt(f, fc)
@@ -604,6 +622,9 @@ class Uniform(object):
         self.name = param
         self.low = low
         self.high = high
+
+class Log(Uniform):
+    pass
 
 class Normal(object):
     """
