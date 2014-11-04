@@ -213,3 +213,23 @@ class Contreras(HOD):
         """
         return self.params["fs"] * (1 + sp.erf(np.log10(M / 10 ** self.params["M_1"]) / self.params["delta"])) * (M / 10 ** self.params["M_1"]) ** self.params["alpha"]
 
+class HI(HOD):
+    _defaults = {"M_min":11.6222,
+                 "M_1":12.851,
+                 "alpha":1.049,
+                 "M_0":11.5047,
+                 "sig_logm":0.26,
+                 }
+
+    def nc(self, M):
+        return np.exp(-0.5 * (np.log10(M) - self.params["M_min"]) ** 2 / self.params["sig_logm"] ** 2)
+
+    def ns(self, M):
+        """
+        Number of satellite galaxies at mass M
+        """
+        return (M / 10 ** self.params["M_1"]) ** self.params["alpha"]
+
+    @property
+    def mmin(self):
+        return self.params["M_min"] - 5 * self.params["sig_logm"]
