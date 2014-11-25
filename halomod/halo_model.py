@@ -64,7 +64,7 @@ class HaloModel(MassFunction):
         self.nonlinear = nonlinear
         self.halo_exclusion = halo_exclusion
         self.scale_dependent_bias = scale_dependent_bias
-        self.proj_limit = None
+        self.proj_limit = proj_limit
 
         self.nthreads_2halo = nthreads_2halo
 
@@ -117,6 +117,10 @@ class HaloModel(MassFunction):
                 return val
         else:
             return hod.get_hod(val)
+
+    @parameter
+    def proj_limit(self, val):
+        return val
 
     @parameter
     def nonlinear(self, val):
