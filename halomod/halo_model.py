@@ -42,7 +42,8 @@ class HaloModel(MassFunction):
                  hod_model=hod.Zehavi05,
                  halo_profile='NFW', cm_relation='duffy', bias_model=tinker10,
                  nonlinear=True, scale_dependent_bias=True,
-                 halo_exclusion="None", ng=None, nthreads_2halo=0, ** hmf_kwargs):
+                 halo_exclusion="None", ng=None, nthreads_2halo=0,
+                 proj_limit=None, ** hmf_kwargs):
 
         # Pre-process Some Arguments
         if "cut_fit" not in hmf_kwargs:
@@ -63,6 +64,7 @@ class HaloModel(MassFunction):
         self.nonlinear = nonlinear
         self.halo_exclusion = halo_exclusion
         self.scale_dependent_bias = scale_dependent_bias
+        self.proj_limit = None
 
         self.nthreads_2halo = nthreads_2halo
 
@@ -416,21 +418,6 @@ class HaloModel(MassFunction):
 
             ind = np.where(integral > ng)[0][0]
 
-#             c.update(hod_params={"M_min":np.log10(c.M[::-1][ind + 1])}, dlogm=0.005)
-#
-#
-#             print "ROUGH LOWER BIT: ", np.log10(c.M[::-1][ind + 1])
-#             print "INTEGRAL HERE: ", integral[ind + 1], ng
-#             print "NEW LENGTH OF M: ", len(c.M)
-#
-#             integrand = c.M * c.dndm * c.n_tot
-#             integral = intg.cumtrapz(integrand[::-1], dx=np.log(c.M[1]) - np.log(c.M[0]))
-#
-#             print integral[0], integral[-1]
-#             ind = np.where(integral > ng)[0][0]
-#
-#             print "INTEGRAL HERE: ", integral[ind], ng
-
             m = c.M[::-1][1:][max(ind - 4, 0):min(ind + 4, len(c.M))]
             integral = integral[max(ind - 4, 0):min(ind + 4, len(c.M))]
 
@@ -455,7 +442,7 @@ class HaloModel(MassFunction):
 
         return mmin
 
-    @cached_property("r", "corr_gal")
+    @cached_property("r", "corr_gal", "proj_limit")
     def projected_corr_gal(self):
         """
         Projected correlation function w(r_p).
@@ -464,35 +451,60 @@ class HaloModel(MassFunction):
 
         To integrate perform a substitution y = x - r_p.
         """
-        self.dndm
-        self.matter_power
+        lnr = np.log(self.r)
+        lnxi = np.log(self.corr_gal)
 
-
-        fit = spline(np.log(self.r[self.corr_gal > 0]), np.log(self.corr_gal[self.corr_gal > 0]), k=3)
         p = np.zeros(len(self.r))
 
+        # Calculate correlation to higher scales for better integration
+        if self.proj_limit is None:
+            rlim = max(80.0, 5 * self.rmax)
+        else:
+            rlim = self.proj_limit
+
+        print "RLIM, RMAX", rlim, self.rmax
+        if rlim > self.rmax:
+            upper_h = deepcopy(self)
+            dr = self.r[1] / self.r[0]
+            upper_h.update(rmin=self.rmax * dr, rmax=rlim, rnum=20)
+
+            fit = spline(np.concatenate((self.r, upper_h.r)),
+                         np.concatenate((self.corr_gal, upper_h.corr_gal)), k=3)  # [self.corr_gal > 0] maybe?
+            print "FIT: ", fit(0.1)
+        else:
+            fit = spline(self.r, self.corr_gal, k=3)  # [self.corr_gal > 0] maybe?
+            print "fit: ", fit(0.1)
+        f_peak = 0.01
+        a = 0
+
         for i, rp in enumerate(self.r):
-            # # Get steepest slope.
-            ydiff = fit.derivatives(np.log(rp))[1]
-            a = max(1.3, -ydiff)
-            frac = self._get_slope_frac(a)
-            min_y = frac * 0.005 ** 2 * rp  # 2.5% accuracy??
+            if a != 1.3 and i < len(self.r) - 1:
+                # Get slope at rp (== index of power law at rp)
+                ydiff = (lnxi[i + 1] - lnxi[i]) / (lnr[i + 1] - lnr[i])
+                # if the slope is flatter than 1.3, it will converge faster, but to make sure, we cut at 1.3
+                a = max(1.3, -ydiff)
+                theta = self._get_theta(a)
+
+            min_y = theta * f_peak ** 2 * rp
+
+            # Get the upper limit for this rp
+            lim = np.log10(rlim - rp)
 
             # Set the y vector for this rp
-            y = np.logspace(np.log10(min_y), np.log10(max(80.0, 5 * rp) - rp), 1000)
+            y = np.logspace(np.log10(min_y), lim, 1000)
 
             # Integrate
-            integ_corr = np.exp(fit(np.log(y + rp)))
-            integrand = integ_corr * (y + rp) / np.sqrt((y + 2 * rp) * y)
+            integ_corr = fit(y + rp)
+            integrand = integ_corr / np.sqrt((y + 2 * rp) * y)
             p[i] = intg.simps(integrand, y) * 2
 
         return p
 
-    def _get_slope_frac(self, a):
-        frac = 2 ** (1 + 2 * a) * (7 - 2 * a ** 3 + 3 * np.sqrt(5 - 8 * a + 4 * a ** 2) + a ** 2 * (9 + np.sqrt(5 - 8 * a + 4 * a ** 2)) -
+    def _get_theta(self, a):
+        theta = 2 ** (1 + 2 * a) * (7 - 2 * a ** 3 + 3 * np.sqrt(5 - 8 * a + 4 * a ** 2) + a ** 2 * (9 + np.sqrt(5 - 8 * a + 4 * a ** 2)) -
                            a * (13 + 3 * np.sqrt(5 - 8 * a + 4 * a ** 2))) * ((1 + np.sqrt(5 - 8 * a + 4 * a ** 2)) / (a - 1)) ** (-2 * a)
-        frac /= (a - 1) ** 2 * (-1 + 2 * a + np.sqrt(5 - 8 * a + 4 * a ** 2))
-        return frac
+        theta /= (a - 1) ** 2 * (-1 + 2 * a + np.sqrt(5 - 8 * a + 4 * a ** 2))
+        return theta
 
     def angular_corr_gal(self, f, theta_min, theta_max, theta_num, logtheta=True,
                          x_min=0, x_max=10000):

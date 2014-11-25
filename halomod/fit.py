@@ -26,7 +26,6 @@ import copy
 #===============================================================================
 # The Model
 #===============================================================================
-
 def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=None,
           verbose=0, store_class=False, relax=False):
     """
