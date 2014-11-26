@@ -117,9 +117,16 @@ def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=Non
         else:
             hoddict[attr] = val
 
-    print "HODDICT: ", hoddict
     # Update the actual model
-    h.update(**hoddict)
+    try:  # This try: except: should capture poor parameter choices quickly.
+        h.update(**hoddict)
+    except ValueError as e:
+        if relax:
+            print "WARNING: PARAMETERS FAILED, RETURNING INF: ", zip(attrs, parm)
+            print e
+            return -np.inf, blobs
+        else:
+            raise e
 
     # Get r correct (with h)
     if h_before != h.h:
@@ -550,7 +557,7 @@ def write_iter(sampler, i, nwalkers, chunks, prefix, blobs, extend):
     if blobs:
         # All floats go together.
         ind_float = [ii for ii, b in enumerate(sampler.blobs[0][0]) if isinstance(b, Number)]
-        if not extend and ind_float:
+        if not extend and ind_float and (i + 1) == chunks:
             with open(prefix + "derived_parameters", "w") as f:
                 f.write("# %s\n" % ("\t".join([blobs[ii] for ii in ind_float])))
 
