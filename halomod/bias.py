@@ -18,12 +18,13 @@ def get_bias(model):
         raise
         raise AttributeError(str(model) + "  is not a valid bias model")
 
-def ST(hmod):
+def ST(hmod, **params):
     """
     Sheth-Tormen bias
     """
-    q = 0.707
-    p = 0.3
+
+    q = params.get("q", 0.707)
+    p = params.get("p", 0.3)
 
     return 1 + (q * hmod.nu - 1) / hmod.delta_c + (2 * p / hmod.delta_c) / (1 + (q * hmod.nu) ** p)
 

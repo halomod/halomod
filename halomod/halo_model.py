@@ -14,11 +14,13 @@ import tools
 from profiles import get_profile
 import hod
 from bias import get_bias, tinker10
+from concentration import get_cm, Bullock01, BullockWDM, CMRelation
 from fort.routines import hod_routines as fort
 from twohalo_wrapper import twohalo_wrapper as thalo
 from twohalo_wrapper import dblsimps
-
+from hmf.filters import TopHat
 from copy import deepcopy
+from numpy import issubclass_
 
 USEFORT = True
 #===============================================================================
@@ -43,7 +45,7 @@ class HaloModel(MassFunction):
                  halo_profile='NFW', cm_relation='duffy', bias_model=tinker10,
                  nonlinear=True, scale_dependent_bias=True,
                  halo_exclusion="None", ng=None, nthreads_2halo=0,
-                 proj_limit=None, ** hmf_kwargs):
+                 proj_limit=None, bias_params={}, cm_params={}, ** hmf_kwargs):
 
         # Pre-process Some Arguments
         if "cut_fit" not in hmf_kwargs:
@@ -65,9 +67,9 @@ class HaloModel(MassFunction):
         self.halo_exclusion = halo_exclusion
         self.scale_dependent_bias = scale_dependent_bias
         self.proj_limit = proj_limit
-
+        self.bias_params = bias_params
         self.nthreads_2halo = nthreads_2halo
-
+        self.cm_params = cm_params
         # A special argument, making it possible to define M_min by mean density
         self.ng = ng
 
@@ -102,13 +104,17 @@ class HaloModel(MassFunction):
         return val
 
     @parameter
+    def bias_params(self, val):
+        return val
+
+    @parameter
     def hod_params(self, val):
         """Dictionary of parameters for the HOD model"""
         return val
 
     @parameter
     def hod_model(self, val):
-        """:class:`hod.hod.HOD` class"""
+        """:class:`~hod.HOD` class"""
         if not isinstance(val, basestring):
 
             if not issubclass(val, hod.HOD):
@@ -140,11 +146,7 @@ class HaloModel(MassFunction):
 
     @parameter
     def cm_relation(self, val):
-        available = ['duffy', 'zehavi', "bullock_rescaled"]
-        if val not in available:
-            if isinstance(val, str):
-                raise ValueError("cm_relation not acceptable: " + str(val))
-
+        """A concentration-mass relation"""
         return val
 
     @parameter
@@ -161,6 +163,10 @@ class HaloModel(MassFunction):
             raise ValueError("halo_exclusion not acceptable: " + str(val) + " " + str(type(val)))
         else:
             return val
+
+    @parameter
+    def cm_params(self, val):
+        return val
 
     @parameter
     def rmin(self, val):
@@ -219,23 +225,39 @@ class HaloModel(MassFunction):
         """Average satellite occupancy of halo of mass M"""
         return self.hod.ntot(self.M)
 
-    @cached_property("bias_model", "sigma")
+    @cached_property("bias_model", "sigma", "bias_params")
     def bias(self):
         """A class containing the elements necessary to calculate the halo bias"""
         try:
-            return self.bias_model(self)
+            return self.bias_model(self, **self.bias_params)
         except:
-            return get_bias(self.bias_model)(self)
+            return get_bias(self.bias_model)(self, **self.bias_params)
 
-    @cached_property("halo_profile", "delta_halo", "cm_relation", "z", "omegam", "omegav")
+    @cached_property("cm_relation", "filter_mod", "z", "delta_c", "cosmolopy_dict",
+                    "cm_params")
+    def cm(self):
+        """A class containing the elements necessary to calculate the concentration-mass relation"""
+        if issubclass_(self.cm_relation, CMRelation):
+            cm = self.cm_relation(self.filter_mod, delta_c=self.delta_c, z=self.z,
+                         cdict=self.cosmolopy_dict, m_hm=None,
+                         **self.cm_params)
+        elif isinstance(self.cm_relation, basestring):
+            cm = get_cm(self.cm_relation, filter=self.filter_mod, delta_c=self.delta_c,
+                        z=self.z, cdict=self.cosmolopy_dict, m_hm=None,
+                         **self.cm_params)
+
+        return cm
+
+    @cached_property("halo_profile", "delta_halo", "cm_relation", "z", "omegam",
+                     "omegav", "cm")
     def profile(self):
         """A class containing the elements necessary to calculate halo profile quantities"""
         if hasattr(self.halo_profile, "rho"):
             return self.halo_profile
         else:
             return get_profile(self.halo_profile,
-                               self.delta_halo,
-                               cm_relation=self.cm_relation,
+                               cm_relation=self.cm,
+                               delta_halo=self.delta_halo,
                                z=self.z,
                                truncate=True,
                                omegam=self.omegam,
@@ -579,6 +601,132 @@ class HaloModel(MassFunction):
             w[i] = dblsimps(integrand, dx, du)
 
         return w * 2 * np.log(10) ** 2, theta
+
 class NGException(Exception):
     pass
 
+
+
+class WDM_HaloModel(HaloModel):
+    """
+    This class is a derivative of HaloModel which sets a few defaults that make
+    more sense for a WDM model, and also implements the framework to include a
+    smooth component
+    """
+
+    def __init__(self, rescale_dndm=False, **kw):
+        kw.setdefault("cm_relation", "BullockWDM")
+        super(WDM_HaloModel, self).__init__(**kw)
+
+        self.rescale_dndm = rescale_dndm
+
+    @parameter
+    def rescale_dndm(self, val):
+        return val
+
+    @cached_property("matter_power")
+    def p_lin(self):
+        f = TopHat(None, None, None, None)
+        return np.exp(self.matter_power) * f.k_space(np.exp(self.lnk) * 2.0)
+
+    @cached_property("rho_gtm", "mean_dens", "_wdm")
+    def f_halos(self):
+        """
+        The total fraction of mass bound up in halos
+        """
+        mmin = self._wdm.m_fs
+        # TODO: This is a real hack and should be modified
+        c = deepcopy(self)
+        c.update(hod_params={"M_min":np.log10(mmin)})
+        return c.rho_gtm[0] / c.mean_dens
+
+    @cached_property("f_halos", "power_ss", "power_sh", "power_hh")
+    def power_matter(self):
+        return (1 - self.f_halos) ** 2 * self.power_ss + \
+            2 * (1 - self.f_halos) * self.f_halos * self.power_sh + \
+            self.f_halos ** 2 * self.power_hh
+
+    @cached_property("power_m_1h", "power_m_2h")
+    def power_hh(self):
+        return self.power_m_1h + self.power_m_2h
+
+    @cached_property("_wdm", "dndm", "M", "lnk", "profile", "dlog10m", "f_halos", "mean_dens")
+    def power_m_1h(self):
+        # Again, a horrid hack.
+        c = deepcopy(self)
+        c.update(hod_params={"M_min":np.log10(self._wdm.m_fs)})
+        integrand = c.dndm_rescaled * c.M ** 3
+        out = np.zeros_like(self.lnk)
+        for i, k in enumerate(np.exp(self.lnk)):
+            r = (np.pi / k)  # half the radius
+            mmin = self.filter_mod.radius_to_mass(r)
+            if np.any(c.M > mmin):
+                integ = integrand[c.M > mmin] * c.profile.u(k, c.M[c.M > mmin], norm="m") ** 2
+                out[i] = intg.simps(integ, dx=self.dlog10m) * np.log(10)
+            else:
+                out[i] = 0.0
+        return out / (self.f_halos * self.mean_dens) ** 2
+
+    @cached_property("dndm", "_wdm", "bias", "lnk", "M", "profile", "f_halos", "mean_dens",
+                     "matter_power")
+    def power_m_2h(self):
+        # Only use schneider for now
+        c = deepcopy(self)
+        c.update(hod_params={"M_min":np.log10(self._wdm.m_fs)})
+        integrand = c.M ** 2 * c.dndm_rescaled * c.bias
+        out = np.zeros_like(self.lnk)
+        for i, k in enumerate(np.exp(self.lnk)):
+            integ = integrand * c.profile.u(k, c.M, norm="m")
+            out[i] = (intg.simps(integrand, dx=c.dlog10m) * np.log(10))
+
+        return self.p_lin * out ** 2 / (self.f_halos * self.mean_dens) ** 2
+
+
+    @cached_property("dndm", "_wdm", "lnk", "M", "profile", "f_halos", "mean_dens",
+                     "bias", "bias_smooth")
+    def power_sh(self):
+        c = deepcopy(self)
+        c.update(hod_params={"M_min":np.log10(self._wdm.m_fs)})
+        integrand = c.M ** 2 * c.dndm_rescaled * c.bias
+        out = np.zeros_like(self.lnk)
+        for i, k in enumerate(np.exp(self.lnk)):
+            integ = integrand * c.profile.u(k, c.M, norm="m")
+            out[i] = intg.simps(integ, dx=c.dlog10m) * np.log(10)
+
+        return self.bias_smooth * self.p_lin * out / (self.f_halos * self.mean_dens)
+
+    @cached_property("bias_smooth", "matter_power")
+    def power_ss(self):
+        return self.bias_smooth ** 2 * self.p_lin
+
+    @cached_property("dndm", "bias", "M", "_wdm", "mean_dens", "f_halos")
+    def bias_smooth(self):
+        c = deepcopy(self)
+        c.update(hod_params={"M_min":np.log10(self._wdm.m_fs)})
+        integrand = c.M ** 2 * c.dndm_rescaled * c.bias
+        integral = intg.simps(integrand, dx=c.dlog10m) * np.log(10)
+
+        return (1 / (1 - self.f_halos)) * (1 - integral / self.mean_dens)
+
+
+    @cached_property("dndm", '_wdm')
+    def dndm_rescaled(self):
+        if self.rescale_dndm:
+            return self.dndm * (1 + self._wdm.m_hm / self.M) ** -0.6
+        else:
+            return self.dndm
+
+    @cached_property("cm_relation", "filter_mod", "z", "delta_c", "cosmolopy_dict",
+                     "_wdm", "cm_params")
+    def cm(self):
+        """A class containing the elements necessary to calculate the concentration-mass relation"""
+        if issubclass_(self.cm_relation, CMRelation):
+            cm = self.cm_relation(self.filter_mod, delta_c=self.delta_c, z=self.z,
+                         cdict=self.cosmolopy_dict, m_hm=self._wdm.m_hm,
+                         **self.cm_params)
+        elif isinstance(self.cm_relation, basestring):
+            cm = get_cm(self.cm_relation, filter=self.filter_mod, delta_c=self.delta_c,
+                        z=self.z, cdict=self.cosmolopy_dict, m_hm=self._wdm.m_hm,
+                         **self.cm_params)
+
+        return cm

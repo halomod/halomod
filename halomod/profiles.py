@@ -8,17 +8,17 @@ import sys
 from hmf.cosmo import Cosmology
 import cosmolopy as cp
 
-def get_profile(profile, delta_halo=200.0,
-                cm_relation='zehavi', z=0.0, truncate=True,
-                **cosmo_args):
+def get_profile(profile, cm_relation, delta_halo=200.0,
+                z=0.0, truncate=True,
+                m_hm=None, **cosmo_args):
     """
     A function that chooses the correct Profile class and returns it
     """
     if not truncate:
         profile = profile + "Inf"
     try:
-        return getattr(sys.modules[__name__], profile)(delta_halo, cm_relation,
-                                                       z, **cosmo_args)
+        return getattr(sys.modules[__name__], profile)(cm_relation, delta_halo,
+                                                       z, m_hm, **cosmo_args)
     except AttributeError:
         raise
         raise AttributeError(str(profile) + "  is not a valid profile class")
@@ -53,8 +53,8 @@ class Profile(object):
     z : float, default 0.0
         The redshift of the halo
     """
-    def __init__(self, delta_halo=200.0, cm_relation='zehavi', z=0.0, cosmo=None,
-                 **cosmo_args):
+    def __init__(self, cm_relation, delta_halo=200.0, z=0.0,
+                 cosmo=None, **cosmo_args):
 
         self._delta_halo = delta_halo
 
@@ -73,7 +73,7 @@ class Profile(object):
         else:
             self.has_lam = False
 
-        self._mean_dens = 2.775e11 * cp.density.omega_M_z(z, **self._cosmo.cosmolopy_dict)  # self._cosmo.mean_dens
+        self._mean_dens = self._cosmo.mean_dens  # 2.775e11 * cp.density.omega_M_z(z, **self._cosmo.cosmolopy_dict)  #
 
     # -- BASIC TRANSFORMATIONS --------------------------------------
     def _mvir_to_rvir(self, m):
@@ -405,10 +405,11 @@ class Profile(object):
         """
         The concentration-mass relation
         """
-        if isinstance(self._cm_relation, basestring):
-            return getattr(self, "_cm_" + self._cm_relation)(m)
-        else:
-            return self._cm_relation(m)
+#         if isinstance(self._cm_relation, basestring):
+#             return getattr(self, "_cm_" + self._cm_relation)(m)
+#         else:
+#             return self._cm_relation(m)
+        return self._cm_relation.cm(m)
 
     def _get_r_variables(self, r, m, c=None, coord="r"):
         if c is None:
@@ -456,14 +457,18 @@ class Profile(object):
     #===========================================================================
     # CONCENTRATION-MASS RELATIONS
     #===========================================================================
-    def _cm_duffy(self, m):
-        return 6.71 * (m / (2.0 * 10 ** 12)) ** -0.091 * (1 + self._z) ** -0.44
-
-    def _cm_zehavi(self, m):
-        return ((m / 1.5e13) ** -0.13) * 9.0 / (1 + self._z)
-
-    def _cm_bullock_rescaled(self, m):
-        return (m / 10 ** 12.47) ** (-0.13) * 11 / (1 + self._z)
+#     def _cm_duffy(self, m):
+#         return 6.71 * (m / (2.0 * 10 ** 12)) ** -0.091 * (1 + self._z) ** -0.44
+#
+#     def _cm_zehavi(self, m):
+#         return ((m / 1.5e13) ** -0.13) * 9.0 / (1 + self._z)
+#
+#     def _cm_bullock_rescaled(self, m):
+#         return (m / 10 ** 12.47) ** (-0.13) * 11 / (1 + self._z)
+#
+#     def _cm_bullock_wdm(self, m):
+#         cdm = (m / 10 ** 12.47) ** (-0.13) * 11 / (1 + self._z)
+#         return cdm * (1 + 15.0 * self.m_hm / m) ** -0.3
 
 class ProfileInf(Profile):
     """
