@@ -5,7 +5,7 @@ Created on Oct 1, 2013
 '''
 import numpy as np
 import sys
-
+from hmf.filters import get_filter
 _allmodels = ["ST", "seljak", 'ma', 'tinker05', 'tinker10']
 
 def get_bias(model):
@@ -25,8 +25,11 @@ def ST(hmod, **params):
 
     q = params.get("q", 0.707)
     p = params.get("p", 0.3)
-
-    return 1 + (q * hmod.nu - 1) / hmod.delta_c + (2 * p / hmod.delta_c) / (1 + (q * hmod.nu) ** p)
+    f = get_filter("TopHat", rho_mean=hmod.mean_dens,
+                        delta_c=hmod.delta_c, lnk=hmod.lnk, lnp=hmod.power)
+    nu = f.nu(f.mass_to_radius(hmod.M))
+#     nu = hmod.nu
+    return 1 + (q * nu - 1) / hmod.delta_c + (2 * p / hmod.delta_c) / (1 + (q * nu) ** p)
 
 def seljak(hmod):
     """
@@ -55,7 +58,9 @@ def tinker05(hmod):
     return 1 + 1 / (sa * hmod.delta_c) * (sa * (a * hmod.nu) + sa * b * (a * hmod.nu) ** (1 - c) - (a * hmod.nu) ** c / ((a * hmod.nu) ** c + b * (1 - c) * (1 - c / 2)))
 
 def tinker10(hmod):
-    nu = np.sqrt(hmod.nu)
+    f = get_filter("TopHat", rho_mean=hmod.mean_dens,
+                    delta_c=hmod.delta_c, lnk=hmod.lnk, lnp=hmod.power)
+    nu = f.nu(f.mass_to_radius(hmod.M))
     y = np.log10(hmod.delta_halo)
     A = 1.0 + 0.24 * y * np.exp(-(4 / y) ** 4)
     a = 0.44 * y - 0.88

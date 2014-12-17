@@ -20,7 +20,7 @@ import numpy as np
 from halomod import fit as mc
 import json
 import time
-from halomod import HaloModel
+from halomod import HaloModel, WDM_HaloModel
 import errno
 from os.path import join
 import cosmolopy as cp
@@ -273,11 +273,17 @@ def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options, prefix,
     relax = bool(options["RunOptions"]["relax"])
     store_class = bool(options["RunOptions"]["store_class"])
 
-
-    h = HaloModel(**kwargs)
-
+    if "wdm_mass" in kwargs or "wdm_mass" in keys:
+        h = WDM_HaloModel(**kwargs)
+        print "correct"
+    else:
+        h = HaloModel(**kwargs)
+        print kwargs, keys
     # The following is a little hacky, but will do for low-redshift data
     # Need to get correct units of r, transformed with THIS h.
+    if r[1] - r[0] == r[2] - r[1]:
+        h.rlog = False
+
     h.update(rmin=r.min() * h.h, rmax=r.max() * h.h, rnum=len(r))
 
 
@@ -286,6 +292,11 @@ def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options, prefix,
     prefix = join(options["IO"]["outdir"], prefix)
 
     start = time.time()
+
+    # # Write out a pickle file.
+    with open(prefix + "model.pickle", 'w') as f:
+        pickle.dump(h, f)
+
     s = mc.fit_hod(data, priors, h, guess,
                    nwalkers, nsamples, burnin, nthreads, blobs,
                    prefix, chunks,

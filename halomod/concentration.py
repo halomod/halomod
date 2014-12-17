@@ -105,10 +105,49 @@ class Bullock01(CMRelation):
     def cm(self, m):
         return self.params["K"] * (self.zc(m) + 1.0) / (self.z + 1.0)
 
+class Cooray(CMRelation):
+    _defaults = {"a":9.0, "b":0.13, "c":1.0, "ms":None}
+    def ms(self):
+        ms = np.logspace(5, 15, 1000)
+        rs = self.filter.mass_to_radius(ms)
+        sigma = self.filter.sigma(rs)
+        d = sigma[1:] - sigma[:-1]
+        try:
+            # this to start below "saturation level" in sharp-k filters.
+            pos = np.where(d > 0)[0][-1]
+        except IndexError:
+            pos = 0
+        sigma = sigma[pos:]
+        ms = ms[pos:]
+        s = spline(sigma[::-1], ms[::-1])
+        return s(self.delta_c)
+
+    def cm(self, m):
+        if self.params['ms'] is None:
+            ms = self.ms()
+        else:
+            ms = self.params['ms']
+        return self.params['a'] / (1 + self.z) ** self.params['c'] * (ms / m) ** self.params['b']
+
+class Duffy(Cooray):
+    _defaults = {"a":6.71, "b":0.091, "c":0.44, "ms":2e12}
 
 class BullockWDM(Bullock01):
     _defaults = {"F":0.001, "K":3.4, "m_hm":1e10,
                  "g1":15, "g2":0.3}
     def cm(self, m):
         cm = super(BullockWDM, self).cm(m)
+        return cm * (1 + self.params['g1'] * self.m_hm / m) ** (-self.params["g2"])
+
+class CoorayWDM(Cooray):
+    _defaults = {"a":9.0, "b":0.13,
+                 "g1":15, "g2":0.3}
+    def cm(self, m):
+        cm = super(CoorayWDM, self).cm(m)
+        return cm * (1 + self.params['g1'] * self.m_hm / m) ** (-self.params["g2"])
+
+class DuffyWDM(Cooray):
+    _defaults = {"a":6.71, "b":0.091, "c":0.44, "ms":2e12, "g1":15, "g2":0.3}
+    def cm(self, m):
+        cm = super(DuffyWDM, self).cm(m)
         return cm * (1 + self.params['g1'] * self.m_hm / m) ** (-self.params["g2"])

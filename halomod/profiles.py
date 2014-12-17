@@ -56,36 +56,36 @@ class Profile(object):
     def __init__(self, cm_relation, delta_halo=200.0, z=0.0,
                  cosmo=None, **cosmo_args):
 
-        self._delta_halo = delta_halo
+        self.delta_halo = delta_halo
 
         if "default" not in cosmo_args:
             cosmo_args.update({"default":"planck1_base"})
 
         if cosmo is not None:
-            self._cosmo = cosmo
+            self.cosmo = cosmo
         else:
-            self._cosmo = Cosmology(**cosmo_args)
+            self.cosmo = Cosmology(**cosmo_args)
 
-        self._z = z
+        self.z = z
         self._cm_relation = cm_relation
         if hasattr(self, "_l"):
             self.has_lam = True
         else:
             self.has_lam = False
 
-        self._mean_dens = self._cosmo.mean_dens  # 2.775e11 * cp.density.omega_M_z(z, **self._cosmo.cosmolopy_dict)  #
+        self.rho_mean = self.cosmo.mean_dens  # 2.775e11 * cp.density.omega_M_z(z, **self.cosmo.cosmolopy_dict)  #
 
     # -- BASIC TRANSFORMATIONS --------------------------------------
     def _mvir_to_rvir(self, m):
         """ Return the virial radius corresponding to m"""
-        return (3 * m / (4 * np.pi * self._delta_halo * self._mean_dens)) ** (1. / 3.)
+        return (3 * m / (4 * np.pi * self.delta_halo * self.rho_mean)) ** (1. / 3.)
 
     def _rvir_to_mvir(self, r):
         """Return the virial mass corresponding to r"""
         if self._delta_wrt == "mean":
-            return 4 * np.pi * r ** 3 * self._delta_halo * self._mean_dens / 3
+            return 4 * np.pi * r ** 3 * self.delta_halo * self.rho_mean / 3
         else:
-            return 4 * np.pi * r ** 3 * self._delta_halo * self._crit_dens / 3
+            return 4 * np.pi * r ** 3 * self.delta_halo * self._crit_dens / 3
 
     def _rs_from_m(self, m, c=None):
         """ 
@@ -190,11 +190,11 @@ class Profile(object):
             The scale radius. This is only required if ``norm`` is "m".
         """
         if norm is None:
-            rho = c ** 3 * self._delta_halo * self._mean_dens / (3 * self._h(c))
+            rho = c ** 3 * self.delta_halo * self.rho_mean / (3 * self._h(c))
         elif norm is "m":
             rho = 1.0 / (4 * np.pi * r_s ** 3 * self._h(c))
         elif norm is "rho":
-            rho = c ** 3 * self._delta_halo / (3 * self._h(c))
+            rho = c ** 3 * self.delta_halo / (3 * self._h(c))
 
         return self._make_scalar(rho)
 
@@ -405,10 +405,10 @@ class Profile(object):
         """
         The concentration-mass relation
         """
-#         if isinstance(self._cm_relation, basestring):
-#             return getattr(self, "_cm_" + self._cm_relation)(m)
+#         if isinstance(self.cm_relation, basestring):
+#             return getattr(self, "_cm_" + self.cm_relation)(m)
 #         else:
-#             return self._cm_relation(m)
+#             return self.cm_relation(m)
         return self._cm_relation.cm(m)
 
     def _get_r_variables(self, r, m, c=None, coord="r"):
@@ -458,16 +458,16 @@ class Profile(object):
     # CONCENTRATION-MASS RELATIONS
     #===========================================================================
 #     def _cm_duffy(self, m):
-#         return 6.71 * (m / (2.0 * 10 ** 12)) ** -0.091 * (1 + self._z) ** -0.44
+#         return 6.71 * (m / (2.0 * 10 ** 12)) ** -0.091 * (1 + self.z) ** -0.44
 #
 #     def _cm_zehavi(self, m):
-#         return ((m / 1.5e13) ** -0.13) * 9.0 / (1 + self._z)
+#         return ((m / 1.5e13) ** -0.13) * 9.0 / (1 + self.z)
 #
 #     def _cm_bullock_rescaled(self, m):
-#         return (m / 10 ** 12.47) ** (-0.13) * 11 / (1 + self._z)
+#         return (m / 10 ** 12.47) ** (-0.13) * 11 / (1 + self.z)
 #
 #     def _cm_bullock_wdm(self, m):
-#         cdm = (m / 10 ** 12.47) ** (-0.13) * 11 / (1 + self._z)
+#         cdm = (m / 10 ** 12.47) ** (-0.13) * 11 / (1 + self.z)
 #         return cdm * (1 + 15.0 * self.m_hm / m) ** -0.3
 
 class ProfileInf(Profile):

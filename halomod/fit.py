@@ -120,7 +120,7 @@ def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=Non
     # Update the actual model
     try:  # This try: except: should capture poor parameter choices quickly.
         h.update(**hoddict)
-    except ValueError as e:
+    except Exception as e:
         if relax:
             print "WARNING: PARAMETERS FAILED, RETURNING INF: ", zip(attrs, parm)
             print e

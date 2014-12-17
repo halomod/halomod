@@ -656,12 +656,13 @@ class WDM_HaloModel(HaloModel):
         c = deepcopy(self)
         c.update(hod_params={"M_min":np.log10(self._wdm.m_fs)})
         integrand = c.dndm_rescaled * c.M ** 3
+        u = c.profile.u(np.exp(c.lnk), c.M, norm="m") ** 2
         out = np.zeros_like(self.lnk)
         for i, k in enumerate(np.exp(self.lnk)):
             r = (np.pi / k)  # half the radius
             mmin = self.filter_mod.radius_to_mass(r)
             if np.any(c.M > mmin):
-                integ = integrand[c.M > mmin] * c.profile.u(k, c.M[c.M > mmin], norm="m") ** 2
+                integ = integrand[c.M > mmin] * u[i, c.M > mmin]
                 out[i] = intg.simps(integ, dx=self.dlog10m) * np.log(10)
             else:
                 out[i] = 0.0
@@ -675,9 +676,10 @@ class WDM_HaloModel(HaloModel):
         c.update(hod_params={"M_min":np.log10(self._wdm.m_fs)})
         integrand = c.M ** 2 * c.dndm_rescaled * c.bias
         out = np.zeros_like(self.lnk)
+        u = c.profile.u(np.exp(c.lnk), c.M, norm="m")
         for i, k in enumerate(np.exp(self.lnk)):
-            integ = integrand * c.profile.u(k, c.M, norm="m")
-            out[i] = (intg.simps(integrand, dx=c.dlog10m) * np.log(10))
+            integ = integrand * u[i, :]
+            out[i] = (intg.simps(integ, dx=c.dlog10m) * np.log(10))
 
         return self.p_lin * out ** 2 / (self.f_halos * self.mean_dens) ** 2
 
@@ -689,15 +691,16 @@ class WDM_HaloModel(HaloModel):
         c.update(hod_params={"M_min":np.log10(self._wdm.m_fs)})
         integrand = c.M ** 2 * c.dndm_rescaled * c.bias
         out = np.zeros_like(self.lnk)
+        u = c.profile.u(np.exp(c.lnk), c.M, norm="m")
         for i, k in enumerate(np.exp(self.lnk)):
-            integ = integrand * c.profile.u(k, c.M, norm="m")
+            integ = integrand * u [i, :]
             out[i] = intg.simps(integ, dx=c.dlog10m) * np.log(10)
 
         return self.bias_smooth * self.p_lin * out / (self.f_halos * self.mean_dens)
 
     @cached_property("bias_smooth", "matter_power")
     def power_ss(self):
-        return self.bias_smooth ** 2 * self.p_lin
+        return self.bias_smooth ** 2 * np.exp(self.nonlinear_power)  # self.p_lin
 
     @cached_property("dndm", "bias", "M", "_wdm", "mean_dens", "f_halos")
     def bias_smooth(self):
@@ -730,3 +733,5 @@ class WDM_HaloModel(HaloModel):
                          **self.cm_params)
 
         return cm
+
+
