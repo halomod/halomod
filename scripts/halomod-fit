@@ -279,11 +279,15 @@ def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options, prefix,
     else:
         h = HaloModel(**kwargs)
         print kwargs, keys
+
     # The following is a little hacky, but will do for low-redshift data
     # Need to get correct units of r, transformed with THIS h.
-    if r[1] - r[0] == r[2] - r[1]:
+    if (r[1] - r[0]) - (r[2] - r[1]) < 1e-5:
+        print "Making R NOT LOGGED!"
         h.rlog = False
-
+    else:
+        print r[1:] - r[:-1]
+        print (r[1:] - r[:-1])[1:] - (r[1:] - r[:-1])[:-1]
     h.update(rmin=r.min() * h.h, rmax=r.max() * h.h, rnum=len(r))
 
 
