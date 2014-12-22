@@ -89,6 +89,8 @@ USAGE
         ### READ CONFIG FILE ###
         options = read_config(args.conf)
 
+        model_file = options["Model"].pop("pickleFile")
+
         if options["IO"]["outdir"]:
             try:
                 os.makedirs(options["IO"]["outdir"])
@@ -111,7 +113,7 @@ USAGE
             initial, prev_samples = None, 0
 
         run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options,
-            args.prefix, initial, prev_samples)
+            args.prefix, initial, prev_samples, model_file)
 
         return 0
     except KeyboardInterrupt:
@@ -252,18 +254,11 @@ def set_prior(param, val):
 # MAIN
 #===============================================================================
 def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options, prefix,
-        initial, prev_samples):
+        initial, prev_samples, model_file):
 
     if prefix:
         if not prefix.endswith("."):
             prefix += "."
-
-    kwargs = options["Model"]
-    for k in kwargs:
-        try:
-            kwargs[k] = json.loads(kwargs[k])
-        except:
-            pass
 
     nwalkers = int(options["MCMC"]["nwalkers"])
     nsamples = int(options["MCMC"]["nsamples"])
@@ -273,12 +268,22 @@ def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options, prefix,
     relax = bool(options["RunOptions"]["relax"])
     store_class = bool(options["RunOptions"]["store_class"])
 
-    if "wdm_mass" in kwargs or "wdm_mass" in keys:
-        h = WDM_HaloModel(**kwargs)
-        print "correct"
+    if model_file is None:
+        kwargs = options["Model"]
+        for k in kwargs:
+            try:
+                kwargs[k] = json.loads(kwargs[k])
+            except:
+                pass
+
+        if "wdm_mass" in kwargs or "wdm_mass" in keys:
+            h = WDM_HaloModel(**kwargs)
+        else:
+            h = HaloModel(**kwargs)
+
     else:
-        h = HaloModel(**kwargs)
-        print kwargs, keys
+        with open(model_file) as f:
+            h = pickle.load(f)
 
     # The following is a little hacky, but will do for low-redshift data
     # Need to get correct units of r, transformed with THIS h.
@@ -288,8 +293,8 @@ def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options, prefix,
     else:
         print r[1:] - r[:-1]
         print (r[1:] - r[:-1])[1:] - (r[1:] - r[:-1])[:-1]
-    h.update(rmin=r.min() * h.h, rmax=r.max() * h.h, rnum=len(r))
 
+    h.update(rmin=r.min() * h.h, rmax=r.max() * h.h, rnum=len(r))
 
     h.corr_gal
 

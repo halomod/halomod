@@ -27,7 +27,7 @@ import copy
 # The Model
 #===============================================================================
 def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=None,
-          verbose=0, store_class=False, relax=False):
+          verbose=0, store_class=False, relax=False, data_renorm=0.0):
     """
     Calculate the log probability of a HaloModel model given correlation data
     
@@ -136,7 +136,6 @@ def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=Non
     # Get the quantity to compare (if exceptions are raised, treat properly)
     try:
         q = getattr(h, quantity)
-        print q[:4]
     except Exception as e:
         if relax:
             print "WARNING: PARAMETERS FAILED, RETURNING INF: ", zip(attrs, parm)
@@ -144,6 +143,10 @@ def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=Non
             return -np.inf, blobs
         else:
             raise e
+
+    # This is to account for re-normalisation by cosmic variance
+    if data_renorm > 0:
+        data *= norm.rvs(0, data_renorm)
 
     # The logprob of the model
     if covar is not None:
@@ -154,9 +157,17 @@ def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=Non
 
     if verbose > 0:
         print "Likelihood: ", ll
-#     if verbose > 1 :
-    print "Update Dictionary: ", hoddict
+    if verbose > 1 :
+        print "Update Dictionary: ", hoddict
 
+    if np.isnan(ll):
+        print ""
+        print "+"*20
+        print "PARAMETERS RETURNED NAN LNPROB: "
+        print hoddict
+        print "PREDICTED DATA: ", q
+        print "+"*20
+        print ""
     # Get blobs to return as well.
     if blobs is not None or store_class:
         out = []
