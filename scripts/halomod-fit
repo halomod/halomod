@@ -287,7 +287,7 @@ def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options, prefix,
 
     # The following is a little hacky, but will do for low-redshift data
     # Need to get correct units of r, transformed with THIS h.
-    if (r[1] - r[0]) - (r[2] - r[1]) < 1e-5:
+    if (r[1] - r[0]) - (r[2] - r[1]) >= -1e-10:
         print "Making R NOT LOGGED!"
         h.rlog = False
     else:

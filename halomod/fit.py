@@ -166,7 +166,6 @@ def model(parm, priors, h, attrs, data, quantity, blobs=None, sd=None, covar=Non
         print "PARAMETERS RETURNED NAN LNPROB: "
         print hoddict
         print "PREDICTED DATA: ", q
-        print h.__dict__
         print "+"*20
         print ""
         with open("bad_model.pickle", 'w') as f:

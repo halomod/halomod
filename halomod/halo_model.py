@@ -411,13 +411,6 @@ class HaloModel(MassFunction):
                      self.mean_gal_den, self.delta_halo,
                      self.mean_dens, self.nthreads_2halo)
         return corr_2h
-#         return thalo(self.halo_exclusion, self.scale_dependent_bias,
-#                     self.M, self.bias, self.n_tot,
-#                     self.dndm, self.lnk,
-#                     np.exp(self.matter_power), u, self.r, self.dm_corr,
-#                     self.mean_gal_den, self.delta_halo,
-#                     self.mean_dens, self.nthreads_2halo)
-    # FIXME
 
     @cached_property("corr_gal_1h", "corr_gal_2h")
     def  corr_gal(self):
