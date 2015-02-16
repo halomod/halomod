@@ -296,8 +296,8 @@ def fit_hod(data, priors, h, guess=[], nwalkers=100, nsamples=100, burnin=0,
 
     # Ensure guess was set correctly.
     if guess and len(guess) != ndim:
-            warnings.warn("Guess was set incorrectly: %s" % guess)
-            guess = []
+        warnings.warn("Guess was set incorrectly: %s" % guess)
+        guess = []
 
     # Ensure no burn-in if restarting from old run
     if initial_pos is not None:
