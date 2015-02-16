@@ -68,7 +68,7 @@ class CMRelation(object):
     _defaults = {}
 
     use_cosmo = False
-    def __init__(self, filter, delta_c, z, cdict, m_hm, **model_parameters):
+    def __init__(self, filter, delta_c, z, cdict, **model_parameters):
         """
         filter : a filter function at z = 0
         """
@@ -86,7 +86,6 @@ class CMRelation(object):
         self.delta_c = delta_c
         self.z = z
         self.cdict = cdict
-        self.m_hm = m_hm
 
 class Bullock01(CMRelation):
     _defaults = {"F":0.001, "K":3.4}
@@ -131,23 +130,3 @@ class Cooray(CMRelation):
 
 class Duffy(Cooray):
     _defaults = {"a":6.71, "b":0.091, "c":0.44, "ms":2e12}
-
-class BullockWDM(Bullock01):
-    _defaults = {"F":0.001, "K":3.4, "m_hm":1e10,
-                 "g1":15, "g2":0.3}
-    def cm(self, m):
-        cm = super(BullockWDM, self).cm(m)
-        return cm * (1 + self.params['g1'] * self.m_hm / m) ** (-self.params["g2"])
-
-class CoorayWDM(Cooray):
-    _defaults = {"a":9.0, "b":0.13,
-                 "g1":15, "g2":0.3}
-    def cm(self, m):
-        cm = super(CoorayWDM, self).cm(m)
-        return cm * (1 + self.params['g1'] * self.m_hm / m) ** (-self.params["g2"])
-
-class DuffyWDM(Cooray):
-    _defaults = {"a":6.71, "b":0.091, "c":0.44, "ms":2e12, "g1":15, "g2":0.3}
-    def cm(self, m):
-        cm = super(DuffyWDM, self).cm(m)
-        return cm * (1 + self.params['g1'] * self.m_hm / m) ** (-self.params["g2"])
