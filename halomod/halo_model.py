@@ -14,11 +14,13 @@ import tools
 from profiles import get_profile
 import hod
 from bias import get_bias, tinker10
+from concentration import get_cm, Bullock01, CMRelation
 from fort.routines import hod_routines as fort
 from twohalo_wrapper import twohalo_wrapper as thalo
 from twohalo_wrapper import dblsimps
-
+from hmf.filters import TopHat
 from copy import deepcopy
+from numpy import issubclass_
 
 USEFORT = True
 #===============================================================================
@@ -43,7 +45,7 @@ class HaloModel(MassFunction):
                  halo_profile='NFW', cm_relation='duffy', bias_model=tinker10,
                  nonlinear=True, scale_dependent_bias=True,
                  halo_exclusion="None", ng=None, nthreads_2halo=0,
-                 proj_limit=None, ** hmf_kwargs):
+                 proj_limit=None, bias_params={}, cm_params={}, ** hmf_kwargs):
 
         # Pre-process Some Arguments
         if "cut_fit" not in hmf_kwargs:
@@ -65,9 +67,9 @@ class HaloModel(MassFunction):
         self.halo_exclusion = halo_exclusion
         self.scale_dependent_bias = scale_dependent_bias
         self.proj_limit = proj_limit
-
+        self.bias_params = bias_params
         self.nthreads_2halo = nthreads_2halo
-
+        self.cm_params = cm_params
         # A special argument, making it possible to define M_min by mean density
         self.ng = ng
 
@@ -102,13 +104,17 @@ class HaloModel(MassFunction):
         return val
 
     @parameter
+    def bias_params(self, val):
+        return val
+
+    @parameter
     def hod_params(self, val):
         """Dictionary of parameters for the HOD model"""
         return val
 
     @parameter
     def hod_model(self, val):
-        """:class:`hod.hod.HOD` class"""
+        """:class:`~hod.HOD` class"""
         if not isinstance(val, basestring):
 
             if not issubclass(val, hod.HOD):
@@ -140,11 +146,7 @@ class HaloModel(MassFunction):
 
     @parameter
     def cm_relation(self, val):
-        available = ['duffy', 'zehavi', "bullock_rescaled"]
-        if val not in available:
-            if isinstance(val, str):
-                raise ValueError("cm_relation not acceptable: " + str(val))
-
+        """A concentration-mass relation"""
         return val
 
     @parameter
@@ -161,6 +163,10 @@ class HaloModel(MassFunction):
             raise ValueError("halo_exclusion not acceptable: " + str(val) + " " + str(type(val)))
         else:
             return val
+
+    @parameter
+    def cm_params(self, val):
+        return val
 
     @parameter
     def rmin(self, val):
@@ -219,23 +225,39 @@ class HaloModel(MassFunction):
         """Average satellite occupancy of halo of mass M"""
         return self.hod.ntot(self.M)
 
-    @cached_property("bias_model", "sigma")
+    @cached_property("bias_model", "sigma", "bias_params")
     def bias(self):
         """A class containing the elements necessary to calculate the halo bias"""
         try:
-            return self.bias_model(self)
+            return self.bias_model(self, **self.bias_params)
         except:
-            return get_bias(self.bias_model)(self)
+            return get_bias(self.bias_model)(self, **self.bias_params)
 
-    @cached_property("halo_profile", "delta_halo", "cm_relation", "z", "omegam", "omegav")
+    @cached_property("cm_relation", "filter_mod", "z", "delta_c", "cosmolopy_dict",
+                    "cm_params")
+    def cm(self):
+        """A class containing the elements necessary to calculate the concentration-mass relation"""
+        if issubclass_(self.cm_relation, CMRelation):
+            cm = self.cm_relation(self.filter_mod, delta_c=self.delta_c, z=self.z,
+                         cdict=self.cosmolopy_dict, m_hm=None,
+                         **self.cm_params)
+        elif isinstance(self.cm_relation, basestring):
+            cm = get_cm(self.cm_relation, filter=self.filter_mod, delta_c=self.delta_c,
+                        z=self.z, cdict=self.cosmolopy_dict, m_hm=None,
+                         **self.cm_params)
+
+        return cm
+
+    @cached_property("halo_profile", "delta_halo", "cm_relation", "z", "omegam",
+                     "omegav", "cm")
     def profile(self):
         """A class containing the elements necessary to calculate halo profile quantities"""
         if hasattr(self.halo_profile, "rho"):
             return self.halo_profile
         else:
             return get_profile(self.halo_profile,
-                               self.delta_halo,
-                               cm_relation=self.cm_relation,
+                               cm_relation=self.cm,
+                               delta_halo=self.delta_halo,
                                z=self.z,
                                truncate=True,
                                omegam=self.omegam,
@@ -389,13 +411,6 @@ class HaloModel(MassFunction):
                      self.mean_gal_den, self.delta_halo,
                      self.mean_dens, self.nthreads_2halo)
         return corr_2h
-#         return thalo(self.halo_exclusion, self.scale_dependent_bias,
-#                     self.M, self.bias, self.n_tot,
-#                     self.dndm, self.lnk,
-#                     np.exp(self.matter_power), u, self.r, self.dm_corr,
-#                     self.mean_gal_den, self.delta_halo,
-#                     self.mean_dens, self.nthreads_2halo)
-    # FIXME
 
     @cached_property("corr_gal_1h", "corr_gal_2h")
     def  corr_gal(self):
@@ -579,6 +594,12 @@ class HaloModel(MassFunction):
             w[i] = dblsimps(integrand, dx, du)
 
         return w * 2 * np.log(10) ** 2, theta
+
 class NGException(Exception):
     pass
+
+
+
+
+
 
