@@ -3,33 +3,17 @@ Contains WDM versions of all models and frameworks
 '''
 from concentration import CMRelation, Bullock01, Cooray, Duffy
 from halo_model import HaloModel
-from hmf._cache import cached_property
+from hmf._cache import parameter, cached_property
 from copy import deepcopy
 from hmf.filters import TopHat
 import numpy as np
 from scipy import integrate as intg
 from hmf.wdm import MassFunctionWDM
-import sys
+from hmf._framework import get_model
+
 #===============================================================================
 # C-M relations
 #===============================================================================
-def get_cm(name, **kwargs):
-    """
-    Returns the correct subclass of :class:`CMRelation`.
-    
-    Parameters
-    ----------
-    name : str
-        The class name of the appropriate fit
-        
-    \*\*kwargs : 
-        Any parameters for the instantiated fit (including model parameters)
-    """
-    try:
-        return getattr(sys.modules[__name__], name)(**kwargs)
-    except AttributeError:
-        raise AttributeError(str(name) + "  is not a valid CMRelationWDM class")
-
 class CMRelationWDMRescale(CMRelation):
     """
     Base class for simply rescaled concentration-mass relations (cf. Schneider 
@@ -43,16 +27,21 @@ class CMRelationWDMRescale(CMRelation):
         cm = super(self.__class__, self).cm(m)
         return cm * (1 + self.params['g1'] * self.m_hm / m) ** (-self.params["g2"])
 
-class BullockWDM(Bullock01, CMRelationWDMRescale):
-    _defaults = {"F":0.001, "K":3.4, "m_hm":1e10,
-                 "g1":15, "g2":0.3}
-
-class CoorayWDM(Cooray, CMRelationWDMRescale):
-    _defaults = {"a":9.0, "b":0.13,
-                 "g1":15, "g2":0.3}
-
-class DuffyWDM(Duffy, CMRelationWDMRescale):
-    _defaults = {"a":6.71, "b":0.091, "c":0.44, "ms":2e12, "g1":15, "g2":0.3}
+def get_cm_rescaled(name):
+    x = get_model(name, "halomod.concentration")
+    K = type(name + "WDM", (x, CMRelationWDMRescale))
+    K._defaults.update({"g1":15, "g2":0.3})
+    return K
+# class BullockWDM(Bullock01, CMRelationWDMRescale):
+#     _defaults = {"F":0.001, "K":3.4, "m_hm":1e10,
+#                  "g1":15, "g2":0.3}
+#
+# class CoorayWDM(Cooray, CMRelationWDMRescale):
+#     _defaults = {"a":9.0, "b":0.13,
+#                  "g1":15, "g2":0.3}
+#
+# class DuffyWDM(Duffy, CMRelationWDMRescale):
+#     _defaults = {"a":6.71, "b":0.091, "c":0.44, "ms":2e12, "g1":15, "g2":0.3}
 
 #===============================================================================
 # Framework
@@ -157,14 +146,15 @@ class HaloModelWDM(HaloModel, MassFunctionWDM):
 
     @cached_property("_wdm")
     def cm(self):
-        if np.issubclass_(self.cm_relation, CMRelation):
-            cm = self.cm_relation(self.filter_mod, delta_c=self.delta_c, z=self.z,
-                                  cdict=self.cosmolopy_dict, m_hm=self._wdm.m_hm,
-                                  **self.cm_params)
-        elif isinstance(self.cm_relation, basestring):
-            cm = get_cm(self.cm_relation, filter=self.filter_mod,
-                        delta_c=self.delta_c, z=self.z, cdict=self.cosmolopy_dict,
-                        m_hm=self._wdm.m_hm,
-                        ** self.cm_params)
+        kwargs = dict(nu=self.nu, z=self.z, growth=self.growth_model,
+                      M=self.M, **self.cm_params)
+        if np.issubclass_(self.cm_relation, CMRelationWDMRescale):
+            cm = self.cm_relation(m_hm=self._wdm.m_hm, **kwargs)
+        elif np.issubclass_(self.cm_relation, CMRelation):
+            cm = self.cm_relation(**kwargs)
+        elif self.cm_relation.endswith("WDM"):
+            cm = get_cm_rescaled(self.cm_relation[:-3])(m_hm=self._wdm.m_hm, **kwargs)
+        else:
+            cm = get_model(self.cm_relation, "halomod.concentration", **kwargs)
 
         return cm
