@@ -1,9 +1,9 @@
 '''
 Contains WDM versions of all models and frameworks
 '''
-from concentration import CMRelation, Bullock01, Cooray, Duffy
+from concentration import CMRelation
 from halo_model import HaloModel
-from hmf._cache import parameter, cached_property
+from hmf._cache import cached_property
 from copy import deepcopy
 from hmf.filters import TopHat
 import numpy as np

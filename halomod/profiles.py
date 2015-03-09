@@ -41,7 +41,7 @@ class Profile(Model):
         self.delta_halo = delta_halo
         self.z = z
         self._cm_relation = cm_relation
-        self.rho = mean_dens
+        self.mean_dens = mean_dens
 
         if hasattr(self, "_l"):
             self.has_lam = True
@@ -51,11 +51,11 @@ class Profile(Model):
     # -- BASIC TRANSFORMATIONS --------------------------------------
     def _mvir_to_rvir(self, m):
         """ Return the virial radius corresponding to m"""
-        return (3 * m / (4 * np.pi * self.delta_halo * self.rho)) ** (1. / 3.)
+        return (3 * m / (4 * np.pi * self.delta_halo * self.mean_dens)) ** (1. / 3.)
 
     def _rvir_to_mvir(self, r):
         """Return the virial mass corresponding to r"""
-        return 4 * np.pi * r ** 3 * self.delta_halo * self.rho / 3
+        return 4 * np.pi * r ** 3 * self.delta_halo * self.mean_dens / 3
 
     def _rs_from_m(self, m, c=None):
         """ 
@@ -160,7 +160,7 @@ class Profile(Model):
             The scale radius. This is only required if ``norm`` is "m".
         """
         if norm is None:
-            rho = c ** 3 * self.delta_halo * self.rho / (3 * self._h(c))
+            rho = c ** 3 * self.delta_halo * self.mean_dens / (3 * self._h(c))
         elif norm is "m":
             rho = 1.0 / (4 * np.pi * r_s ** 3 * self._h(c))
         elif norm is "rho":
@@ -594,6 +594,10 @@ class NFW(Profile):
         return np.log(1.0 + c) - c / (1.0 + c)
 
     def _p(self, K, c=None):
+        if hasattr(K, "value"):
+            K = K.value
+        if hasattr(c, "value"):
+            c = c.value
         bs, bc = sp.sici(K)
         asi, ac = sp.sici((1 + c) * K)
         return (np.sin(K) * (asi - bs) - np.sin(c * K) / ((1 + c) * K) + np.cos(K) * (ac - bc))
@@ -641,6 +645,8 @@ class NFW(Profile):
 
 class NFWInf(NFW, ProfileInf):
     def _p(self, K):
+        if hasattr(K, "value"):
+            K = K.value
         bs, bc = sp.sici(K)
         return 0.5 * ((np.pi - 2 * bs) * np.sin(K) - 2 * np.cos(K) * bc)
 

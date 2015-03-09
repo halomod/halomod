@@ -87,7 +87,7 @@ class Cooray(CMRelation):
         return s(1.0)
 
     def cm(self, m):
-        ms = self.params['ms'] or self.ms()
+        ms = (self.params['ms'] or self.ms()) * m.unit
         return self.params['a'] / (1 + self.z) ** self.params['c'] * (ms / m) ** self.params['b']
 
 class Duffy(Cooray):
