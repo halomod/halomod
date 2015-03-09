@@ -1,21 +1,10 @@
 
 import numpy as np
 import scipy.special as sp
-import sys
-import copy
+from hmf._framework import Model
 _allmodels = ["Zehavi05", "Zheng05", "Contreras"]
 
-def get_hod(hod):
-    """
-    A function that chooses the correct Profile class and returns it
-    """
-    try:
-        return getattr(sys.modules[__name__], hod)
-    except AttributeError:
-        raise
-        raise AttributeError(str(hod) + "  is not a valid profile class")
-
-class HOD(object):
+class HOD(Model):
     """
     Halo Occupation Distribution model base class.
     
@@ -47,13 +36,9 @@ class HOD(object):
     sharp_cut = False
 
     def __init__(self, central=True, **model_parameters):
-        for k in model_parameters:
-            if k not in self._defaults:
-                raise ValueError("%s is not a valid argument for the HOD" % k)
 
-        self.params = copy.copy(self._defaults)
-        self.params.update(model_parameters)
         self._central = central
+        super(HOD, self).__init__(**model_parameters)
 
     def nc(self, M):
         pass
