@@ -60,17 +60,6 @@ def power_to_corr(power_func, R):
 
     return corr
 
-def virial_mass(r, mean_dens, delta_halo):
-    """
-    Returns the virial mass of a given halo radius
-    """
-    return 4 * np.pi * r ** 3 * mean_dens * delta_halo / 3
-
-def virial_radius(m, mean_dens, delta_halo):
-    """
-    Returns the virial mass of a given halo radius
-    """
-    return ((3 * m) / (4 * np.pi * mean_dens * delta_halo)) ** (1. / 3.)
 
 def overlapping_halo_prob(r, rv1, rv2):
     """

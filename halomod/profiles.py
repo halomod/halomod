@@ -35,13 +35,13 @@ class Profile(Model):
     z : float, default 0.0
         The redshift of the halo
     """
-    def __init__(self, cm_relation, rho, delta_wrt="mean",
+    def __init__(self, cm_relation, mean_dens,
                  delta_halo=200.0, z=0.0):
 
         self.delta_halo = delta_halo
         self.z = z
         self._cm_relation = cm_relation
-        self.rho = rho
+        self.rho = mean_dens
 
         if hasattr(self, "_l"):
             self.has_lam = True

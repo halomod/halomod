@@ -11,16 +11,17 @@ from hmf import MassFunction
 from hmf._cache import cached_property, parameter
 # import hmf.tools as ht
 import tools
-from profiles import get_profile
 import hod
-from bias import get_bias, tinker10
-from concentration import get_cm, Bullock01, CMRelation
+from concentration import CMRelation
 from fort.routines import hod_routines as fort
 from twohalo_wrapper import twohalo_wrapper as thalo
 from twohalo_wrapper import dblsimps
-from hmf.filters import TopHat
+# from hmf.filters import TopHat
 from copy import deepcopy
 from numpy import issubclass_
+from hmf._framework import get_model
+import profiles
+import bias
 
 USEFORT = True
 #===============================================================================
@@ -41,8 +42,8 @@ class HaloModel(MassFunction):
     rlog = True
 
     def __init__(self, rmin=0.1, rmax=50.0, rnum=20, hod_params={},
-                 hod_model=hod.Zehavi05,
-                 halo_profile='NFW', cm_relation='duffy', bias_model=tinker10,
+                 hod_model="Zehavi05",
+                 halo_profile='NFW', cm_relation='duffy', bias_model="Tinker10",
                  nonlinear=True, scale_dependent_bias=True,
                  halo_exclusion="None", ng=None, nthreads_2halo=0,
                  proj_limit=None, bias_params={}, cm_params={}, ** hmf_kwargs):
@@ -115,14 +116,9 @@ class HaloModel(MassFunction):
     @parameter
     def hod_model(self, val):
         """:class:`~hod.HOD` class"""
-        if not isinstance(val, basestring):
-
-            if not issubclass(val, hod.HOD):
-                raise ValueError("hod_model must be a subclass of hod.HOD")
-            else:
-                return val
-        else:
-            return hod.get_hod(val)
+        if not isinstance(val, basestring) and not issubclass_(val, hod.HOD):
+            raise ValueError("hod_model must be a subclass of hod.HOD")
+        return val
 
     @parameter
     def proj_limit(self, val):
@@ -141,16 +137,22 @@ class HaloModel(MassFunction):
 
     @parameter
     def halo_profile(self, val):
-        """A string identifier for the halo density profile used"""
+        """The halo density profile"""
+        if not isinstance(val, basestring) and not issubclass_(val, profiles.Profile):
+            raise ValueError("halo_profile must be a subclass of profiles.Profile")
         return val
 
     @parameter
     def cm_relation(self, val):
         """A concentration-mass relation"""
+        if not isinstance(val, basestring) and not issubclass_(val, CMRelation):
+            raise ValueError("cm_relation must be a subclass of concentration.CMRelation")
         return val
 
     @parameter
     def bias_model(self, val):
+        if not isinstance(val, basestring) and not issubclass_(val, bias.Bias):
+            raise ValueError("bias_model must be a subclass of bias.Bias")
         return val
 
     @parameter
@@ -204,7 +206,10 @@ class HaloModel(MassFunction):
 
     @cached_property("hod_model", "hod_params")
     def hod(self):
-        return self.hod_model(**self.hod_params)
+        if issubclass_(self.hod_model, hod.HOD):
+            return self.hod_model(**self.hod_params)
+        else:
+            return get_model(self.hod_model, "halomod.hod", **self.hod_params)
 
     @cached_property("hod", "dlog10m")
     def M(self):
@@ -225,43 +230,45 @@ class HaloModel(MassFunction):
         """Average satellite occupancy of halo of mass M"""
         return self.hod.ntot(self.M)
 
-    @cached_property("bias_model", "sigma", "bias_params")
+    @cached_property("bias_model", "nu", "delta_c", "delta_halo", "n", "bias_params")
     def bias(self):
         """A class containing the elements necessary to calculate the halo bias"""
-        try:
-            return self.bias_model(self, **self.bias_params)
-        except:
-            return get_bias(self.bias_model)(self, **self.bias_params)
+        if issubclass_(self.bias_model, bias.Bias):
+            return self.bias_model(nu=self.nu, delta_c=self.delta_c,
+                                   delta_halo=self.delta_halo, n=self.n,
+                                   **self.bias_params)
+        else:
+            return get_model(self.bias_model, "halomod.bias",
+                             nu=self.nu, delta_c=self.delta_c,
+                             delta_halo=self.delta_halo, n=self.n,
+                             **self.bias_params)
 
-    @cached_property("cm_relation", "filter_mod", "z", "delta_c", "cosmolopy_dict",
+    @cached_property("cm_relation", "nu", "z", "growth_model", "cosmolopy_dict",
                     "cm_params")
     def cm(self):
         """A class containing the elements necessary to calculate the concentration-mass relation"""
         if issubclass_(self.cm_relation, CMRelation):
-            cm = self.cm_relation(self.filter_mod, delta_c=self.delta_c, z=self.z,
-                         cdict=self.cosmolopy_dict, m_hm=None,
-                         **self.cm_params)
-        elif isinstance(self.cm_relation, basestring):
-            cm = get_cm(self.cm_relation, filter=self.filter_mod, delta_c=self.delta_c,
-                        z=self.z, cdict=self.cosmolopy_dict, m_hm=None,
-                         **self.cm_params)
+            return self.cm_relation(nu=self.nu, z=self.z, growth=self.growth_model,
+                                  M=self.M, **self.cm_params)
+        else:
+            return get_model(self.cm_relation, "halomod.concentration",
+                           nu=self.nu, z=self.z, growth=self.growth_model,
+                           M=self.M, **self.cm_params)
 
-        return cm
 
     @cached_property("halo_profile", "delta_halo", "cm_relation", "z", "omegam",
                      "omegav", "cm")
     def profile(self):
         """A class containing the elements necessary to calculate halo profile quantities"""
-        if hasattr(self.halo_profile, "rho"):
-            return self.halo_profile
+        if issubclass_(self.halo_profile, profiles.Profile):
+            return self.halo_profile(cm_relation=self.cm_relation,
+                                     mean_dens=self.mean_density0,
+                                     delta_halo=self.delta_halo, z=self.z)
         else:
-            return get_profile(self.halo_profile,
-                               cm_relation=self.cm,
-                               delta_halo=self.delta_halo,
-                               z=self.z,
-                               truncate=True,
-                               omegam=self.omegam,
-                               omegav=self.omegav)
+            return get_model(self.halo_profile, "halomod.profiles",
+                             cm_relation=self.cm_relation,
+                             mean_dens=self.mean_density0,
+                             delta_halo=self.delta_halo, z=self.z)
 
     @cached_property("dndm", "n_tot")
     def n_gal(self):
