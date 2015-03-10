@@ -8,11 +8,11 @@ import scipy.integrate as intg
 from scipy.stats import poisson
 from fort.twohalo import twohalo_calc as thalo
 
-def power_to_corr_ogata(power, lnk, R, N=640, h=0.005):
+def power_to_corr_ogata(power, k, R, N=640, h=0.005):
     if not np.iterable(R):
         R = np.array([R])
 
-    return thalo.power_to_corr(R, power, lnk, N, h)
+    return thalo.power_to_corr(R, power, np.log(k.value), N, h)
 
 def power_to_corr(power_func, R):
     """
@@ -60,17 +60,6 @@ def power_to_corr(power_func, R):
 
     return corr
 
-def virial_mass(r, mean_dens, delta_halo):
-    """
-    Returns the virial mass of a given halo radius
-    """
-    return 4 * np.pi * r ** 3 * mean_dens * delta_halo / 3
-
-def virial_radius(m, mean_dens, delta_halo):
-    """
-    Returns the virial mass of a given halo radius
-    """
-    return ((3 * m) / (4 * np.pi * mean_dens * delta_halo)) ** (1. / 3.)
 
 def overlapping_halo_prob(r, rv1, rv2):
     """

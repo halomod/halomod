@@ -4,27 +4,9 @@ import scipy.special as sp
 import scipy.integrate as intg
 from scipy.interpolate import UnivariateSpline as spline
 import mpmath
-import sys
-from hmf.cosmo import Cosmology
-import cosmolopy as cp
+from hmf._framework import Model
 
-def get_profile(profile, cm_relation, delta_halo=200.0,
-                z=0.0, truncate=True,
-                m_hm=None, **cosmo_args):
-    """
-    A function that chooses the correct Profile class and returns it
-    """
-    if not truncate:
-        profile = profile + "Inf"
-    try:
-        return getattr(sys.modules[__name__], profile)(cm_relation, delta_halo,
-                                                       z, m_hm, **cosmo_args)
-    except AttributeError:
-        raise
-        raise AttributeError(str(profile) + "  is not a valid profile class")
-
-
-class Profile(object):
+class Profile(Model):
     """
     Halo radial density profiles.
     
@@ -53,39 +35,27 @@ class Profile(object):
     z : float, default 0.0
         The redshift of the halo
     """
-    def __init__(self, cm_relation, delta_halo=200.0, z=0.0,
-                 cosmo=None, **cosmo_args):
+    def __init__(self, cm_relation, mean_dens,
+                 delta_halo=200.0, z=0.0):
 
         self.delta_halo = delta_halo
-
-        if "default" not in cosmo_args:
-            cosmo_args.update({"default":"planck1_base"})
-
-        if cosmo is not None:
-            self.cosmo = cosmo
-        else:
-            self.cosmo = Cosmology(**cosmo_args)
-
         self.z = z
         self._cm_relation = cm_relation
+        self.mean_dens = mean_dens
+
         if hasattr(self, "_l"):
             self.has_lam = True
         else:
             self.has_lam = False
 
-        self.rho_mean = self.cosmo.mean_dens  # 2.775e11 * cp.density.omega_M_z(z, **self.cosmo.cosmolopy_dict)  #
-
     # -- BASIC TRANSFORMATIONS --------------------------------------
     def _mvir_to_rvir(self, m):
         """ Return the virial radius corresponding to m"""
-        return (3 * m / (4 * np.pi * self.delta_halo * self.rho_mean)) ** (1. / 3.)
+        return (3 * m / (4 * np.pi * self.delta_halo * self.mean_dens)) ** (1. / 3.)
 
     def _rvir_to_mvir(self, r):
         """Return the virial mass corresponding to r"""
-        if self._delta_wrt == "mean":
-            return 4 * np.pi * r ** 3 * self.delta_halo * self.rho_mean / 3
-        else:
-            return 4 * np.pi * r ** 3 * self.delta_halo * self._crit_dens / 3
+        return 4 * np.pi * r ** 3 * self.delta_halo * self.mean_dens / 3
 
     def _rs_from_m(self, m, c=None):
         """ 
@@ -190,7 +160,7 @@ class Profile(object):
             The scale radius. This is only required if ``norm`` is "m".
         """
         if norm is None:
-            rho = c ** 3 * self.delta_halo * self.rho_mean / (3 * self._h(c))
+            rho = c ** 3 * self.delta_halo * self.mean_dens / (3 * self._h(c))
         elif norm is "m":
             rho = 1.0 / (4 * np.pi * r_s ** 3 * self._h(c))
         elif norm is "rho":
@@ -624,6 +594,10 @@ class NFW(Profile):
         return np.log(1.0 + c) - c / (1.0 + c)
 
     def _p(self, K, c=None):
+        if hasattr(K, "value"):
+            K = K.value
+        if hasattr(c, "value"):
+            c = c.value
         bs, bc = sp.sici(K)
         asi, ac = sp.sici((1 + c) * K)
         return (np.sin(K) * (asi - bs) - np.sin(c * K) / ((1 + c) * K) + np.cos(K) * (ac - bc))
@@ -671,6 +645,8 @@ class NFW(Profile):
 
 class NFWInf(NFW, ProfileInf):
     def _p(self, K):
+        if hasattr(K, "value"):
+            K = K.value
         bs, bc = sp.sici(K)
         return 0.5 * ((np.pi - 2 * bs) * np.sin(K) - 2 * np.cos(K) * bc)
 
