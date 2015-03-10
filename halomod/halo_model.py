@@ -23,7 +23,7 @@ from hmf._framework import get_model
 import profiles
 import bias
 import astropy.units as u
-
+import integrate_corr as icorr
 USEFORT = True
 #===============================================================================
 # The class itself
@@ -476,10 +476,9 @@ class HaloModel(MassFunction):
 
         To integrate perform a substitution y = x - r_p.
         """
-        lnr = np.log(self.r.value)
-        lnxi = np.log(self.corr_gal)
+        r = self.r.copy()
+        xir = self.corr_gal.copy()
 
-        p = np.zeros_like(lnr)
 
         # Calculate correlation to higher scales for better integration
         if self.proj_limit is None:
@@ -493,43 +492,10 @@ class HaloModel(MassFunction):
             dr = self.r[1] / self.r[0]
             upper_h.update(rmin=self.rmax * dr, rmax=rlim, rnum=20)
 
-            fit = spline(np.concatenate((self.r, upper_h.r)),
-                         np.concatenate((self.corr_gal, upper_h.corr_gal)), k=3)  # [self.corr_gal > 0] maybe?
-            print "FIT: ", fit(0.1)
-        else:
-            fit = spline(self.r, self.corr_gal, k=3)  # [self.corr_gal > 0] maybe?
-            print "fit: ", fit(0.1)
-        f_peak = 0.01
-        a = 0
+            r = np.concatenate((r.value, upper_h.r.value)) * r.unit
+            xir = np.concatenate((xir, upper_h.corr_gal))
 
-        for i, rp in enumerate(self.r):
-            if a != 1.3 and i < len(self.r) - 1:
-                # Get slope at rp (== index of power law at rp)
-                ydiff = (lnxi[i + 1] - lnxi[i]) / (lnr[i + 1] - lnr[i])
-                # if the slope is flatter than 1.3, it will converge faster, but to make sure, we cut at 1.3
-                a = max(1.3, -ydiff)
-                theta = self._get_theta(a)
-
-            min_y = theta * f_peak ** 2 * rp
-
-            # Get the upper limit for this rp
-            lim = np.log10(rlim - rp.value)
-
-            # Set the y vector for this rp
-            y = np.logspace(np.log10(min_y.value), lim, 1000) * rp.unit
-
-            # Integrate
-            integ_corr = fit(y + rp)
-            integrand = integ_corr / np.sqrt((y + 2 * rp) * y)
-            p[i] = intg.simps(integrand, y) * 2
-
-        return p
-
-    def _get_theta(self, a):
-        theta = 2 ** (1 + 2 * a) * (7 - 2 * a ** 3 + 3 * np.sqrt(5 - 8 * a + 4 * a ** 2) + a ** 2 * (9 + np.sqrt(5 - 8 * a + 4 * a ** 2)) -
-                           a * (13 + 3 * np.sqrt(5 - 8 * a + 4 * a ** 2))) * ((1 + np.sqrt(5 - 8 * a + 4 * a ** 2)) / (a - 1)) ** (-2 * a)
-        theta /= (a - 1) ** 2 * (-1 + 2 * a + np.sqrt(5 - 8 * a + 4 * a ** 2))
-        return theta
+        return icorr.projected_corr_gal(r, xir, self.r)
 
     def angular_corr_gal(self, f, theta_min, theta_max, theta_num, logtheta=True,
                          x_min=0, x_max=10000):
