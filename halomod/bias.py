@@ -68,11 +68,11 @@ class Tinker10(Bias):
         A = 1.0 + 0.24 * y * np.exp(-(4 / y) ** 4)
         a = 0.44 * y - 0.88
         C = 0.019 + 0.107 * y + 0.19 * np.exp(-(4 / y) ** 4)
-
+        nu = np.sqrt(self.nu)
         B = self.params['B']
         c = self.params['c']
         b = self.params['b']
-        return 1 - A * self.nu ** a / (self.nu ** a + self.delta_c ** a) + B * self.nu ** b + C * self.nu ** c
+        return 1 - A * nu ** a / (nu ** a + self.delta_c ** a) + B * nu ** b + C * nu ** c
 
 
 class ScaleDepBias(Model):
