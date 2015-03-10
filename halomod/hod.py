@@ -130,7 +130,7 @@ class Zheng05(HOD):
         Number of satellite galaxies at mass M
         """
         ns = np.zeros_like(M.value)
-        ns[M > 10 ** self.params["M_0"]] = ((M.value[M.value > 10 ** self.params["M_0"]] - 10 ** self.params["M_0"]) / 10 ** self.params["M_1"]) ** self.params["alpha"]
+        ns[M.value > 10 ** self.params["M_0"]] = ((M.value[M.value > 10 ** self.params["M_0"]] - 10 ** self.params["M_0"]) / 10 ** self.params["M_1"]) ** self.params["alpha"]
         return ns
 
     @property

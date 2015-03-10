@@ -250,11 +250,11 @@ class HaloModel(MassFunction):
     def cm(self):
         """A class containing the elements necessary to calculate the concentration-mass relation"""
         if issubclass_(self.cm_relation, CMRelation):
-            return self.cm_relation(nu=self.nu, z=self.z, growth=self.growth_model,
+            return self.cm_relation(nu=self.nu, z=self.z, growth=self._growth,
                                     M=self.M, **self.cm_params)
         else:
             return get_model(self.cm_relation, "halomod.concentration",
-                           nu=self.nu, z=self.z, growth=self.growth_model,
+                           nu=self.nu, z=self.z, growth=self._growth,
                            M=self.M, **self.cm_params)
 
 
@@ -284,12 +284,11 @@ class HaloModel(MassFunction):
         The mean number density of galaxies
         """
         if self.ng is not None:
-            return self.ng
+            return self.ng * self.M.unit * self.dndm.unit
         else:
 #             Integrand is just the density of galaxies at mass M
             integrand = self.M * self.dndm * self.n_tot
-        return intg.simps(integrand, dx=np.log(self.M[1] / self.M[0]),
-                          even="first")
+        return intg.trapz(integrand, dx=np.log(self.M[1] / self.M[0]))
 
 
     @cached_property("M", "dndm", "n_tot", "bias")
@@ -299,8 +298,7 @@ class HaloModel(MassFunction):
         """
         # Integrand is just the density of galaxies at mass M by bias
         integrand = self.M * self.dndm * self.n_tot * self.bias
-        b = intg.simps(integrand, dx=np.log(self.M[1] / self.M[0]))
-
+        b = intg.trapz(integrand, dx=np.log(self.M[1] / self.M[0]))
         return b / self.mean_gal_den
 
     @cached_property("M", 'dndm', 'n_tot', "mean_gal_den")
@@ -311,14 +309,14 @@ class HaloModel(MassFunction):
         # Integrand is just the density of galaxies at mass M by M
         integrand = self.M ** 2 * self.dndm * self.n_tot
 
-        m = intg.simps(integrand, dx=np.log(self.M[1] / self.M[0]))
-        return np.log10(m / self.mean_gal_den)
+        m = intg.trapz(integrand, dx=np.log(self.M[1] / self.M[0]))
+        return np.log10((m / self.mean_gal_den).value)
 
     @cached_property("M", "dndm", "n_sat", "mean_gal_den")
     def satellite_fraction(self):
         # Integrand is just the density of satellite galaxies at mass M
         integrand = self.M * self.dndm * self.n_sat
-        s = intg.simps(integrand, dx=np.log(self.M[1] / self.M[0]))
+        s = intg.trapz(integrand, dx=np.log(self.M[1] / self.M[0]))
         return s / self.mean_gal_den
 
     @cached_property("satellite_fraction")
@@ -378,7 +376,7 @@ class HaloModel(MassFunction):
                                 nsat=self.n_sat,
                                 rho=np.asfortranarray(rho),
                                 mean_dens=self.mean_density0.value,
-                                delta_halo=self.delta_halo)
+                                delta_halo=self.delta_halo) * self.mean_gal_den.unit ** 2
         return c / self.mean_gal_den ** 2
 
     @cached_property("r", "M", "dndm", "n_cen", "n_sat", "hod", "mean_density0", "delta_halo",
@@ -399,7 +397,7 @@ class HaloModel(MassFunction):
                                  lam=np.asfortranarray(lam),
                                  central=self.hod._central,
                                  mean_dens=self.mean_density0.value,
-                                 delta_halo=self.delta_halo)
+                                 delta_halo=self.delta_halo) * self.mean_gal_den.unit ** 2
 
             return c / self.mean_gal_den ** 2
 

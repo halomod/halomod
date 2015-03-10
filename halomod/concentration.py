@@ -63,14 +63,15 @@ class CMRelation(Model):
 class Bullock01(CMRelation):
     _defaults = {"F":0.001, "K":3.4}
 
-    def zc(self, m):
+    @property
+    def zc(self):
         g = self.growth.growth_factor_fn(inverse=True)
         zc = g(np.sqrt(self.nu))
         zc[zc < 0] = 0.0  # hack?
         return zc
 
     def cm(self, m):
-        return self.params["K"] * (self.zc(m) + 1.0) / (self.z + 1.0)
+        return self.params["K"] * (self.zc + 1.0) / (self.z + 1.0)
 
 class Cooray(CMRelation):
     _defaults = {"a":9.0, "b":0.13, "c":1.0, "ms":None}
