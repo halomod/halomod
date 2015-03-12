@@ -386,6 +386,7 @@ class HaloModel(MassFunction):
         if self.profile.has_lam:
             rho = self.profile.rho(self.r, self.M, norm="m")
             lam = self.profile.lam(self.r, self.M, norm="m")
+
             c = fort.corr_gal_1h(nr=len(self.r),
                                  nm=len(self.M),
                                  r=self.r.value,
@@ -487,17 +488,16 @@ class HaloModel(MassFunction):
             rlim = self.proj_limit
 
         if rlim > self.rmax:
-
             dr = self.r[1] / self.r[0]
             # Get number of new elements needed to get to rlim
-            n = np.ceil(np.log(rlim / self.rmax) / np.log(dr))
+            n = max(np.ceil(np.log(rlim / self.rmax) / np.log(dr)), 2)
+
             upper_h = deepcopy(self)
             upper_h.update(rmin=self.rmax * dr, rmax=dr ** n * self.rmax, rnum=n)
             r = np.concatenate((r.value, upper_h.r.value)) * r.unit
             xir = np.concatenate((xir, upper_h.corr_gal))
 
-            print "R: ", r
-        return icorr.projected_corr_gal(r, xir, rlim, self.r)
+        return icorr.projected_corr_gal(r, xir, rlim * r.unit, self.r)
 
     def angular_corr_gal(self, f, theta_min, theta_max, theta_num, logtheta=True,
                          x_min=0, x_max=10000):
