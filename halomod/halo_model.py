@@ -23,7 +23,6 @@ from hmf._framework import get_model
 import profiles
 import bias
 import astropy.units as u
-import integrate_corr as icorr
 USEFORT = True
 #===============================================================================
 # The class itself
@@ -49,11 +48,6 @@ class HaloModel(MassFunction):
                  halo_exclusion="None", ng=None, nthreads_2halo=0,
                  proj_limit=None, bias_params={}, cm_params={}, ** hmf_kwargs):
 
-        # Pre-process Some Arguments
-        if "cut_fit" not in hmf_kwargs:
-            hmf_kwargs.update({"cut_fit":False})
-
-        # Do Mass Function __init__ MUST BE DONE FIRST (to init Cache)
         super(HaloModel, self).__init__(**hmf_kwargs)
 
         # Initially save parameters to the class.
@@ -68,7 +62,6 @@ class HaloModel(MassFunction):
         self.nonlinear = nonlinear
         self.halo_exclusion = halo_exclusion
         self.scale_dependent_bias = scale_dependent_bias
-        self.proj_limit = proj_limit
         self.bias_params = bias_params
         self.nthreads_2halo = nthreads_2halo
         self.cm_params = cm_params
@@ -101,6 +94,10 @@ class HaloModel(MassFunction):
 # Parameters
 #===============================================================================
     @parameter
+    def cut_fit(self, val):
+        return False
+
+    @parameter
     def ng(self, val):
         """Mean density of galaxies, ONLY if passed directly"""
         return val
@@ -121,9 +118,7 @@ class HaloModel(MassFunction):
             raise ValueError("hod_model must be a subclass of hod.HOD")
         return val
 
-    @parameter
-    def proj_limit(self, val):
-        return val
+
 
     @parameter
     def nonlinear(self, val):
@@ -468,106 +463,6 @@ class HaloModel(MassFunction):
 
         return mmin
 
-    @cached_property("r", "corr_gal", "proj_limit")
-    def projected_corr_gal(self):
-        """
-        Projected correlation function w(r_p).
-
-        From Beutler 2011, eq 6.
-
-        To integrate perform a substitution y = x - r_p.
-        """
-        r = self.r.copy()
-        xir = self.corr_gal.copy()
-
-
-        # Calculate correlation to higher scales for better integration
-        if self.proj_limit is None:
-            rlim = max(80.0, 5 * self.rmax)
-        else:
-            rlim = self.proj_limit
-
-        if rlim > self.rmax:
-            dr = self.r[1] / self.r[0]
-            # Get number of new elements needed to get to rlim
-            n = max(np.ceil(np.log(rlim / self.rmax) / np.log(dr)), 2)
-
-            upper_h = deepcopy(self)
-            upper_h.update(rmin=self.rmax * dr, rmax=dr ** n * self.rmax, rnum=n)
-            r = np.concatenate((r.value, upper_h.r.value)) * r.unit
-            xir = np.concatenate((xir, upper_h.corr_gal))
-
-        return icorr.projected_corr_gal(r, xir, rlim * r.unit, self.r)
-
-    def angular_corr_gal(self, f, theta_min, theta_max, theta_num, logtheta=True,
-                         x_min=0, x_max=10000):
-        """
-        Calculate the angular correlation function w(theta).
-        
-        From Blake+08, Eq. 33
-        
-        Parameters
-        ----------
-        f : function
-            A function of a single variable which returns the normalised
-            quantity of sources at a given comoving distance x.
-            
-        theta_min : float
-            Minimum theta value (in radians)
-            
-        theta_max : float
-            Maximum theta value (in radians)
-            
-        theta_num : int
-            Number of theta values
-            
-        logtheta : bool, True
-            Whether to use logspace for theta values
-        """
-        # Set up theta values
-        if theta_min <= 0 or theta_min >= theta_max:
-            raise ValueError("theta_min must be > 0 and < theta_max")
-        if theta_max >= 180.0:
-            raise ValueError("theta_max must be < pi")
-
-        if logtheta:
-            theta = 10 ** np.linspace(np.log10(theta_min), np.log10(theta_max), theta_num)
-        else:
-            theta = np.linspace(theta_min, theta_max, theta_num)
-
-        if x_min <= 0 or x_min >= x_max:
-            raise ValueError("x_min must be >0 and < x_max")
-
-
-        # Initialise result
-        w = np.zeros_like(theta)
-
-        umin = -3
-        umax = 2.2
-
-        rmax = np.sqrt((10 ** umax) ** 2 + theta_max ** 2 * x_max ** 2)
-        if rmax > 1.2 * self.rmax:
-            print "WARNING: likely bad extrapolation in angular c.f. rmax = %s >> %s" % (rmax, self.rmax)
-
-        # Setup vectors u^2,x^2 and f(x)
-        u = np.logspace(umin, umax, 500)
-        u2 = u * u
-        x = np.logspace(np.log10(x_min), np.log10(x_max), 500)
-        x2 = x * x
-        du = u[1] - u[0]
-        dx = x[1] - x[0]
-        xfx = x * f(x) ** 2  # multiply by x because of log integration
-
-        # Set up spline for xi(r)
-        xi = spline(self.r, self.corr_gal, k=3)
-
-        for i, th in enumerate(theta):
-            # Set up matrix integrand (for double-integration).
-            r = np.sqrt(np.add.outer(th * th * x2, u2)).flatten()  # # needs to be 1d for spline eval
-            integrand = np.einsum("ij,i,j->ij", xi(r).reshape((len(x2), len(u2))), xfx, u)  # reshape here for dblsimps, mult by u for log int
-            w[i] = dblsimps(integrand, dx, du)
-
-        return w * 2 * np.log(10) ** 2, theta
 
 class NGException(Exception):
     pass
