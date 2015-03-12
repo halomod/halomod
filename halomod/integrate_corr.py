@@ -9,7 +9,7 @@ import numpy as np
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 from scipy.integrate import simps
 
-def projected_corr_gal(r, xir, rp_out=None):
+def projected_corr_gal(r, xir, rlim, rp_out=None):
     """
     Projected correlation function w(r_p).
 
@@ -47,7 +47,7 @@ def projected_corr_gal(r, xir, rp_out=None):
         min_y = theta * f_peak ** 2 * rp
 
         # Get the upper limit for this rp
-        lim = r[-1] - rp
+        lim = rlim - rp
 
         # Set the y vector for this rp
         y = np.logspace(np.log(min_y.value), np.log(lim.value), 1000, base=np.e) * rp.unit
