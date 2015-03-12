@@ -17,34 +17,20 @@ from argparse import RawDescriptionHelpFormatter
 from ConfigParser import SafeConfigParser as cfg
 cfg.optionxform = str
 import numpy as np
-from halomod import fit as mc
-import json
 import time
-from halomod import HaloModel, WDM_HaloModel
 import errno
 from os.path import join
-import cosmolopy as cp
-from numbers import Number
 import pickle
 from emcee import autocorr
-__all__ = []
-__version__ = 0.1
+from hmf.fitting import cli_tools as cli
+
+__version__ = 0.5
 __date__ = '2014-05-14'
-__updated__ = '2014-05-14'
+__updated__ = '2015-03-11'
 
 DEBUG = 0
 TESTRUN = 0
 PROFILE = 0
-
-class CLIError(Exception):
-    '''Generic exception to raise and log different fatal errors.'''
-    def __init__(self, msg):
-        super(CLIError).__init__(type(self))
-        self.msg = "E: %s" % msg
-    def __str__(self):
-        return self.msg
-    def __unicode__(self):
-        return self.msg
 
 def main(argv=None):
     '''Command line options.'''
@@ -86,34 +72,8 @@ USAGE
         # Process arguments
         args = parser.parse_args()
 
-        ### READ CONFIG FILE ###
-        options = read_config(args.conf)
-
-        model_file = options["Model"].pop("pickleFile")
-
-        if options["IO"]["outdir"]:
-            try:
-                os.makedirs(options["IO"]["outdir"])
-            except OSError, e:
-                if e.errno != errno.EEXIST:
-                    raise
-
-        r, data, sd, cov = get_data(options["Data"])
-
-        # Get params that are part of a dict (eg. HOD)
-        dict_p = {k:options[k] for k in options if k.endswith("Params")}
-        priors, keys, guess = param_setup(**dict_p)
-
-        quantity = options["RunOptions"]["quantity"]
-        blobs = json.loads(options["RunOptions"]["der_params"])
-
-        if args.restart:
-            initial, prev_samples = get_initial(args.prefix, int(options["MCMC"]["nwalkers"]))
-        else:
-            initial, prev_samples = None, 0
-
-        run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options,
-            args.prefix, initial, prev_samples, model_file)
+        a = CLIRunner(args.conf, args.prefix, args.restart)
+        a.run()
 
         return 0
     except KeyboardInterrupt:
@@ -128,258 +88,20 @@ USAGE
         sys.stderr.write(indent + "  for help use --help\n")
         return 2
 
-#===============================================================================
-# PARAMETER SETUP
-#===============================================================================
-def get_data(opts):
-    data = np.genfromtxt(opts["data_file"])
 
-    r = data[:, 0]
-    xi = data[:, 1]
-    try:
-        sd = data[:, 2]
-    except IndexError:
-        sd = None
+class CLIRunner(cli.CLIRunner):
 
-    try:
-        cov = np.genfromtxt(opts["cov_file"])
-    except:
-        cov = None
+    def _setup_x(self, instance):
+        instance = super(CLIRunner, self)._setup_x(instance)
 
-    if sd is None and cov is None:
-        raise ValueError("Either a univariate standard deviation, or multivariate cov matrix must be provided.")
+        if self.xval == "r":
+            if np.allclose(np.diff(np.diff(np.log10(self.x))), 0):
+                instance.rlog = True
+            elif np.allclose(np.diff(np.diff(self.x)), 0):
+                instance.rlog = False
+            instance.update(rmin=self.x[0], rmax=self.x[-1], rnum=len(self.x))
 
-    return r, xi, sd, cov
-
-def param_setup(**params):
-    from halomod._covardata import data
-
-    # Set-up returned lists of parameters
-    priors = []
-    guess = []
-    keys = []
-
-    # Get covariance data for the cosmology
-    covdata = params["CosmoParams"].pop("covar_data")
-
-    # Get all parmeters to be set as a flat dictionary
-    allparams = {}
-    for pset, vset in params.iteritems():
-        for p, val in vset.iteritems():
-            allparams[p] = val
-
-    # The cosmological params are special, and other simple paramss
-    cosmoparams = params.pop("CosmoParams")
-    otherparams = params.pop("OtherParams")
-
-    # Deal specifically with cosmology priors, separating covariant from normal
-    cosmo_priors = {k:json.loads(v) for k, v in cosmoparams.iteritems()}
-    cov_vars = {k:v for k, v in cosmo_priors.items() if v[0] == "cov"}
-    var_vars = {k:v for k, v in cosmo_priors.items() if v[0] == "var"}
-
-    # SIMPLE CASE (Cosmology params all flat/log priors)
-    if covdata not in data or len(cov_vars) + len(var_vars) == 0:
-        # Do simple parameters
-        otherparams.update(cosmoparams)
-        for param, val in otherparams.iteritems():
-            priors += set_prior(param, val)
-
-    # NON-FLAT CASES
-    else:
-        # # First do all params other than cosmo
-        for param, val in otherparams.iteritems():
-            priors += set_prior(param, val)
-
-        # Now cosmo params
-        data = data[covdata]
-        all_params = ["omegab_h2", "omegac_h2", "n", "sigma_8", "H0"]
-
-        if cov_vars:
-            indices = [all_params.index(k) for k in cov_vars]
-            data['cov'] = data['cov'][indices, :][:, indices]
-            priors += [mc.MultiNorm([all_params[i] for i in indices], data['mean'][indices], data['cov'])]
-        if var_vars:
-            indices = [all_params.index(v) for v in var_vars]
-            data['cov'] = data['cov'][indices, :][:, indices]
-            data['mean'] = data['mean'][indices]
-            priors += [mc.Normal(all_params[indices[i]], data['mean'][i], np.sqrt(data['cov'][i, i])) for i in range(len(data['mean']))]
-
-    # Nested parameters
-    for k, v in params.iteritems():
-        for kk, vv in v.iteritems():
-            priors += set_prior(k[:-6] + ":" + kk, vv)
-
-    # Create list of all the names of parameters (pure name without :)
-    for prior in priors:
-        if isinstance(prior.name, basestring):
-            keys += [prior.name]
-        else:
-            keys += prior.name
-    keys = [k.split(":")[-1] for k in keys]
-
-    # Get the guesses
-    guess = []
-    for k in keys:
-        val = json.loads(allparams[k])
-        if val[-1] is None:
-            if val[0] == "flat":
-                guess.append((val[1] + val[2]) / 2)
-            elif val[0] == "var":
-                guess.append(val[1])
-            elif val[0] == "cov":
-                guess.append(data['mean'][all_params.index(k)])
-        else:
-            guess.append(val[-1])
-
-
-    print "KEY NAMES: ", keys
-    print "INITIAL GUESSES: ", guess
-
-    print "PRIORS:"
-    for p in priors:
-        print p.__dict__
-
-    return priors, keys, guess
-
-def set_prior(param, val):
-    val = json.loads(val)
-    if val[0] == 'flat':
-        return [mc.Uniform(param, val[1], val[2])]
-    elif val[0] == 'var':
-        return [mc.Normal(param, val[1], val[2])]
-    elif val[0] == "log":
-        return [mc.Log(param, val[1], val[2])]
-
-#===============================================================================
-# MAIN
-#===============================================================================
-def run(r, data, quantity, blobs, sd, cov, priors, keys, guess, options, prefix,
-        initial, prev_samples, model_file):
-
-    if prefix:
-        if not prefix.endswith("."):
-            prefix += "."
-
-    nwalkers = int(options["MCMC"]["nwalkers"])
-    nsamples = int(options["MCMC"]["nsamples"])
-    burnin = json.loads(options["MCMC"]["burnin"])
-    nthreads = int(options["RunOptions"]["nthreads"])
-    chunks = int(options["IO"]["chunks"])
-    relax = bool(options["RunOptions"]["relax"])
-    store_class = bool(options["RunOptions"]["store_class"])
-
-    if model_file is None:
-        kwargs = options["Model"]
-        for k in kwargs:
-            try:
-                kwargs[k] = json.loads(kwargs[k])
-            except:
-                pass
-
-        if "wdm_mass" in kwargs or "wdm_mass" in keys:
-            h = WDM_HaloModel(**kwargs)
-        else:
-            h = HaloModel(**kwargs)
-
-    else:
-        with open(model_file) as f:
-            h = pickle.load(f)
-
-    # The following is a little hacky, but will do for low-redshift data
-    # Need to get correct units of r, transformed with THIS h.
-    if (r[1] - r[0]) - (r[2] - r[1]) >= -1e-10:
-        print "Making R NOT LOGGED!"
-        h.rlog = False
-    else:
-        print r[1:] - r[:-1]
-        print (r[1:] - r[:-1])[1:] - (r[1:] - r[:-1])[:-1]
-
-    h.update(rmin=r.min() * h.h, rmax=r.max() * h.h, rnum=len(r))
-
-    h.corr_gal
-
-    prefix = join(options["IO"]["outdir"], prefix)
-
-    start = time.time()
-
-    # # Write out a pickle file.
-    with open(prefix + "model.pickle", 'w') as f:
-        pickle.dump(h, f)
-
-    s = mc.fit_hod(data, priors, h, guess,
-                   nwalkers, nsamples, burnin, nthreads, blobs,
-                   prefix, chunks,
-                   int(options["IO"]["verbose"]),
-                   sd=sd, covar=cov, quantity=quantity, store_class=store_class,
-                   relax=relax, initial_pos=initial)
-
-
-
-    # Grab acceptance fraction from initial run if possible
-    new_accepted = np.mean(s.acceptance_fraction) * nsamples * nwalkers
-    if initial is not None:
-        try:
-            with open(prefix + "log", 'r') as f:
-                for line in f:
-                    if line.startswith("Acceptance Fraction:"):
-                        af = float(line[20:])
-                        naccepted = af * prev_samples
-        except IOError:
-            naccepted = 0
-            prev_samples = 0
-    else:
-        naccepted = 0
-    acceptance = (naccepted + new_accepted) / (prev_samples + nwalkers * nsamples)
-
-    # Ditch the sampler from memory
-    del s
-
-    # Read in total chain
-    chain = np.genfromtxt(prefix + "chain").reshape((nwalkers, nsamples, -1))
-    acorr = autocorr.integrated_time(np.mean(chain, axis=0), axis=0,
-                                     window=50, fast=False)
-    chain = chain.reshape((nwalkers * nsamples, -1))
-    # Write out the logfile
-    with open(prefix + "log", 'w') as f:
-        if isinstance(burnin, int):
-            f.write("Average time: %s\n" % ((time.time() - start) / (nwalkers * nsamples + nwalkers * burnin)))
-        else:
-            f.write("Average time (discounting burnin): %s\n" % ((time.time() - start) / (nwalkers * nsamples)))
-        f.write("Nsamples:  %s\n" % nsamples)
-        f.write("Nwalkers: %s\n" % nwalkers)
-        f.write("Mean values = %s\n" % np.mean(chain, axis=0))
-        f.write("Covariance Matrix: %s\n" % np.cov(chain.T))
-        f.write("Acceptance Fraction: %s\n" % acceptance)
-        f.write("Acorr: %s\n" % json.dumps(acorr.tolist()))
-
-
-#===============================================================================
-# Get initial data if continuing from previous calculations
-#===============================================================================
-def get_initial(prefix, nwalkers):
-    if prefix:
-        if not prefix.endswith("."):
-            prefix += "."
-
-    try:
-        x = np.genfromtxt(prefix + "chain")
-        nsamples = x.shape[0]
-        return x[-nwalkers:, :], nsamples
-    except:
-        warnings.warn("Problem importing old file, starting afresh")
-        return None, 0
-#===============================================================================
-# READ CONFIG
-#===============================================================================
-def read_config(fname):
-    config = cfg()
-    config.read(fname)
-    res = {s:dict(config.items(s)) for s in config.sections()}
-    if "outdir" not in res["IO"]:
-        res["IO"]["outdir"] = ""
-    if "covar_data" not in res["CosmoParams"]:
-        res["CosmoParams"]["covar_data"] = ""
-    return res
+        return instance
 
 if __name__ == "__main__":
     if DEBUG:
