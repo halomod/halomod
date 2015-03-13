@@ -1,1 +1,2 @@
 from halo_model import HaloModel
+from integrate_corr import ProjectedCF, AngularCF

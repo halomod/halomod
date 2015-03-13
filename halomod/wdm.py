@@ -32,6 +32,7 @@ def get_cm_rescaled(name):
     K = type(name + "WDM", (x, CMRelationWDMRescale))
     K._defaults.update({"g1":15, "g2":0.3})
     return K
+
 # class BullockWDM(Bullock01, CMRelationWDMRescale):
 #     _defaults = {"F":0.001, "K":3.4, "m_hm":1e10,
 #                  "g1":15, "g2":0.3}
