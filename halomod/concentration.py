@@ -10,48 +10,45 @@ from hmf._framework import Model
 class CMRelation(Model):
     r"""
     Base-class for Concentration-Mass relations
-    
-    This class should not be called directly, rather use a subclass which is 
-    specific to a certain relation. 
+
+    This class should not be called directly, rather use a subclass which is
+    specific to a certain relation.
     """
     _pdocs = \
     """
-    
+
     Parameters
     ----------
     M   : array
         A vector of halo masses [units M_sun/h]
-        
+
     nu2  : array
         A vector of peak-heights, :math:`\delta_c^2/\sigma^2` corresponding to ``M``
-        
+
     z   : float, optional
-        The redshift. 
-        
+        The redshift.
+
     delta_halo : float, optional
         The overdensity of the halo w.r.t. the mean density of the universe.
-        
+
     cosmo : :class:`cosmo.Cosmology` instance, optional
         A cosmology. Default is the default provided by the :class:`cosmo.Cosmology`
         class. Not required if ``omegam_z`` is passed.
-         
+
     omegam_z : float, optional
         A value for the mean matter density at the given redshift ``z``. If not
-        provided, will be calculated using the value of ``cosmo``. 
-        
+        provided, will be calculated using the value of ``cosmo``.
+
     \*\*model_parameters : unpacked-dictionary
         These parameters are model-specific. For any model, list the available
         parameters (and their defaults) using ``<model>._defaults``
-        
+
     """
     __doc__ += _pdocs
     _defaults = {}
 
     use_cosmo = False
     def __init__(self, nu, z, growth, M, **model_parameters):
-        """
-        filter : a filter function at z = 0
-        """
         # Save instance variables
         self.nu = nu
         self.z = z

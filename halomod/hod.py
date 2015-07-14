@@ -1,4 +1,3 @@
-
 import numpy as np
 import scipy.special as sp
 from hmf._framework import Model
@@ -7,28 +6,28 @@ _allmodels = ["Zehavi05", "Zheng05", "Contreras"]
 class HOD(Model):
     """
     Halo Occupation Distribution model base class.
-    
+
     This class defines three methods -- the average central galaxies, average
-    satellite galaxies and total galaxies. 
-    
+    satellite galaxies and total galaxies.
+
     The total number of galaxies can take two forms: one if there MUST be a
-    central galaxy to have a satellite, and the other if not. 
-    
+    central galaxy to have a satellite, and the other if not.
+
     This class should not be called directly. The user
     should call a derived class.
-    
-    Derived classes of :class:`HOD` should define two methods: :method:`nc` and 
+
+    Derived classes of :class:`HOD` should define two methods: :method:`nc` and
     :method:`ns` (central and satellite distributions respectively).
     Additionally, any parameters of the model should have their names and
-    defaults defined as class variables. 
-    
+    defaults defined as class variables.
+
     The exception to this is the M_min parameter, which is defined for every
     model (it may still be defined to modify the default). This parameter acts
     as the one that may be set via the mean number density given all the other
     parameters. If the model has a sharp cutoff at low mass, corresponding to
     M_min, the extra parameter sharp_cut may be set to True, allowing for simpler
-    setting of M_min via this route. 
-    
+    setting of M_min via this route.
+
     See the derived classes in this module for examples of how to define derived
     classes of :class:`HOD`.
     """
@@ -58,15 +57,15 @@ class HOD(Model):
 class Zehavi05(HOD):
     """
     Three-parameter model of Zehavi (2005)
-    
+
     Parameters
     ----------
     M_min : float, default = 11.6222
         Minimum mass of halo that supports a central galaxy
-        
+
     M_1 : float, default = 12.851
         Mass of a halo which on average contains 1 satellite
-        
+
     alpha : float, default = 1.049
         Index of power law for satellite galaxies
     """
@@ -93,21 +92,21 @@ class Zehavi05(HOD):
 class Zheng05(HOD):
     """
     Five-parameter model of Zehavi (2005)
-    
+
     Parameters
     ----------
     M_min : float, default = 11.6222
         Minimum mass of halo that supports a central galaxy
-        
+
     M_1 : float, default = 12.851
         Mass of a halo which on average contains 1 satellite
-        
+
     alpha : float, default = 1.049
         Index of power law for satellite galaxies
-        
+
     sig_logm : float, default = 0.26
         Width of smoothed cutoff
-        
+
     M_0 : float, default = 11.5047
         Minimum mass of halo containing satellites
     """
@@ -140,36 +139,36 @@ class Zheng05(HOD):
 class Contreras(HOD):
     """
     Nine-parameter model of Contreras (2009)
-    
+
     Parameters
     ----------
     M_min : float, default = 11.6222
         Minimum mass of halo that supports a central galaxy
-        
+
     M_1 : float, default = 12.851
         Mass of a halo which on average contains 1 satellite
-        
+
     alpha : float, default = 1.049
         Index of power law for satellite galaxies
-        
+
     sig_logm : float, default = 0.26
         Width of smoothed cutoff
-        
+
     M_0 : float, default = 11.5047
         Minimum mass of halo containing satellites
-        
+
     fca : float, default = 0.5
         fca
-        
+
     fcb : float, default = 0
         fcb
-        
+
     fs : float, default = 1
         fs
-        
+
     delta : float, default  = 1
         delta
-        
+
     x : float, default = 1
         x
     """

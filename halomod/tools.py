@@ -7,6 +7,7 @@ import numpy as np
 import scipy.integrate as intg
 from scipy.stats import poisson
 from fort.twohalo import twohalo_calc as thalo
+import time
 
 def power_to_corr_ogata(power, k, R, N=640, h=0.005):
     if not np.iterable(R):
@@ -17,15 +18,15 @@ def power_to_corr_ogata(power, k, R, N=640, h=0.005):
 def power_to_corr(power_func, R):
     """
     Calculate the correlation function given a power spectrum
-    
+
     Parameters
     ----------
     power_func : callable
         A callable function which returns the natural log of power given lnk
-        
+
     R : array_like
         The values of separation/scale to calculate the correlation at.
-        
+
     """
     if not np.iterable(R):
         R = [R]
@@ -107,63 +108,50 @@ def dblsimps(X, dx, dy):
     return dx * dy * np.sum(W * X) / 9.0
 
 
-def populate(centres, masses, delta_halo, omegam, z, profile, cm_relation,
-             hodmod, truncate=True):
+def populate(centres, masses, profile,hodmod):
     """
     Populate a series of DM halos with galaxies given a HOD model.
-    
+
     Parameters
     ----------
-    centres : (N,3)-array 
+    centres : (N,3)-array
         The cartesian co-ordinates of the centres of the halos
-        
+
     masses : array_like
         The masses (in M_sun/h) of the halos
-        
-    delta_halo : float
-        The overdensity of a halo w.r.t. mean density.
-        
-    omegam : float
-        The fractional matter density
-        
-    z : float
-        The redshift
-        
-    profile : str
-        A density profile to use. Calls a subclass of :class:`profile.Profile`.
-        
-    cm_relation : str
-        A concentration-mass relation to use
-        
+
+    profile : type :class:`profile.Profile`
+        A density profile to use.
+
     hodmod : object of type :class:`hod.HOD`
         A HOD model to use to populate the dark matter.
-        
-    truncate : bool, default True
-        Whether the profile should be truncated at the virial radius.
-    
+
     Returns
     -------
     array :
         (N,3)-array of positions of galaxies.
-        
     """
 
-    # Define which halos have central galaxies.
     cgal = np.zeros_like(masses)
     masses = np.array(masses)
 
+    # Define which halos have central galaxies.
     cgal[np.random.rand() < hodmod.nc(masses)] = 1.0
+
     # Calculate the number of satellite galaxies in halos
     sgal = np.zeros_like(masses)
     sgal[cgal != 0.0] = poisson.rvs(hodmod.ns(masses[cgal != 0.0]))
 
     # Get an array ready, hopefully speeds things up a bit
     nhalos_with_gal = np.sum(cgal)
-
     allpos = np.empty((np.sum(sgal) + nhalos_with_gal, 3))
+
+    # Assign central galaxy positions
     allpos[:nhalos_with_gal, :] = centres[cgal > 0]
-    prof = profiles.get_profile(profile, omegam, delta_halo, cm_relation,
-                                z, truncate)
+
+    # Clean up some memory
+    del cgal
+
     begin = nhalos_with_gal
     mask = sgal > 0
     sgal = sgal[mask]
@@ -171,13 +159,11 @@ def populate(centres, masses, delta_halo, omegam, z, profile, cm_relation,
     M = masses[mask]
 
     # Now go through each halo and calculate galaxy positions
-    import time
     start = time.time()
     for i, m in enumerate(M):
-        # print i, m
         end = begin + sgal[i]
-        allpos[begin:end, :] = prof.populate(sgal[i], m, ba=1, ca=1) + centres[i, :]
+        allpos[begin:end, :] = profile.populate(sgal[i], m, ba=1, ca=1) + centres[i, :]
         begin = end
     print "Took ", time.time() - start, " seconds, or ", (time.time() - start) / nhalos_with_gal, " each."
-    print "z: ", z, "Centrals: ", float(len(masses)) / np.sum(cgal), "MeanGal: ", np.mean(sgal + 1) , "MostGal: ", sgal.max() + 1
+    print "MeanGal: ", np.mean(sgal + 1) , "MostGal: ", sgal.max() + 1
     return allpos
