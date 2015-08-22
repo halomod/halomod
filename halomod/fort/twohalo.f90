@@ -275,7 +275,7 @@ module twohalo_calc
 
         integrand = 0.d0
         where (m<mlim) integrand = m*ntot*dndm
-        if (m(1)-mlim>0.d0)then
+        if (mlim-m(1)>0.d0)then
             call simps(log(m(2))-log(m(1)),integrand,ng_dash)
         else
             ng_dash=0.d0
@@ -409,7 +409,6 @@ module twohalo_calc
                 end if
             else if(exc_type==3)then
                 mlim = virial_mass(r(j)/2,rhob,dhalo)
-                write(*,*) "m stuff: ", m(1)
                 ngdash(j) = ng_dash(m,ntot,dndm,mlim)
                 !write(*,*)"ngdash", r(j),ngdash(j)/nbar
             end if
