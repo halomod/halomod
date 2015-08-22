@@ -275,7 +275,7 @@ module twohalo_calc
 
         integrand = 0.d0
         where (m<mlim) integrand = m*ntot*dndm
-        if (m(0)>0.d0)then
+        if (mlim-m(1)>0.d0)then
             call simps(log(m(2))-log(m(1)),integrand,ng_dash)
         else
             ng_dash=0.d0
