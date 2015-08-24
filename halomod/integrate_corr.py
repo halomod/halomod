@@ -3,7 +3,7 @@ Created on 10/03/2015
 
 @author: Steven
 
-Module for routines and _frameworks that intelligently integrate the real-space 
+Module for routines and _frameworks that intelligently integrate the real-space
 correlation function
 '''
 import numpy as np
@@ -16,6 +16,10 @@ from tools import dblsimps
 
 class ProjectedCF(HaloModel):
     def __init__(self, rp_min=0.01, rp_max=50.0, rp_num=30, rp_log=True, proj_limit=None, **kwargs):
+        # Set default rnum
+        if "rnum" not in kwargs:
+            kwargs['rnum'] = 5*rp_num
+
         super(ProjectedCF, self).__init__(**kwargs)
 
         self.proj_limit = proj_limit
@@ -62,7 +66,7 @@ class ProjectedCF(HaloModel):
     @cached_property("proj_limit", "rp_max")
     def rlim(self):
         if self.proj_limit is None:
-            rlim = max(80.0, 5 * self.rp.max())
+            rlim = max(80.0, 5 * self.rp.value.max())
         else:
             rlim = self.proj_limit
         return rlim * u.Mpc / self._hunit
@@ -88,13 +92,13 @@ def projected_corr_gal(r, xir, rlim, rp_out=None):
 
     From Beutler 2011, eq 6.
 
-    To integrate perform a substitution y = x - r_p.
-    
+    To integrate, we perform a substitution y = x - r_p.
+
     Parameters
     ----------
     r : float array
         Array of scales, in [Mpc/h]
-        
+
     xir : float array
         Array of xi(r), unitless
     """
@@ -111,7 +115,7 @@ def projected_corr_gal(r, xir, rlim, rp_out=None):
 
     for i, rp in enumerate(rp_out):
         if a != 1.3 and i < len(r) - 1:
-            # Get slope at rp (== index of power law at rp)
+            # Get log slope at rp
             ydiff = (lnxi[i + 1] - lnxi[i]) / (lnr[i + 1] - lnr[i])
             # if the slope is flatter than 1.3, it will converge faster, but to make sure, we cut at 1.3
             a = max(1.3, -ydiff)
@@ -120,10 +124,10 @@ def projected_corr_gal(r, xir, rlim, rp_out=None):
         min_y = theta * f_peak ** 2 * rp
 
         # Get the upper limit for this rp
-        lim = rlim - rp
+        ylim = rlim - rp
 
         # Set the y vector for this rp
-        y = np.logspace(np.log(min_y.value), np.log(lim.value), 1000, base=np.e) * rp.unit
+        y = np.logspace(np.log(min_y.value), np.log(ylim.value), 1000, base=np.e) * rp.unit
 
         # Integrate
         integ_corr = fit(y + rp)
@@ -142,28 +146,28 @@ def _get_theta(a):
 class AngularCF(HaloModel):
     """
     Framework extension to angular correlation functions.
-    
+
     Parameters
     ----------
     f : float array
-        A float array specifying the pdf of galaxy counts as a function of 
-        comoving distance from the Galaxy. 
-        
+        A float array specifying the pdf of galaxy counts as a function of
+        comoving distance from the Galaxy.
+
     x : float array
         The comoving distances which correspond to f.
-            
+
     theta_min : float, 0.01
         Minimum theta value (in degrees)
-        
+
     theta_max : float, 10.0
         Maximum theta value (in degrees)
-        
+
     theta_num : int, 30
         Number of theta values
-        
+
     theta_log : bool, True
         Whether to use logspace for theta values
-        
+
     NOTE: this is definitely not optimal yet. How should f be passed??
     """
     umin = -3
@@ -228,7 +232,7 @@ class AngularCF(HaloModel):
     def angular_corr_gal(self):
         """
         Calculate the angular correlation function w(theta).
-        
+
         From Blake+08, Eq. 33
         """
         return angular_corr_gal(self.f, self.x, self.theta, self.r,
@@ -238,30 +242,30 @@ class AngularCF(HaloModel):
 def angular_corr_gal(f, x, theta, r, corr_gal, umin, umax):
     """
     Calculate the angular correlation function w(theta).
-    
+
     From Blake+08, Eq. 33
-    
+
     Parameters
     ----------
     f : function
         A function of a single variable which returns the normalised
         quantity of sources at a given comoving distance x.
-        
+
     x : float array
         The comoving distances which correspond to f.
-            
+
     theta : float array
         Values of the angular separation (degrees)
-        
+
     r : float array
         Real-space separation
-        
+
     corr_gal : float array
         Real-space correlation function corresponding to ``r``.
-        
-    umin : float 
+
+    umin : float
         The minimum value of the integral variable
-    
+
     umax : float
         The maximum value of the integral variable
     """
