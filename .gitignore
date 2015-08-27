@@ -5,3 +5,4 @@ dist
 *.egg-info
 *.pyc
 org.eclipse.core.resources.prefs
+examples/results
