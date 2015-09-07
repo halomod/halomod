@@ -1,31 +1,32 @@
-!! FORTRAN ROUTINES TO DO QUICK WORK ON LOOPS FOR HOD
+!! FORTRAN ROUTINES TO DO QUICK WORK ON LOOPS IN HALOMODEL
 module hod_routines
 contains
+
 subroutine simps(dx, func,val)
-        implicit none
-        !!simps works on functions defined at EQUIDISTANT values of x only
+    implicit none
+    !!simps works on functions defined at EQUIDISTANT values of x only
 
-        real(8), intent(in) :: dx !The grid spacing
-        real(8), intent(in) :: func(:) !The function
-        real(8), intent(out) :: val !The value of the integral
+    real(8), intent(in) :: dx      !The grid spacing
+    real(8), intent(in) :: func(:) !The function
+    real(8), intent(out):: val     !The value of the integral
 
-        integer :: n !length of func
-        integer :: i,end
-        real(8) :: endbit
+    integer :: n !length of func
+    integer :: i,end
+    real(8) :: endbit
 
-        n = size(func)
+    n = size(func)
 
-        if (mod(n,2)==0) then
-            end =  n-1
-            endbit = (func(n)+func(n-1))*dx/2
-        else
-            end=n
-            endbit=0.d0
-        end if
+    if (mod(n,2)==0) then
+        end =  n-1
+        endbit = (func(n)+func(n-1))*dx/2
+    else
+        end=n
+        endbit=0.d0
+    end if
 
-        val = sum(func(1:end-2:2) + func(3:end:2) + 4*func(2:end-1:2))
-        val = val*dx/3 + endbit
-    end subroutine simps
+    val = sum(func(1:end-2:2) + func(3:end:2) + 4*func(2:end-1:2))
+    val = val*dx/3 + endbit
+end subroutine simps
 
 subroutine trapz(dx,func,val)
     implicit none
@@ -166,11 +167,11 @@ subroutine corr_gal_1h(nr,nm,r,mass,dndm,ncen,nsat,rho,lam,central,mean_dens,del
     real(8) :: mmin
     real(8) :: integrand(nm),dm
 
-    integrand = 0.d0
     dm = log(mass(2))-log(mass(1))
 
     !Integrating in log-space, so everything is multiplied by mass
     do i=1,nr
+        integrand = 0.d0
         if (central)then
             integrand = dndm*ncen*nsat**2*lam(i,:)
         else
@@ -178,7 +179,7 @@ subroutine corr_gal_1h(nr,nm,r,mass,dndm,ncen,nsat,rho,lam,central,mean_dens,del
         end if
 
         mmin = 4*3.14159265*r(i)**3*mean_dens*delta_halo/3
-
+        write(*,*) mmin
 
         where (mass>mmin) integrand = integrand+dndm*2*ncen*nsat*rho(i,:)
 

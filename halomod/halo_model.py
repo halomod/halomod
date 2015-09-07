@@ -342,45 +342,99 @@ class HaloModel(MassFunction):
         """
         The dark-matter-only two-point correlation function of the given cosmology
         """
-        return tools.power_to_corr_ogata(self.matter_power,
-                                         self.k, self.r)
+        return tools.power_to_corr_ogata(self.matter_power,self.k, self.r)
 
     @cached_property("k", "M", "dndm", "n_sat", "n_cen", 'hod', 'profile', "mean_gal_den")
-    def _power_gal_1h_ss(self):
+    def _power_gg_1h_ss(self):
         """
         The sat-sat part of the 1-halo term of the galaxy power spectrum
         """
-        u = self.profile.u(self.k, self.M, norm='m')
-        p = fort.power_gal_1h_ss(nlnk=len(self.k),
-                                 nm=len(self.M),
-                                 u=np.asfortranarray(u),
-                                 dndm=self.dndm.value,
-                                 nsat=self.n_sat,
-                                 ncen=self.n_cen,
-                                 mass=self.M.value,
-                                 central=self.hod._central)
+        if USEFORT:
+            ## The fortran routine is very very slightly faster. SHould remove it.
+            u = self.profile.u(self.k, self.M, norm='m')
+            p = fort.power_gal_1h_ss(nlnk=len(self.k),
+                                     nm=len(self.M),
+                                     u=np.asfortranarray(u),
+                                     dndm=self.dndm.value,
+                                     nsat=self.n_sat,
+                                     ncen=self.n_cen,
+                                     mass=self.M.value,
+                                     central=self.hod._central)
+        else:
+            u = self.profile.u(self.k, self.M, norm='m')
+            integ = u**2 * self.dndm * self.M * self.n_sat**2
+            if self.hod._central:
+                integ *= self.n_cen
+
+            p = intg.trapz(integ,dx=self.dlog10m*np.log(10))
+
         return p / self.mean_gal_den ** 2
 
+    @cached_property("profile","dndm","M","k","mean_density","delta_halo","dlog10m")
+    def _power_mm_1h(self):
+        """
+        The halo model-derived nonlinear 1-halo matter power
+        """
+        u = self.profile.u(self.k, self.M, norm="m")
+        integrand = self.dndm * self.M ** 3 * u**2
+
+        ### The following may not need to be done?
+        r = np.pi/self.k # half the radius
+        mmin = 4*np.pi * r**3 * self.mean_density * self.delta_halo/3
+        mask = np.repeat(self.M,len(self.k)).reshape(len(self.M),len(self.k)) < mmin
+        integrand[mask.T] = 0
+
+        return intg.trapz(integrand,dx=np.log(10)*self.dlog10m)/self.mean_density**2
+
+    @cached_property("profile","dndm","M","r","mean_density","delta_halo","dlog10m")
+    def _corr_mm_1h(self):
+        """
+        The halo model-derived nonlinear 1-halo matter power
+        """
+        if self.profile.has_lam:
+            lam = self.profile.lam(self.r, self.M, norm="m")
+            integrand = self.dndm * self.M ** 3 * lam
+
+            ### The following may not need to be done?
+            r = self.r/2 # half the radius
+            mmin = 4*np.pi * r**3 * self.mean_density * self.delta_halo/3
+            mask = np.repeat(self.M,len(self.r)).reshape(len(self.M),len(self.r)) < mmin
+            integrand[mask.T] = 0
+            return intg.trapz(integrand,dx=np.log(10)*self.dlog10m)/self.mean_density**2
+        else:
+            return tools.power_to_corr_ogata(self._power_mm_1h,self.k,self.r)
+
+
     @cached_property("_power_gal_1h_ss", "k", "r")
-    def _corr_gal_1h_ss(self):
-        return tools.power_to_corr_ogata(self._power_gal_1h_ss,
+    def _corr_gg_1h_ss(self):
+        return tools.power_to_corr_ogata(self._power_gg_1h_ss,
                                          self.k, self.r)
 
     @cached_property("r", "M", "dndm", "n_cen", "n_sat", "mean_density0", "delta_halo", "mean_gal_den")
-    def _corr_gal_1h_cs(self):
+    def _corr_gg_1h_cs(self):
         """The cen-sat part of the 1-halo galaxy correlations"""
         rho = self.profile.rho(self.r, self.M, norm="m")
-        c = fort.corr_gal_1h_cs(nr=len(self.r),
-                                nm=len(self.M),
-                                r=self.r.value,
-                                mass=self.M.value,
-                                dndm=self.dndm.value,
-                                ncen=self.n_cen,
-                                nsat=self.n_sat,
-                                rho=np.asfortranarray(rho),
-                                mean_dens=self.mean_density0.value,
-                                delta_halo=self.delta_halo) * self.mean_gal_den.unit ** 2
+        if USEFORT:
+            c = fort.corr_gal_1h_cs(nr=len(self.r),
+                                    nm=len(self.M),
+                                    r=self.r.value,
+                                    mass=self.M.value,
+                                    dndm=self.dndm.value,
+                                    ncen=self.n_cen,
+                                    nsat=self.n_sat,
+                                    rho=np.asfortranarray(rho),
+                                    mean_dens=self.mean_density0.value,
+                                    delta_halo=self.delta_halo) * self.mean_gal_den.unit ** 2
+        else:
+            ## The following is 10 times worse, but it's a small fraction of the total budget.
+            mmin = 4*np.pi * self.r**3 * self.mean_density * self.delta_halo/3
+            mask = np.repeat(self.M,len(self.r)).reshape(len(self.M),len(self.r)) < mmin
+            integ = self.dndm * 2 * self.n_cen * self.n_sat * rho * self.M
+            integ[mask.T] = 0
+            c = intg.trapz(integ,dx=self.dlog10m*np.log(10))
+
         return c / self.mean_gal_den ** 2
+
 
     @cached_property("r", "M", "dndm", "n_cen", "n_sat", "hod", "mean_density0", "delta_halo",
                      "mean_gal_den", "_corr_gal_1h_cs", "_corr_gal_1h_ss")
@@ -389,18 +443,34 @@ class HaloModel(MassFunction):
         if self.profile.has_lam:
             rho = self.profile.rho(self.r, self.M, norm="m")
             lam = self.profile.lam(self.r, self.M, norm="m")
-            c = fort.corr_gal_1h(nr=len(self.r),
-                                 nm=len(self.M),
-                                 r=self.r.value,
-                                 mass=self.M.value,
-                                 dndm=self.dndm.value,
-                                 ncen=self.n_cen,
-                                 nsat=self.n_sat,
-                                 rho=np.asfortranarray(rho),
-                                 lam=np.asfortranarray(lam),
-                                 central=self.hod._central,
-                                 mean_dens=self.mean_density0.value,
-                                 delta_halo=self.delta_halo) * self.mean_gal_den.unit ** 2
+            if USEFORT:
+                ## Using fortran only saves about 15% of time on this single routine (eg. 7ms --> 8.7ms)
+                c = fort.corr_gal_1h(nr=len(self.r),
+                                     nm=len(self.M),
+                                     r=self.r.value,
+                                     mass=self.M.value,
+                                     dndm=self.dndm.value,
+                                     ncen=self.n_cen,
+                                     nsat=self.n_sat,
+                                     rho=np.asfortranarray(rho),
+                                     lam=np.asfortranarray(lam),
+                                     central=self.hod._central,
+                                     mean_dens=self.mean_density0.value,
+                                     delta_halo=self.delta_halo) * self.mean_gal_den.unit ** 2
+            else:
+                integ = self.dndm * self.n_sat**2 * lam
+                if self.hod._central:
+                    integ *= self.n_cen
+
+                mmin = 4*np.pi*self.r**3*self.mean_density*self.delta_halo/3
+                mask = np.repeat(self.M,len(self.r)).reshape(len(self.M),len(self.r)) > mmin
+                integ2 = h.dndm*2 * h.n_cen*h.n_sat*rho
+                integ[mask.T] += integ2[mask.T]
+
+                integ *= self.M
+
+                c = intg.trapz(integ,dx=self.dlog10m*np.log(10))
+
 
             return c / self.mean_gal_den ** 2
 
