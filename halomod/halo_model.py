@@ -49,6 +49,7 @@ class HaloModel(MassFunction):
                  halo_exclusion="None", ng=None, nthreads_2halo=0,
                  proj_limit=None, bias_params={}, cm_params={}, ** hmf_kwargs):
 
+        # Do Mass Function __init__ MUST BE DONE FIRST (to init Cache)
         super(HaloModel, self).__init__(**hmf_kwargs)
 
         # Initially save parameters to the class.
@@ -472,9 +473,3 @@ class HaloModel(MassFunction):
 
 class NGException(Exception):
     pass
-
-
-
-
-
-
