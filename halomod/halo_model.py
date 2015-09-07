@@ -23,6 +23,7 @@ from hmf._framework import get_model
 import profiles
 import bias
 import astropy.units as u
+
 USEFORT = True
 #===============================================================================
 # The class itself
@@ -33,11 +34,11 @@ class HaloModel(MassFunction):
 
     Parameters
     ----------
-    r : array_like, optional, default ``np.logspace(-2.0,1.5,100)`` 
+    r : array_like, optional, default ``np.logspace(-2.0,1.5,100)``
         The scales at which the correlation function is calculated in Mpc/*h*
 
     **kwargs: anything that can be used in the MassFunction class
-    
+
     '''
     rlog = True
 
@@ -252,6 +253,12 @@ class HaloModel(MassFunction):
                            nu=self.nu, z=self.z, growth=self._growth,
                            M=self.M, **self.cm_params)
 
+    @cached_property("cm","M")
+    def concentration(self):
+        """
+        The concentrations corresponding to `.M`
+        """
+        return self.cm.cm(self.M)
 
     @cached_property("halo_profile", "delta_halo", "cm_relation", "z", "mean_density0")
     def profile(self):
@@ -321,7 +328,7 @@ class HaloModel(MassFunction):
     @cached_property("nonlinear", "power", "nonlinear_power")
     def matter_power(self):
         """The matter power used in calculations -- can be linear or nonlinear
-        
+
         .. note :: Linear power is available through :attr:`.power`
         """
         if self.nonlinear:
@@ -381,7 +388,6 @@ class HaloModel(MassFunction):
         if self.profile.has_lam:
             rho = self.profile.rho(self.r, self.M, norm="m")
             lam = self.profile.lam(self.r, self.M, norm="m")
-
             c = fort.corr_gal_1h(nr=len(self.r),
                                  nm=len(self.M),
                                  r=self.r.value,
@@ -421,7 +427,7 @@ class HaloModel(MassFunction):
 
     def _find_m_min(self, ng):
         """
-        Calculate the minimum mass of a halo to contain a (central) galaxy 
+        Calculate the minimum mass of a halo to contain a (central) galaxy
         based on a known mean galaxy density
         """
 
