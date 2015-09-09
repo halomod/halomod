@@ -1,0 +1,304 @@
+"""
+Module defining halo model components for halo exclusion.
+"""
+
+# Imports
+import numpy as np
+from hmf._framework import Model
+from cached_property import cached_property
+from scipy import integrate as intg
+import warnings
+
+try:
+    from numba import jit
+    USE_NUMBA = True
+except ImportError:
+    USE_NUMBA = False
+    warnings.warn("Warning: Some Halo-Exclusion models have significant speedup when using Numba")
+
+
+#===============================================================================
+# UTILITIES
+#===============================================================================
+def outer(a,b):
+    return np.outer(a,b).reshape(a.shape+b.shape)
+
+def dblsimps(X,dx,dy=None):
+    """
+    Double-integral over the last two dimensions of X.
+    """
+    if dy is None:
+        dy = dx
+
+    if X.shape[-2]%2==0:
+        X = X[...,:-1,:]
+    if X.shape[-1]%2 == 0:
+        X = X[...,:-1]
+
+    (nx,ny) = X.shape[-2:]
+
+    W = makeW(nx,ny)
+
+    return dx * dy * np.sum(W * X,axis=(-2,-1)) / 9.0
+
+
+def makeW(nx,ny):
+    W = np.ones((nx,ny))
+    W[1:nx-1:2, :] *= 4
+    W[:, 1:ny-1:2] *= 4
+    W[2:nx-1:2, :] *= 2
+    W[:, 2:ny-1:2] *= 2
+    return W
+
+
+if USE_NUMBA:
+    @jit(nopython=True)
+    def dblsimps_(X,dx,dy):
+        """
+        Double-integral of X.
+        """
+        nx = X.shape[0]
+        ny = X.shape[1]
+
+        # Must be odd number
+        if nx%2==0:
+            nx -= 1
+        if ny%2==0:
+            ny -= 1
+
+        W = makeW_(nx,ny) #only upper
+
+        tot=0.0
+        for ix in range(nx):
+            tot += W[ix,ix]*X[ix,ix]
+            for iy in range(ix+1,ny):
+                tot += 2*W[ix,iy] * X[ix,iy]
+
+        return dx * dy * tot / 9.0
+
+    @jit(nopython=True)
+    def makeW_(nx,ny):
+        W = np.ones((nx,ny))
+        for ix in range(1,nx-1,2):
+            for iy in range(ny):
+                W[ix,iy] *= 4
+                W[iy,ix] *= 4
+
+        for ix in range(2,nx-1,2):
+            for iy in range(ny):
+                W[ix,iy] *= 2
+                W[iy,ix] *= 2
+
+        return W
+
+
+#===============================================================================
+# Halo-Exclusion Models
+#===============================================================================
+class Exclusion(Model):
+    """
+    Base class for exclusion models.
+
+    All models will need to perform single or double integrals over
+    arrays that may have an extra two dimensions. The maximum possible
+    size is k*r*m*m, which for normal values of the vectors equates to
+    ~ 1000*50*500*500 = 12,500,000,000 values, which in 64-bit reals is
+    1e11 bytes = 100GB. We thus limit this to a maximum of either k*r*m
+    or r*m*m, both of which should be less than a GB of memory.
+
+    It is possibly better to limit it to k*r or m*m, which should be quite
+    memory efficient, but then without accelerators (ie. Numba), these
+    will be very slow.
+    """
+    def __init__(self,m,density,I,bias,r,delta_halo,mean_density):
+        self.density = density  # 1d, (m)
+        self.m = m              # 1d, (m)
+        self.I = I              # 2d, (k,m)
+        self.bias = bias        # 1d (m) or 2d (r,m)
+        self.r = r              # 1d (r)
+
+        self.mean_density = mean_density
+        self.delta_halo=delta_halo
+        self.dlnx = np.log(m[1]/m[0])
+
+    def raw_integrand(self):
+        """
+        Returns either a 2d (k,m) or 3d (r,k,m) array with the general integrand.
+        """
+        if len(self.bias.shape)==1:
+            return self.I * self.bias * self.m # *m since integrating in logspace
+        else:
+            return np.einsum("ij,kj->kji",self.I*self.m,self.bias)
+
+    def integrate(self):
+        """
+        This should pass back whatever is multiplied by P_m(k) to get the two-halo
+        term. Often this will be a square of an integral, sometimes a Double-integral.
+        """
+        pass
+
+
+class NoExclusion(Exclusion):
+    def integrate(self):
+        return intg.simps(self.raw_integrand(),dx=self.dlnx)**2
+
+
+class Sphere(Exclusion):
+    def raw_integrand(self):
+        if len(self.bias.shape)==1:
+            return outer(np.ones_like(self.r),self.I * self.bias * self.m) # *m since integrating in logspace
+        else:
+            return np.einsum("ij,kj->kji",self.I*self.m,self.bias)
+
+    def density_mod(self):
+        """
+        Return the modified density, under new limits
+        """
+        density = np.outer(np.ones_like(self.r),self.density*self.m)
+        density[self.mask] = 0
+        return intg.simps(density,dx=self.dlnx)
+
+    @cached_property
+    def mask(self):
+        "Elements that should be set to 0"
+        return (np.outer(self.m,np.ones_like(self.r)) > self.mlim()).T
+
+    def mlim(self):
+        return 4*np.pi*(self.r/2)**3 * self.mean_density * self.delta_halo/3
+
+    def integrate(self):
+        integ = self.raw_integrand() #r,k,m
+        integ.transpose((1,0,2))[:,self.mask] = 0
+        return intg.simps(integ,dx=self.dlnx)**2
+
+
+class DblSphere(Sphere):
+    @property
+    def rvir(self):
+        return (3*self.m/(4*np.pi*self.delta_halo*self.mean_density))**(1./3.)
+
+    @cached_property
+    def mask(self):
+        "Elements that should be set to 0 (r,m,m)"
+        rvir = self.rvir
+        return (outer(np.add.outer(rvir,rvir),np.ones_like(self.r)) > self.r).T
+
+    def density_mod(self):
+        out = np.zers_like(self.r)
+        for i,r in enumerate(self.r):
+            integrand = np.outer(self.density*self.m,np.ones_like(self.density))
+            integrand[self.mask] = 0
+            out[i] = dblsimps(integrand,self.dlnx)
+        return out
+
+    def integrate(self):
+        integ = self.raw_integrand() #(r,k,m)
+        return integrate_dblsphere(integ,self.mask,self.dlnx)
+
+def integrate_dblsphere(integ,mask,dx):
+    out = np.zeros_like(integ[:,:,0])
+    integrand = np.zeros_like(mask)
+    for ik in range(integ.shape[1]):
+        for ir in range(mask.shape[0]):
+            integrand[ir] = np.outer(integ[ir,ik,:],integ[ir,ik,:])
+        integrand[mask] = 0
+        out[:,ik] = dblsimps(integrand,dx)
+    return out
+
+
+if USE_NUMBA:
+    @jit(nopython=True)
+    def integrate_dblsphere_(integ,mask,dx):
+        nr = integ.shape[0]
+        nk = integ.shape[1]
+        nm  = mask.shape[1]
+
+        out = np.zeros((nr,nk))
+        integrand = np.zeros((nm,nm))
+
+        for ir in range(nr):
+            for ik in range(nk):
+                for im in range(nm):
+                    for jm in range(im,nm):
+                        if mask[ir,im,jm]:
+                            integrand[im,jm] = 0
+                        else:
+                            integrand[im,jm] = integ[ir,ik,im]*integ[ir,ik,jm]
+                out[ir,ik] = dblsimps_(integrand,dx,dx)
+        return out
+
+    class DblSphere_(DblSphere):
+        def integrate(self):
+            integ = self.raw_integrand() #(r,k,m)
+            return integrate_dblsphere_(integ,self.mask,self.dlnx)
+
+class DblEllipsoid(DblSphere):
+    @cached_property
+    def mask(self):
+        "Unecessary for this approach"
+        return None
+
+    @cached_property
+    def prob(self):
+        rvir = self.rvir
+        x = outer(self.r,1/np.add.outer(rvir,rvir))
+        x = (x-0.8)/0.29 #this is y but we re-use the memory
+        p =  3*x**2 - 2*x**3
+        p[x<=0] = 0.0
+        p[x>=1] = 1.0
+        return p
+
+    @cached_property
+    def density_mod(self):
+        integrand = self.prob * outer(np.ones_like(self.r),np.outer(self.density*self.m,self.density*self.m))
+        return np.sqrt(dblsimps(integrand,self.dlnx))
+
+    def integrate(self):
+        integ = self.raw_integrand() #(r,k,m)
+        out = np.zeros_like(integ[:,:,0])
+
+        integrand = np.zeros_like(self.prob)
+        for ik in range(integ.shape[1]):
+
+            for ir in range(len(self.r)):
+                integrand[ir] = self.prob[ir]*np.outer(integ[ir,ik,:],integ[ir,ik,:])
+#             if ik==0:
+#                 print integrand[0]
+            out[:,ik] = dblsimps(integrand,self.dlnx)
+        return out
+
+if USE_NUMBA:
+    class DblEllipsoid_(DblEllipsoid):
+        def integrate(self):
+            return integrate_dblell(self.raw_integrand(),self.prob,self.dlnx)
+
+    @jit(nopython=True)
+    def integrate_dblell(integ,prob,dx):
+        nr = integ.shape[0]
+        nk = integ.shape[1]
+        nm  = prob.shape[1]
+
+        out = np.zeros((nr,nk))
+        integrand = np.zeros((nm,nm))
+
+        for ir in range(nr):
+            for ik in range(nk):
+                for im in range(nm):
+                    for jm in range(im,nm):
+                        integrand[im,jm] = integ[ir,ik,im]*integ[ir,ik,jm]*prob[ir,im,jm]
+                out[ir,ik] = dblsimps_(integrand,dx,dx)
+        return out
+
+class NgMatched(DblEllipsoid):
+    @cached_property
+    def mask(self):
+        integrand = self.density*self.m
+        cumint = intg.cumtrapz(integrand,dx=self.dlnx,initial=0) #len m
+        cumint = np.outer(np.ones_like(self.r),cumint) # r,m
+        return np.where(cumint>np.outer(self.density_mod,np.ones_like(self.m)),
+                        np.ones_like(cumint,dtype=bool),np.zeros_like(cumint,dtype=bool))
+
+    def integrate(self):
+        integ = self.raw_integrand() #r,k,m
+        integ.transpose((1,0,2))[:,self.mask] = 0
+        return intg.simps(integ,dx=self.dlnx)**2
