@@ -12,7 +12,7 @@ from scipy.integrate import simps
 from halo_model import HaloModel
 from hmf._cache import cached_property, parameter
 from astropy import units as u
-from tools import dblsimps
+from halo_exclusion import dblsimps
 
 class ProjectedCF(HaloModel):
     def __init__(self, rp_min=0.01, rp_max=50.0, rp_num=30, rp_log=True, proj_limit=None, **kwargs):
