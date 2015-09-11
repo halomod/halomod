@@ -179,7 +179,6 @@ subroutine corr_gal_1h(nr,nm,r,mass,dndm,ncen,nsat,rho,lam,central,mean_dens,del
         end if
 
         mmin = 4*3.14159265*r(i)**3*mean_dens*delta_halo/3
-        write(*,*) mmin
 
         where (mass>mmin) integrand = integrand+dndm*2*ncen*nsat*rho(i,:)
 
@@ -203,7 +202,6 @@ subroutine get_subfind_centres(nhalos,npart,groupoffsets,grouplen,pos,centres)
 
     boxsize = ceiling(maxval(pos))
 
-    write(*,*) boxsize
     do i=1,nhalos
         a = groupoffsets(i) + 1
         b = groupoffsets(i) + grouplen(i)
