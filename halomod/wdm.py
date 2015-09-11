@@ -91,7 +91,7 @@ class HaloModelWDM(HaloModel, MassFunctionWDM):
     @cached_property("_wdm", "dndm", "M", "lnk", "profile", "dlog10m", "f_halos", "mean_dens")
     def power_m_1h(self):
         integrand = self.dndm_rescaled * self.M ** 3
-        u = self.profile.u(self.k), self.M, norm="m") ** 2
+        u = self.profile.u(self.k, self.M, norm="m") ** 2
         out = np.zeros_like(self.k)
         for i, k in enumerate(self.k):
             r = (np.pi / k)  # half the radius
