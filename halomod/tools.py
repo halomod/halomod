@@ -8,12 +8,51 @@ import scipy.integrate as intg
 from scipy.stats import poisson
 from fort.twohalo import twohalo_calc as thalo
 import time
+from scipy.interpolate import InterpolatedUnivariateSpline as spline
 
-def power_to_corr_ogata(power, k, R, N=640, h=0.005):
-    if not np.iterable(R):
-        R = np.array([R])
+def power_to_corr_ogata(power, k, r, N=640, h=0.005):
+    """
+    Use Ogata's method for Hankel Transforms in 3D for nu=0 (nu=1/2 for 2D)
+    to convert a given power spectrum to a correlation function.
+    """
+    lnk = np.log(k)
+    spl = spline(lnk,power)
+    roots=np.arange(1,N+1)
+    t = h*roots
+    s = np.pi*np.sinh(t)
+    x = np.pi * roots * np.tanh(s/2)
 
-    return thalo.power_to_corr(R, power, np.log(k.value), N, h)
+    dpsi = 1+np.cosh(s)
+    dpsi[dpsi!=0] = (np.pi*t*np.cosh(t)+np.sinh(s))/dpsi[dpsi!=0]
+    sumparts = np.pi*np.sin(x)*dpsi*x
+
+    allparts = sumparts * spl(np.log(np.divide.outer(x,r.value))).T * power.unit
+    return np.sum(allparts,axis=-1)/(2*np.pi**2*r**3)
+
+def power_to_corr_ogata_matrix(power, k,r, N=640, h=0.005):
+    """
+    Use Ogata's method for Hankel Transforms in 3D for nu=0 (nu=1/2 for 2D)
+    to convert a given power spectrum to a correlation function.
+
+    In this case, `power` is a (r,k) matrix, and the computation is slightly
+    faster for less recalculations than looping over the original.
+    """
+    lnk = np.log(k)
+    roots=np.arange(1,N+1)
+    t = h*roots
+    s = np.pi*np.sinh(t)
+    x = np.pi * roots * np.tanh(s/2)
+
+    dpsi = 1+np.cosh(s)
+    dpsi[dpsi!=0] = (np.pi*t*np.cosh(t)+np.sinh(s))/dpsi[dpsi!=0]
+    sumparts = np.pi*np.sin(x)*dpsi*x
+
+    out = np.zeros(len(r))
+    for ir,rr in enumerate(r):
+        spl = spline(lnk,power[ir,:])
+        allparts = sumparts * spl(np.log(x/rr.value)) * power.unit
+        out[ir] = np.sum(allparts)/(2*np.pi**2*rr**3)
+    return out
 
 def power_to_corr(power_func, R):
     """
@@ -61,52 +100,10 @@ def power_to_corr(power_func, R):
 
     return corr
 
-
-def overlapping_halo_prob(r, rv1, rv2):
-    """
-    The probability of non-overlapping ellipsoidal haloes (Tinker 2005 Appendix B)
-    """
-    if np.isscalar(rv1) and np.isscalar(rv2):
-        x = r / (rv1 + rv2)
-    else:
-        x = r / np.add.outer(rv1, rv2)
-    y = (x - 0.8) / 0.29
-
-    if np.isscalar(y):
-        if y <= 0:
-            return 0
-        elif y >= 1:
-            return 1
-
-    res = 3 * y ** 2 - 2 * y ** 3
-    res[y <= 0] = 0.0
-    res[y >= 1] = 1.0
-    return res
-
 def exclusion_window(k, r):
     """Top hat window function"""
     x = k * r
     return 3 * (np.sin(x) - x * np.cos(x)) / x ** 3
-
-def dblsimps(X, dx, dy):
-    """
-    Perform double integration using simpsons rule
-    """
-    if len(X.shape) != 2:
-        raise ValueError("dblsimps takes a matrix")
-    if X.shape[0] % 2 != 1 or X.shape[1] != 1:
-        # For now, knowing what's going in here, we just cut off the last value
-        X = X[:-1, :-1]
-
-    W = np.ones_like(X)
-
-    W[range(1, len(W[:, 0]) - 1, 2), :] *= 4
-    W[:, range(1, len(W[0, :]) - 1, 2)] *= 4
-    W[range(2, len(W[:, 0]) - 1, 2), :] *= 2
-    W[:, range(2, len(W[0, :]) - 1, 2)] *= 2
-
-    return dx * dy * np.sum(W * X) / 9.0
-
 
 def populate(centres, masses, profile,hodmod):
     """
