@@ -9,29 +9,29 @@ from hmf._framework import Model
 class Profile(Model):
     """
     Halo radial density profiles.
-    
+
     This class provides basic building blocks for all kinds of fun with halo
-    radial density profiles. It is modeled on the system described in 
+    radial density profiles. It is modeled on the system described in
     XXXX.XXXX (paper yet to be published). This means that subclasses providing
     specific profiles shapes, f(x) must provide very minimal other information
     for a range of products to be available.
-    
-    The "main" quantities available are the profile itself, its fourier pair, 
+
+    The "main" quantities available are the profile itself, its fourier pair,
     and its convolution (this is not available for every profile). Furthermore,
-    quantities such as the concentration-mass relation are provided, along with 
-    tools such as those to generate a mock halo of the given profile. 
+    quantities such as the concentration-mass relation are provided, along with
+    tools such as those to generate a mock halo of the given profile.
 
     Parameters
     ----------
     omegam : float, default 0.3
         Fractional matter density at current epoch
-        
+
     delta_halo : float, default 200.0
         Overdensity of the halo definition, with respect to MEAN BACKGROUND density.
-        
+
     cm_relation : str {'zehavi','duffy'}
         Identifies which concentration-mass relation to use
-        
+
     z : float, default 0.0
         The redshift of the halo
     """
@@ -58,14 +58,14 @@ class Profile(Model):
         return 4 * np.pi * r ** 3 * self.delta_halo * self.mean_dens / 3
 
     def _rs_from_m(self, m, c=None):
-        """ 
+        """
         Return the scale radius for a halo of mass m
-        
+
         Parameters
         ----------
         m : float
             mass of the halo
-            
+
         c : float, default None
             concentration of the halo (if None, use cm_relation to get it).
         """
@@ -75,18 +75,18 @@ class Profile(Model):
         return rvir / c
 
     def _h(self, c=None, m=None):
-        """ 
-        The integral of f(x)*x^2 out to c 
-        
+        """
+        The integral of f(x)*x^2 out to c
+
         Parameters
         ----------
         c : float or array_like, optional
             The concentration(s) of the halo(s). Used ONLY if m is not specified.
-            
+
         m : float or array_like, optional
             The mass of the halo. Determines the concentration if provided.
-            
-        .. note :: This function should be replaced with an analytic solution if 
+
+        .. note :: This function should be replaced with an analytic solution if
                 possible in derived classes.
         """
         if c is None and m is None:
@@ -102,17 +102,17 @@ class Profile(Model):
     def _p(self, K, c):
         """
         The reduced dimensionless fourier-transform of the profile
-        
+
         This function should not need to be called by the user in general.
-        
+
         Parameters
         ----------
         K : float or array_like
             The unit-less wavenumber k*r_s
-        
+
         c : float or array_like
             The concentration
-            
+
         .. note :: This should be replaced by an analytic function if possible
         """
         # Make sure we use enough steps to fit every period at least 5 times
@@ -143,19 +143,19 @@ class Profile(Model):
         return res
 
     def _rho_s(self, c, r_s=None, norm=None):
-        """ 
-        The amplitude factor of the profile 
-        
+        """
+        The amplitude factor of the profile
+
         Parameters
         ----------
         c : float or array of floats
             The concentration parameter
-            
+
         norm : str or None, {None,"m","rho"}
             Normalisation for the amplitude. Can either be None (in which case
-            the output is a density), "m" (in which case the output is inverse 
+            the output is a density), "m" (in which case the output is inverse
             volume) or "rho" in which case the output is dimensionless.
-            
+
         r_s : float or array of floats
             The scale radius. This is only required if ``norm`` is "m".
         """
@@ -171,24 +171,24 @@ class Profile(Model):
     def rho(self, r, m, norm=None, c=None, coord="r"):
         """
         The density at radius r of a halo of mass m.
-        
+
         Parameters
         ----------
         r : float or array of floats
             The radial location(s). The units vary according to :attr:`coord`
-            
+
         m : float or array of floats
             The mass(es) of the halo(s)
-            
+
         norm : str, {``None``,``m``,``rho``}
-            Normalisation of the density. 
-            
+            Normalisation of the density.
+
         c : float or array of floats, default ``None``
             Concentration(s) of the halo(s). Must be same length as :attr:`m`.
-            
+
         coord : str, {``r``,``x``,``s``}
             What the radial coordinate represents. ``r`` represents physical
-            co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius 
+            co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius
             (r_vir = c), and ``s`` is in units of the virial radius (r_vir = 1).
         """
         c, r_s, x = self._get_r_variables(r, m, c, coord)
@@ -199,25 +199,25 @@ class Profile(Model):
 
     def u(self, k, m, norm=None, c=None, coord="k"):
         """
-        The (optionally normalised) Fourier-transform of the density profile 
-        
+        The (optionally normalised) Fourier-transform of the density profile
+
         Parameters
         ----------
         k : float or array of floats
             The radial wavenumber(s). The units vary according to :attr:`coord`
-            
+
         m : float or array of floats
             The mass(es) of the halo(s)
-            
+
         norm : str, {``None``,``m``,``rho``}
-            Normalisation of the density. 
-            
+            Normalisation of the density.
+
         c : float or array of floats, default ``None``
             Concentration(s) of the halo(s). Must be same length as :attr:`m`.
-            
+
         coord : str, {``k``,``kappa``}
             What the radial coordinate represents. ``r`` represents physical
-            co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius 
+            co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius
             (r_vir = c), and ``s`` is in units of the virial radius (r_vir = 1).
         """
         c, K = self._get_k_variables(k, m, c, coord)
@@ -234,24 +234,24 @@ class Profile(Model):
     def lam(self, r, m, norm=None, c=None, coord='r'):
         """
         The density profile convolved with itself.
-        
+
         Parameters
         ----------
         r : float or array of floats
             The radial location(s). The units vary according to :attr:`coord`
-            
+
         m : float or array of floats
             The mass(es) of the halo(s)
-            
+
         norm : str, {``None``,``m``,``rho``}
-            Normalisation of the density. 
-            
+            Normalisation of the density.
+
         c : float or array of floats, default ``None``
             Concentration(s) of the halo(s). Must be same length as :attr:`m`.
-            
+
         coord : str, {``r``,``x``,``s``}
             What the radial coordinate represents. ``r`` represents physical
-            co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius 
+            co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius
             (r_vir = c), and ``s`` is in units of the virial radius (r_vir = 1).
         """
         c, r_s, x = self._get_r_variables(r, m, c, coord)
@@ -267,21 +267,21 @@ class Profile(Model):
     def cdf(self, r, c=None, m=None, coord='r'):
         """
         The cumulative distribution function, :math:`m(<x)/m_v`
-        
+
         Parameters
         ----------
         x : float or array_like
             The radial location -- units defined by :attr:`coord`
-            
+
         c : float or array_like, optional
             The concentration. Only used if m not provided
-            
+
         m : float or array_like, optional
             The mass of the halo. Defines the concentration if provided.
-            
+
         coord : str, {``"x"``, ``"r"``, ``"s"``}
             What the radial coordinate represents. ``r`` represents physical
-            co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius 
+            co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius
             (r_vir = c), and ``s`` is in units of the virial radius (r_vir = 1).
         """
         c, r_s, x = self._get_r_variables(r, m, c, coord)
@@ -447,24 +447,24 @@ class ProfileInf(Profile):
     def rho(self, r, m, norm=None, c=None, coord="r"):
         """
         The density at radius r of a halo of mass m.
-        
+
         Parameters
         ----------
         r : float or array of floats
             The radial location(s). The units vary according to :attr:`coord`
-            
+
         m : float or array of floats
             The mass(es) of the halo(s)
-            
+
         norm : str, {``None``,``m``,``rho``}
-            Normalisation of the density. 
-            
+            Normalisation of the density.
+
         c : float or array of floats, default ``None``
             Concentration(s) of the halo(s). Must be same length as :attr:`m`.
-            
+
         coord : str, {``r``,``x``,``s``}
             What the radial coordinate represents. ``r`` represents physical
-            co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius 
+            co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius
             (r_vir = c), and ``s`` is in units of the virial radius (r_vir = 1).
         """
         c, r_s, x = self._get_r_variables(r, m, c, coord)
@@ -475,25 +475,25 @@ class ProfileInf(Profile):
 
     def u(self, k, m, norm=None, c=None, coord="k"):
         """
-        The fourier-transform of the density profile 
-        
+        The fourier-transform of the density profile
+
         Parameters
         ----------
         k : float or array of floats
             The radial wavenumber(s). The units vary according to :attr:`coord`
-            
+
         m : float or array of floats
             The mass(es) of the halo(s)
-            
+
         norm : str, {``None``,``m``,``rho``}
-            Normalisation of the density. 
-            
+            Normalisation of the density.
+
         c : float or array of floats, default ``None``
             Concentration(s) of the halo(s). Must be same length as :attr:`m`.
-            
+
         coord : str, {``k``,``kappa``}
             What the radial coordinate represents. ``r`` represents physical
-            co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius 
+            co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius
             (r_vir = c), and ``s`` is in units of the virial radius (r_vir = 1).
         """
         c, K = self._get_k_variables(k, m)
@@ -510,7 +510,7 @@ class ProfileInf(Profile):
     def _p(self, K):
         """
         The dimensionless fourier-transform of the profile
-        
+
         This should be replaced by an analytic function if possible
         """
         # Make sure we use enough steps to fit every period at least 5 times
@@ -556,24 +556,24 @@ class ProfileInf(Profile):
     def lam(self, r, m, norm=None, c=None, coord='r'):
         """
         The density profile convolved with itself.
-        
+
         Parameters
         ----------
         r : float or array of floats
             The radial location(s). The units vary according to :attr:`coord`
-            
+
         m : float or array of floats
             The mass(es) of the halo(s)
-            
+
         norm : str, {``None``,``m``,``rho``}
-            Normalisation of the density. 
-            
+            Normalisation of the density.
+
         c : float or array of floats, default ``None``
             Concentration(s) of the halo(s). Must be same length as :attr:`m`.
-            
+
         coord : str, {``r``,``x``,``s``}
             What the radial coordinate represents. ``r`` represents physical
-            co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius 
+            co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius
             (r_vir = c), and ``s`` is in units of the virial radius (r_vir = 1).
         """
         c, r_s, x = self._get_r_variables(r, m, c, coord)
