@@ -542,10 +542,10 @@ class HaloModel(MassFunction):
                                     mean_dens=self.mean_density0.value,
                                     delta_halo=self.delta_halo) * self.mean_gal_den.unit ** 2
         else:
-            mmin = 4*np.pi * self.r**3 * self.mean_density * self.delta_halo/3
-            mask = np.repeat(self.M,len(self.r)).reshape(len(self.M),len(self.r)) < mmin
+            #mmin = 4*np.pi * self.r**3 * self.mean_density * self.delta_halo/3
+            #mask = np.repeat(self.M,len(self.r)).reshape(len(self.M),len(self.r)) < mmin
             integ = self.dndm * 2 * self.n_cen * self.n_sat * rho * self.M
-            integ[mask.T] = 0
+            #integ[mask.T] = 0
             c = intg.trapz(integ,dx=self.dlog10m*np.log(10))
 
         return c / self.mean_gal_den ** 2
