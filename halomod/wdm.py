@@ -12,6 +12,7 @@ from hmf.wdm import MassFunctionWDM
 from hmf._framework import get_model
 import sys
 import astropy.units as u
+from integrate_corr import ProjectedCF
 
 #===============================================================================
 # C-M relations
@@ -144,3 +145,6 @@ class HaloModelWDM(HaloModel, MassFunctionWDM):
             cm = get_model(self.cm_relation, "halomod.concentration", **kwargs)
 
         return cm
+
+class ProjectedCFWDM(ProjectedCF,HaloModelWDM):
+    pass
