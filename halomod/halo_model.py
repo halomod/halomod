@@ -441,10 +441,10 @@ class HaloModel(MassFunction):
             integrand = self.dndm * self.M ** 3 * lam
 
             ### The following may not need to be done?
-            r = self.r/2 # half the radius
-            mmin = 4*np.pi * r**3 * self.mean_density * self.delta_halo/3
-            mask = np.repeat(self.M,len(self.r)).reshape(len(self.M),len(self.r)) < mmin
-            integrand[mask.T] = 0
+            #r = self.r/2 # half the radius
+            #mmin = 4*np.pi * r**3 * self.mean_density * self.delta_halo/3
+            #mask = np.repeat(self.M,len(self.r)).reshape(len(self.M),len(self.r)) < mmin
+            #integrand[mask.T] = 0
             return intg.trapz(integrand,dx=np.log(10)*self.dlog10m)/self.mean_density**2
         else:
             return tools.power_to_corr_ogata(self._power_mm_1h,self.k.value,self.r)
