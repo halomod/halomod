@@ -375,10 +375,6 @@ class Profile(Model):
         """
         The concentration-mass relation
         """
-#         if isinstance(self.cm_relation, basestring):
-#             return getattr(self, "_cm_" + self.cm_relation)(m)
-#         else:
-#             return self.cm_relation(m)
         return self._cm_relation.cm(m)
 
     def _get_r_variables(self, r, m, c=None, coord="r"):
@@ -397,7 +393,7 @@ class Profile(Model):
             if coord == "r":
                 x = r / r_s
             elif coord == "x":
-                x = x
+                x = r
             elif coord == "s":
                 x = r * c
         return np.atleast_1d(c, r_s, x)
@@ -612,10 +608,8 @@ class NFW(Profile):
         if len(x.shape) == 2:
             c = np.repeat(c, x.shape[0]).reshape(x.shape[0], x.shape[1])
         if len(x.shape) == 1:
-            try:
-                c = np.repeat(c[0], x.shape[0])
-            except:
-                c = np.repeat(c, x.shape[0])
+            if not hasattr(c,"__len__"):
+                c = np.repeat(c,x.shape[0])
         # GET LOW VALUES
         if np.any(x <= c):
             mask = x <= c
