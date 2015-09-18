@@ -530,7 +530,7 @@ class HaloModel(MassFunction):
 
             c = intg.trapz(integ,dx=self.dlog10m*np.log(10))
 
-        return c / self.mean_gal_den ** 2
+            return c / self.mean_gal_den ** 2
         else:
             return tools.power_to_corr_ogata(self.power_gg_1h_ss,
                                              self.k.value, self.r)
