@@ -522,8 +522,18 @@ class HaloModel(MassFunction):
 
     @cached_property("power_gg_1h_ss", "k", "r")
     def corr_gg_1h_ss(self):
-        return tools.power_to_corr_ogata(self.power_gg_1h_ss,
-                                         self.k.value, self.r)
+        if self.profile.has_lam:
+            lam = self.profile.lam(self.r, self.M, norm="m")
+            integ = self.M* self.dndm * self.n_sat**2* lam
+            if self.hod._central:
+                integ *= self.n_cen
+
+            c = intg.trapz(integ,dx=self.dlog10m*np.log(10))
+
+        return c / self.mean_gal_den ** 2
+        else:
+            return tools.power_to_corr_ogata(self.power_gg_1h_ss,
+                                             self.k.value, self.r)
 
     @cached_property("r", "M", "dndm", "n_cen", "n_sat", "mean_density0",
                      "delta_halo", "mean_gal_den")
@@ -573,24 +583,16 @@ class HaloModel(MassFunction):
                                      mean_dens=self.mean_density0.value,
                                      delta_halo=self.delta_halo) * self.mean_gal_den.unit ** 2
             else:
-                integ = self.dndm * self.n_sat**2 * lam
+                integ = self.M* self.dndm * self.n_sat*(self.n_sat * lam + 2*rho)
                 if self.hod._central:
                     integ *= self.n_cen
 
-                mmin = 4*np.pi*self.r**3*self.mean_density*self.delta_halo/3
-                mask = np.repeat(self.M,len(self.r)).reshape(len(self.M),len(self.r)) > mmin
-                integ2 = self.dndm*2 * self.n_cen*self.n_sat*rho
-                integ[mask.T] += integ2[mask.T]
-
-                integ *= self.M
-
                 c = intg.trapz(integ,dx=self.dlog10m*np.log(10))
 
-
-            return c / self.mean_gal_den ** 2
+            return c / self.mean_gal_den ** 2 -1
 
         else:
-            return self.corr_gg_1h_cs + self.corr_gg_1h_ss
+            return self.corr_gg_1h_cs + self.corr_gg_1h_ss -1
 
     @cached_property("profile","k","M","scale_dependent_bias","sd_bias","bias",
                      "halo_exclusion","dndlnm",'r',"delta_halo","mean_density",
@@ -640,7 +642,7 @@ class HaloModel(MassFunction):
     @cached_property("corr_gg_1h", "corr_gg_2h")
     def  corr_gg(self):
         """The galaxy correlation function"""
-        return self.corr_gg_1h + self.corr_gg_2h
+        return self.corr_gg_1h + self.corr_gg_2h - 1
 
     #===========================================================================
     # Other utilities
