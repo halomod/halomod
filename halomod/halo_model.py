@@ -635,14 +635,21 @@ class HaloModel(MassFunction):
             else:
                 corr = tools.power_to_corr_ogata(self.power_gg_2h,self.k.value,self.r)
 
-            ## modify by the new density
+            ## modify by the new density. This step is *extremely* sensitive to the
+            ## exact value of __density_mod at large scales, where the ratio *should*
+            ## be exactly 1.
+            if self.r[-1] > 2*self.profile._mvir_to_rvir(self.M[-1]):
+                try:
+                    self.__density_mod *= self.mean_gal_den/self.__density_mod[-1]
+                except TypeError:
+                    pass
             return (self.__density_mod/self.mean_gal_den)**2 * (1+corr)-1
         return corr_2h
 
     @cached_property("corr_gg_1h", "corr_gg_2h")
     def  corr_gg(self):
         """The galaxy correlation function"""
-        return self.corr_gg_1h + self.corr_gg_2h - 1
+        return self.corr_gg_1h + self.corr_gg_2h + 1
 
     #===========================================================================
     # Other utilities
