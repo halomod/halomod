@@ -75,7 +75,7 @@ class ProjectedCF(HaloModel):
     def r(self):
         return np.logspace(np.log10(self.rp.min().value), np.log10(self.rlim.value), self.rnum) * u.Mpc / self._hunit
 
-    @cached_property("r", "corr_gal", "rlim", "rp")
+    @cached_property("r", "corr_gg", "rlim", "rp")
     def projected_corr_gal(self):
         """
         Projected correlation function w(r_p).
@@ -84,7 +84,7 @@ class ProjectedCF(HaloModel):
 
         To integrate perform a substitution y = x - r_p.
         """
-        return projected_corr_gal(self.r, self.corr_gal, self.rlim, self.rp)
+        return projected_corr_gal(self.r, self.corr_gg, self.rlim, self.rp)
 
 def projected_corr_gal(r, xir, rlim, rp_out=None):
     """

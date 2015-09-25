@@ -9,29 +9,29 @@ from hmf._framework import Model
 class Profile(Model):
     """
     Halo radial density profiles.
-    
+
     This class provides basic building blocks for all kinds of fun with halo
-    radial density profiles. It is modeled on the system described in 
+    radial density profiles. It is modeled on the system described in
     XXXX.XXXX (paper yet to be published). This means that subclasses providing
     specific profiles shapes, f(x) must provide very minimal other information
     for a range of products to be available.
-    
-    The "main" quantities available are the profile itself, its fourier pair, 
+
+    The "main" quantities available are the profile itself, its fourier pair,
     and its convolution (this is not available for every profile). Furthermore,
-    quantities such as the concentration-mass relation are provided, along with 
-    tools such as those to generate a mock halo of the given profile. 
+    quantities such as the concentration-mass relation are provided, along with
+    tools such as those to generate a mock halo of the given profile.
 
     Parameters
     ----------
     omegam : float, default 0.3
         Fractional matter density at current epoch
-        
+
     delta_halo : float, default 200.0
         Overdensity of the halo definition, with respect to MEAN BACKGROUND density.
-        
+
     cm_relation : str {'zehavi','duffy'}
         Identifies which concentration-mass relation to use
-        
+
     z : float, default 0.0
         The redshift of the halo
     """
@@ -43,10 +43,7 @@ class Profile(Model):
         self._cm_relation = cm_relation
         self.mean_dens = mean_dens
 
-        if hasattr(self, "_l"):
-            self.has_lam = True
-        else:
-            self.has_lam = False
+        self.has_lam = hasattr(self, "_l")
 
     # -- BASIC TRANSFORMATIONS --------------------------------------
     def _mvir_to_rvir(self, m):
@@ -58,14 +55,14 @@ class Profile(Model):
         return 4 * np.pi * r ** 3 * self.delta_halo * self.mean_dens / 3
 
     def _rs_from_m(self, m, c=None):
-        """ 
+        """
         Return the scale radius for a halo of mass m
-        
+
         Parameters
         ----------
         m : float
             mass of the halo
-            
+
         c : float, default None
             concentration of the halo (if None, use cm_relation to get it).
         """
@@ -75,18 +72,18 @@ class Profile(Model):
         return rvir / c
 
     def _h(self, c=None, m=None):
-        """ 
-        The integral of f(x)*x^2 out to c 
-        
+        """
+        The integral of f(x)*x^2 out to c
+
         Parameters
         ----------
         c : float or array_like, optional
             The concentration(s) of the halo(s). Used ONLY if m is not specified.
-            
+
         m : float or array_like, optional
             The mass of the halo. Determines the concentration if provided.
-            
-        .. note :: This function should be replaced with an analytic solution if 
+
+        .. note :: This function should be replaced with an analytic solution if
                 possible in derived classes.
         """
         if c is None and m is None:
@@ -102,17 +99,17 @@ class Profile(Model):
     def _p(self, K, c):
         """
         The reduced dimensionless fourier-transform of the profile
-        
+
         This function should not need to be called by the user in general.
-        
+
         Parameters
         ----------
         K : float or array_like
             The unit-less wavenumber k*r_s
-        
+
         c : float or array_like
             The concentration
-            
+
         .. note :: This should be replaced by an analytic function if possible
         """
         # Make sure we use enough steps to fit every period at least 5 times
@@ -143,19 +140,19 @@ class Profile(Model):
         return res
 
     def _rho_s(self, c, r_s=None, norm=None):
-        """ 
-        The amplitude factor of the profile 
-        
+        """
+        The amplitude factor of the profile
+
         Parameters
         ----------
         c : float or array of floats
             The concentration parameter
-            
+
         norm : str or None, {None,"m","rho"}
             Normalisation for the amplitude. Can either be None (in which case
-            the output is a density), "m" (in which case the output is inverse 
+            the output is a density), "m" (in which case the output is inverse
             volume) or "rho" in which case the output is dimensionless.
-            
+
         r_s : float or array of floats
             The scale radius. This is only required if ``norm`` is "m".
         """
@@ -166,58 +163,58 @@ class Profile(Model):
         elif norm is "rho":
             rho = c ** 3 * self.delta_halo / (3 * self._h(c))
 
-        return self._make_scalar(rho)
+        return self._reduce(rho)
 
     def rho(self, r, m, norm=None, c=None, coord="r"):
         """
         The density at radius r of a halo of mass m.
-        
+
         Parameters
         ----------
         r : float or array of floats
             The radial location(s). The units vary according to :attr:`coord`
-            
+
         m : float or array of floats
             The mass(es) of the halo(s)
-            
+
         norm : str, {``None``,``m``,``rho``}
-            Normalisation of the density. 
-            
+            Normalisation of the density.
+
         c : float or array of floats, default ``None``
             Concentration(s) of the halo(s). Must be same length as :attr:`m`.
-            
+
         coord : str, {``r``,``x``,``s``}
             What the radial coordinate represents. ``r`` represents physical
-            co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius 
-            (r_vir = c), and ``s`` is in units of the virial radius (r_vir = 1).
+            co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius
+            (x(r_vir) = c), and ``s`` is in units of the virial radius (s(r_vir) = 1).
         """
         c, r_s, x = self._get_r_variables(r, m, c, coord)
         rho = self._f(x) * self._rho_s(c, r_s, norm)
         rho[x > c] = 0.0
 
-        return self._make_scalar(rho)
+        return self._reduce(rho)
 
     def u(self, k, m, norm=None, c=None, coord="k"):
         """
-        The (optionally normalised) Fourier-transform of the density profile 
-        
+        The (optionally normalised) Fourier-transform of the density profile
+
         Parameters
         ----------
         k : float or array of floats
             The radial wavenumber(s). The units vary according to :attr:`coord`
-            
+
         m : float or array of floats
             The mass(es) of the halo(s)
-            
+
         norm : str, {``None``,``m``,``rho``}
-            Normalisation of the density. 
-            
+            Normalisation of the density.
+
         c : float or array of floats, default ``None``
             Concentration(s) of the halo(s). Must be same length as :attr:`m`.
-            
+
         coord : str, {``k``,``kappa``}
             What the radial coordinate represents. ``r`` represents physical
-            co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius 
+            co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius
             (r_vir = c), and ``s`` is in units of the virial radius (r_vir = 1).
         """
         c, K = self._get_k_variables(k, m, c, coord)
@@ -229,181 +226,113 @@ class Profile(Model):
         elif norm != "m":
             raise ValueError(str(norm) + "is not a valid value for norm")
 
-        return self._make_scalar(u)
+        return self._reduce(u)
 
     def lam(self, r, m, norm=None, c=None, coord='r'):
         """
         The density profile convolved with itself.
-        
+
         Parameters
         ----------
         r : float or array of floats
             The radial location(s). The units vary according to :attr:`coord`
-            
+
         m : float or array of floats
             The mass(es) of the halo(s)
-            
+
         norm : str, {``None``,``m``,``rho``}
-            Normalisation of the density. 
-            
+            Normalisation of the density.
+
         c : float or array of floats, default ``None``
             Concentration(s) of the halo(s). Must be same length as :attr:`m`.
-            
+
         coord : str, {``r``,``x``,``s``}
             What the radial coordinate represents. ``r`` represents physical
-            co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius 
+            co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius
             (r_vir = c), and ``s`` is in units of the virial radius (r_vir = 1).
         """
-        c, r_s, x = self._get_r_variables(r, m, c, coord)
         if self.has_lam:
+            c, r_s, x = self._get_r_variables(r, m, c, coord)
             if norm in [None, "m"]:
                 lam = self._l(x, c) * r_s ** 3 * self._rho_s(c, r_s, norm) ** 2
             else:
                 raise ValueError("norm must be None or 'm'")
         else:
             raise AttributeError("this profile has no self-convolution defined.")
-        return self._make_scalar(lam)
+        return self._reduce(lam)
 
     def cdf(self, r, c=None, m=None, coord='r'):
         """
         The cumulative distribution function, :math:`m(<x)/m_v`
-        
+
         Parameters
         ----------
         x : float or array_like
             The radial location -- units defined by :attr:`coord`
-            
+
         c : float or array_like, optional
             The concentration. Only used if m not provided
-            
+
         m : float or array_like, optional
             The mass of the halo. Defines the concentration if provided.
-            
+
         coord : str, {``"x"``, ``"r"``, ``"s"``}
             What the radial coordinate represents. ``r`` represents physical
-            co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius 
+            co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius
             (r_vir = c), and ``s`` is in units of the virial radius (r_vir = 1).
         """
         c, r_s, x = self._get_r_variables(r, m, c, coord)
         return self._h(x) / self._h(c)
-
-    def populate(self, N, m, c=None, ba=1, ca=1, sort=False, norm=False):
-        """
-        Creates a mock halo with the current profile.
-        """
-        if c is None:
-            c = self.cm_relation(m)
-
-        # Internal max just buffers where the particles are created to before truncating
-        internal_max = 1 / ca
-
-        # Buffer the number of particles
-        N_full = int(internal_max * N)
-
-        # Interpolate the iCDF
-        x = np.linspace(0, internal_max * c, 750)
-
-        mass_enc = self.cdf(x, c, coord='x')
-
-        icdf = spline(mass_enc, x, k=3)
-
-        # Pick a random number
-        rnd = np.random.random(N_full)
-
-        # Calculate the radius x from the ICDF
-        x = icdf(rnd)
-        # Make sure we end up with N particles
-        pos = np.zeros((N_full, 3))
-
-        # Now assign the selected radii cartesian coordinates.
-        # These will be uniformly distributed on the unit sphere.
-        phi = 2 * np.pi * np.random.random(N_full)
-
-        pos[:, 0] = x * (2 * np.random.random(N_full) - 1.0)
-
-        rcynd = np.sqrt(x ** 2 - pos[:, 0] ** 2)
-        pos[:, 1] = rcynd * np.cos(phi) * ba
-        pos[:, 2] = rcynd * np.sin(phi) * ca
-
-        # FIXME: the following lines should be there, but since spline isn't
-        # perfect, they cause things that should be == c to be cut out.
-        # pos = pos[x <= c, :]
-        # x = x[x <= c]
-        if len(x) >= N:
-            x = x[:N]
-            pos = pos[:N, :]
-        else:
-            while len(x) < N:
-                rnd = np.random.random(N)
-                x2 = icdf(rnd)
-
-                pos2 = np.zeros((N, 3))
-
-                # Now assign the selected radii cartesian coordinates.
-                # These will be uniformly distributed on the unit sphere.
-                phi = 2 * np.pi * np.random.random(N)
-
-                pos2[:, 0] = x2 * (2 * np.random.random(N) - 1.0)
-
-                rcynd = np.sqrt(x2 ** 2 - pos2[:, 0] ** 2)
-                pos2[:, 1] = rcynd * np.cos(phi) * ba
-                pos2[:, 2] = rcynd * np.sin(phi) * ca
-
-                x2 = np.sqrt(pos2[:, 1] ** 2 + pos2[:, 2] ** 2 + pos2[:, 0] ** 2)
-
-                pos2 = pos2[x <= c, :]
-                x2 = x2[x <= c]
-                if len(x2) > 0:
-                    x = np.concatenate(x, x2)
-                    pos = np.concatenate(pos, pos2)
-                if len(x) > N:
-                    x = x[:N]
-                    pos = pos[:N, :]
-
-        # Sort the particles in increasing r
-        if sort:
-            pos = pos[np.argsort(x), :]
-
-        if not norm:
-            pos *= self._rs_from_m(m, c)
-
-        return pos
-
 
 
     def cm_relation(self, m):
         """
         The concentration-mass relation
         """
-#         if isinstance(self.cm_relation, basestring):
-#             return getattr(self, "_cm_" + self.cm_relation)(m)
-#         else:
-#             return self.cm_relation(m)
         return self._cm_relation.cm(m)
 
     def _get_r_variables(self, r, m, c=None, coord="r"):
+        """
+        From a raw array in r, mass, returns concentration,
+        scale radius and x=r*c/rvir.
+
+        Returns
+        -------
+        c : same shape as m
+            concentration
+
+        r_s : same shape as m
+            Scale radius
+
+        x : 2d array
+            Dimensionless scale parameter, shape (r,[m]).
+        """
         if c is None:
             c = self.cm_relation(m)
         r_s = self._rs_from_m(m, c)
 
-        if np.iterable(r) and np.iterable(r_s):
-            if coord == "r":
-                x = np.divide.outer(r, r_s)
-            elif coord == "x":
-                x = r
-            elif coord == "s":
-                x = np.outer(r, c)
-        else:
-            if coord == "r":
-                x = r / r_s
-            elif coord == "x":
-                x = x
-            elif coord == "s":
-                x = r * c
-        return np.atleast_1d(c, r_s, x)
+        if coord == "r":
+            x = np.divide.outer(r, r_s)
+        elif coord == "x":
+            x = r
+        elif coord == "s":
+            x = np.outer(r, c)
+
+        return c, r_s, x
 
     def _get_k_variables(self, k, m, c=None, coord="k"):
+        """
+        From a raw array in k, mass, returns concentration,
+        kappa.
 
+        Returns
+        -------
+        c : same shape as m
+            concentration
+
+        K : 1d or 2d array
+            Dimensionless scale parameter, shape (r,[m]).
+        """
         if c is None:
             c = self.cm_relation(m)
         r_s = self._rs_from_m(m, c)
@@ -411,16 +340,18 @@ class Profile(Model):
         if coord == "k":
             if np.iterable(k) and np.iterable(r_s):
                 K = np.outer(k, r_s)
-            else:
-                K = k * r_s
         elif coord == "kappa":
             K = k
 
-        return c, np.atleast_1d(K)
+        return c, K
 
-    def _make_scalar(self, x):
-        if len(x) == 1:
-            return x[0]
+    def _reduce(self, x):
+        x = np.squeeze(np.atleast_1d(x))
+        if x.size == 1:
+            try:
+                return x[0]
+            except:
+                return x
         else:
             return x
 
@@ -447,24 +378,24 @@ class ProfileInf(Profile):
     def rho(self, r, m, norm=None, c=None, coord="r"):
         """
         The density at radius r of a halo of mass m.
-        
+
         Parameters
         ----------
         r : float or array of floats
             The radial location(s). The units vary according to :attr:`coord`
-            
+
         m : float or array of floats
             The mass(es) of the halo(s)
-            
+
         norm : str, {``None``,``m``,``rho``}
-            Normalisation of the density. 
-            
+            Normalisation of the density.
+
         c : float or array of floats, default ``None``
             Concentration(s) of the halo(s). Must be same length as :attr:`m`.
-            
+
         coord : str, {``r``,``x``,``s``}
             What the radial coordinate represents. ``r`` represents physical
-            co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius 
+            co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius
             (r_vir = c), and ``s`` is in units of the virial radius (r_vir = 1).
         """
         c, r_s, x = self._get_r_variables(r, m, c, coord)
@@ -475,25 +406,25 @@ class ProfileInf(Profile):
 
     def u(self, k, m, norm=None, c=None, coord="k"):
         """
-        The fourier-transform of the density profile 
-        
+        The fourier-transform of the density profile
+
         Parameters
         ----------
         k : float or array of floats
             The radial wavenumber(s). The units vary according to :attr:`coord`
-            
+
         m : float or array of floats
             The mass(es) of the halo(s)
-            
+
         norm : str, {``None``,``m``,``rho``}
-            Normalisation of the density. 
-            
+            Normalisation of the density.
+
         c : float or array of floats, default ``None``
             Concentration(s) of the halo(s). Must be same length as :attr:`m`.
-            
+
         coord : str, {``k``,``kappa``}
             What the radial coordinate represents. ``r`` represents physical
-            co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius 
+            co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius
             (r_vir = c), and ``s`` is in units of the virial radius (r_vir = 1).
         """
         c, K = self._get_k_variables(k, m)
@@ -510,7 +441,7 @@ class ProfileInf(Profile):
     def _p(self, K):
         """
         The dimensionless fourier-transform of the profile
-        
+
         This should be replaced by an analytic function if possible
         """
         # Make sure we use enough steps to fit every period at least 5 times
@@ -556,24 +487,24 @@ class ProfileInf(Profile):
     def lam(self, r, m, norm=None, c=None, coord='r'):
         """
         The density profile convolved with itself.
-        
+
         Parameters
         ----------
         r : float or array of floats
             The radial location(s). The units vary according to :attr:`coord`
-            
+
         m : float or array of floats
             The mass(es) of the halo(s)
-            
+
         norm : str, {``None``,``m``,``rho``}
-            Normalisation of the density. 
-            
+            Normalisation of the density.
+
         c : float or array of floats, default ``None``
             Concentration(s) of the halo(s). Must be same length as :attr:`m`.
-            
+
         coord : str, {``r``,``x``,``s``}
             What the radial coordinate represents. ``r`` represents physical
-            co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius 
+            co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius
             (r_vir = c), and ``s`` is in units of the virial radius (r_vir = 1).
         """
         c, r_s, x = self._get_r_variables(r, m, c, coord)
@@ -585,6 +516,7 @@ class ProfileInf(Profile):
         else:
             raise AttributeError("this profile has no self-convolution defined.")
         return self._make_scalar(lam)
+
 
 class NFW(Profile):
     def _f(self, x):
@@ -604,24 +536,26 @@ class NFW(Profile):
 
 
     def _l(self, x, c):
+        x = np.atleast_1d(x)
+        c = np.atleast_1d(c)
         result = np.zeros_like(x)
 
         if np.all(x > 2 * c):
             return result  # Stays as zero
 
         if len(x.shape) == 2:
-            c = np.repeat(c, x.shape[0]).reshape(x.shape[0], x.shape[1])
+            c = np.outer(np.ones(x.shape[0]),c)
+
         if len(x.shape) == 1:
-            try:
-                c = np.repeat(c[0], x.shape[0])
-            except:
-                c = np.repeat(c, x.shape[0])
+            if not hasattr(c,"__len__"):
+                c = np.ones(x.shape[0])*c
+
         # GET LOW VALUES
         if np.any(x <= c):
             mask = x <= c
             x_lo = x[mask]
-            c_lo = c[mask]
-            a_lo = 1.0 / c_lo
+            #c_lo = c[mask]
+            a_lo = 1.0 / c[mask]
 
             f2_lo = -4 * (1 + a_lo) + 2 * a_lo * x_lo * (1 + 2 * a_lo) + (a_lo * x_lo) ** 2
             f2_lo /= 2 * (x_lo * (1 + a_lo)) ** 2 * (2 + x_lo)
@@ -632,8 +566,7 @@ class NFW(Profile):
         if np.any(np.logical_and(x < 2 * c, x > c)):
             mask = np.logical_and(x > c, x <= 2 * c)
             x_hi = x[mask]
-            c_hi = c[mask]
-            a_hi = 1.0 / c_hi
+            a_hi = 1.0 / c[mask]
 
             f2_hi = np.log((1 + a_hi) / (a_hi + a_hi * x_hi - 1)) / (x_hi * (2 + x_hi) ** 2)
             f3_hi = (x_hi * a_hi ** 2 - 2 * a_hi) / (2 * x_hi * (1 + a_hi) ** 2 * (2 + x_hi))

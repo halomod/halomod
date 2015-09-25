@@ -11,6 +11,8 @@ from scipy import integrate as intg
 from hmf.wdm import MassFunctionWDM
 from hmf._framework import get_model
 import sys
+import astropy.units as u
+from integrate_corr import ProjectedCF
 
 #===============================================================================
 # C-M relations
@@ -60,16 +62,10 @@ class HaloModelWDM(HaloModel, MassFunctionWDM):
         kw.setdefault("cm_relation", "DuffyWDM")
         super(HaloModelWDM, self).__init__(**kw)
 
-    @cached_property("_wdm", "dlog10m")
-    def M(self):
-        """ Halo masses in M_sun/h """
-        return 10 ** np.arange(self._wdm.m_fs, 18, self.dlog10m) * u.MsolMass / self._hunit
-
-    @cached_property("matter_power")
-    def p_lin(self):
-        """ The Schneider12 version of P_Lin = P_halofit * W(kR)"""
-        f = TopHat(None, None, None, None)
-        return np.exp(self.matter_power) * f.k_space(np.exp(self.lnk) * 2.0)
+    # @cached_property("_wdm", "dlog10m")
+    # def M(self):
+    #     """ Halo masses in M_sun/h """
+    #     return 10 ** np.arange(np.log10(self._wdm.m_fs.value), 18, self.dlog10m) * u.MsolMass / self._hunit
 
     @cached_property("rho_gtm", "mean_dens", "_wdm")
     def f_halos(self):
@@ -78,64 +74,61 @@ class HaloModelWDM(HaloModel, MassFunctionWDM):
         """
         return self.rho_gtm[0] / self.mean_dens
 
-    @cached_property("f_halos", "power_ss", "power_sh", "power_hh")
-    def power_matter(self):
+    @cached_property("f_halos","power_ss","power_sh")
+    def power_mm(self):
+        power_hh = super(HaloModelWDM,self).power_mm
+    # @cached_property("f_halos", "power_ss", "power_sh", "power_hh")
+    # def power_matter(self):
         return (1 - self.f_halos) ** 2 * self.power_ss + \
             2 * (1 - self.f_halos) * self.f_halos * self.power_sh + \
-            self.f_halos ** 2 * self.power_hh
+            self.f_halos ** 2 * power_hh
 
-    @cached_property("power_m_1h", "power_m_2h")
-    def power_hh(self):
-        return self.power_m_1h + self.power_m_2h
+    # @cached_property("power_m_1h", "power_m_2h")
+    # def power_hh(self):
+    #     return self.power_m_1h + self.power_m_2h
+    #
+    # @cached_property("_wdm", "dndm", "M", "lnk", "profile", "dlog10m", "f_halos", "mean_dens")
+    # def power_m_1h(self):
+    #     integrand = self.dndm_rescaled * self.M ** 3
+    #     u = self.profile.u(self.k, self.M, norm="m") ** 2
+    #     out = np.zeros_like(self.k)
+    #     for i, k in enumerate(self.k):
+    #         r = (np.pi / k)  # half the radius
+    #         mmin = self.filter_mod.radius_to_mass(r)
+    #         if np.any(self.M > mmin):
+    #             integ = integrand[self.M > mmin] * u[i, self.M > mmin]
+    #             out[i] = intg.simps(integ, dx=self.dlog10m) * np.log(10)
+    #         else:
+    #             out[i] = 0.0
+    #     return out / (self.f_halos * self.mean_dens) ** 2
+    #
+    # @cached_property("dndm", "_wdm", "bias", "lnk", "M", "profile", "f_halos", "mean_dens",
+    #                  "matter_power")
+    # def power_m_2h(self):
+    #     # Only use schneider for now
+    #     integrand = self.M ** 2 * self.dndm_rescaled * self.bias
+    #     out = np.zeros_like(self.k)
+    #     u = self.profile.u(np.exp(self.k), self.M, norm="m")
+    #     for i, k in enumerate(self.k):
+    #         integ = integrand * u[i, :]
+    #         out[i] = (intg.simps(integ, dx=self.dlog10m) * np.log(10))
+    #     return self.p_lin * out ** 2 / (self.f_halos * self.mean_dens) ** 2
 
-    @cached_property("_wdm", "dndm", "M", "lnk", "profile", "dlog10m", "f_halos", "mean_dens")
-    def power_m_1h(self):
-        integrand = self.dndm_rescaled * self.M ** 3
-        u = self.profile.u(self.k), self.M, norm="m") ** 2
-        out = np.zeros_like(self.k)
-        for i, k in enumerate(self.k):
-            r = (np.pi / k)  # half the radius
-            mmin = self.filter_mod.radius_to_mass(r)
-            if np.any(self.M > mmin):
-                integ = integrand[self.M > mmin] * u[i, self.M > mmin]
-                out[i] = intg.simps(integ, dx=self.dlog10m) * np.log(10)
-            else:
-                out[i] = 0.0
-        return out / (self.f_halos * self.mean_dens) ** 2
-
-    @cached_property("dndm", "_wdm", "bias", "lnk", "M", "profile", "f_halos", "mean_dens",
-                     "matter_power")
-    def power_m_2h(self):
-        # Only use schneider for now
-        integrand = self.M ** 2 * self.dndm_rescaled * self.bias
-        out = np.zeros_like(self.k)
-        u = self.profile.u(np.exp(self.k), self.M, norm="m")
-        for i, k in enumerate(self.k):
-            integ = integrand * u[i, :]
-            out[i] = (intg.simps(integ, dx=self.dlog10m) * np.log(10))
-        return self.p_lin * out ** 2 / (self.f_halos * self.mean_dens) ** 2
-
-    @cached_property("dndm", "_wdm", "lnk", "M", "profile", "f_halos", "mean_dens",
-                     "bias", "bias_smooth")
+    @cached_property("M","dndm","bias","profile","k","dlog10m","bias_smooth","_power_halo_centres","mean_density")
     def power_sh(self):
-        integrand = self.M ** 2 * self.dndm_rescaled * self.bias
-        out = np.zeros_like(self.k)
-        u = self.profile.u(self.k, c.M, norm="m")
-        for i, k in enumerate(self.k):
-            integ = integrand * u [i, :]
-            out[i] = intg.simps(integ, dx=self.dlog10m) * np.log(10)
-
-        return self.bias_smooth * self.p_lin * out / (self.f_halos * self.mean_dens)
+        integrand = self.M ** 2 * self.dndm * self.bias*self.profile.u(self.k, self.M, norm="m")
+        pch = intg.simps(integrand,dx=np.log(10)*self.dlog10m)
+        return self.bias_smooth * self._power_halo_centres * pch / self.mean_density
 
     @cached_property("bias_smooth", "matter_power")
     def power_ss(self):
-        return self.bias_smooth ** 2 * np.exp(self.nonlinear_power)  # self.p_lin
+        return self.bias_smooth ** 2 * self._power_halo_centres
 
-    @cached_property("dndm", "bias", "M", "_wdm", "mean_dens", "f_halos")
+    @cached_property("f_halos", "bias_effective_matter")
     def bias_smooth(self):
-        integrand = self.M ** 2 * self.dndm_rescaled * self.bias
-        integral = intg.simps(integrand, dx=self.dlog10m) * np.log(10)
-        return (1 / (1 - self.f_halos)) * (1 - integral / self.mean_dens)
+        # integrand = self.M ** 2 * self.dndm * self.bias
+        # integral = intg.simps(integrand, dx=self.dlog10m) * np.log(10)
+        return (1-self.bias_effective_matter) / (1 - self.f_halos)
 
     @cached_property("_wdm")
     def cm(self):
@@ -152,3 +145,6 @@ class HaloModelWDM(HaloModel, MassFunctionWDM):
             cm = get_model(self.cm_relation, "halomod.concentration", **kwargs)
 
         return cm
+
+class ProjectedCFWDM(ProjectedCF,HaloModelWDM):
+    pass
