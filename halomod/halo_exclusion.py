@@ -23,6 +23,16 @@ except ImportError:
 def outer(a,b):
     return np.outer(a,b).reshape(a.shape+b.shape)
 
+def dbltrapz(X,dx,dy=None):
+    """
+    Double-integral over the last two dimensions of X using trapezoidal rule
+    """
+    out = X.copy()
+    out[1:-1,:] *= 2
+    out[:,1:-1] *= 2
+    return dx*dy*np.sum(out,axis=(-2,-1))/4.0
+
+
 def dblsimps(X,dx,dy=None):
     """
     Double-integral over the last two dimensions of X.
@@ -55,7 +65,7 @@ if USE_NUMBA:
     @jit(nopython=True)
     def dblsimps_(X,dx,dy):
         """
-        Double-integral of X.
+        Double-integral of X FOR SYMMETRIC FUNCTIONS
         """
         nx = X.shape[0]
         ny = X.shape[1]
@@ -90,6 +100,30 @@ if USE_NUMBA:
                 W[iy,ix] *= 2
 
         return W
+
+    @jit(nopython=True)
+    def makeH_(nx,ny):
+        H = np.ones((nx,ny))
+        for ix in range(1,nx-1):
+            for iy in range(ny):
+                H[ix,iy] *= 2
+                H[iy,ix] *= 2
+
+        return H
+
+    @jit(nopython=True)
+    def dbltrapz_(X,dx,dy):
+        nx = X.shape[0]
+        ny = X.shape[1]
+
+        H = makeH_(nx,ny)
+        tot=0.0
+        for ix in range(nx):
+            tot += H[ix,ix]*X[ix,ix]
+            for iy in range(ix+1,ny):
+                tot += 2*H[ix,iy] * X[ix,iy]
+
+        return dx * dy * tot / 4.0
 
 
 #===============================================================================
@@ -251,7 +285,7 @@ class DblEllipsoid(DblSphere):
     @cached_property
     def density_mod(self):
         integrand = self.prob * outer(np.ones_like(self.r),np.outer(self.density*self.m,self.density*self.m))
-        a = np.sqrt(dblsimps(integrand,self.dlnx))
+        a = np.sqrt(dbltrapz(integrand,self.dlnx))
 
         return a*self.density.unit*self.m.unit
 
@@ -264,7 +298,7 @@ class DblEllipsoid(DblSphere):
 
             for ir in range(len(self.r)):
                 integrand[ir] = self.prob[ir]*np.outer(integ[ir,ik,:],integ[ir,ik,:])
-            out[:,ik] = dblsimps(integrand,self.dlnx)
+            out[:,ik] = dbltrapz(integrand,self.dlnx)
         return out
 
 if USE_NUMBA:
@@ -294,7 +328,7 @@ if USE_NUMBA:
                 for im in range(nm):
                     for jm in range(im,nm):
                         integrand[im,jm] = integ[ir,ik,im]*integ[ir,ik,jm]*prob[ir,im,jm]
-                out[ir,ik] = dblsimps_(integrand,dx,dx)
+                out[ir,ik] = dbltrapz_(integrand,dx,dx)
         return out
 
     @jit(nopython=True)
@@ -302,7 +336,7 @@ if USE_NUMBA:
         d = np.zeros(len(r))
         for ir,rr in enumerate(r):
             integrand = prob_inner_r_(rr,rvir)*densitymat
-            d[ir] = dblsimps_(integrand,dx,dx)
+            d[ir] = dbltrapz_(integrand,dx,dx)
         return np.sqrt(d)
 
     @jit(nopython=True)
@@ -346,9 +380,10 @@ class NgMatched(DblEllipsoid):
     @cached_property
     def mask(self):
         integrand = self.density*self.m
+        #cumint = cumsimps(integrand,dx = self.dlnx)
         cumint = intg.cumtrapz(integrand,dx=self.dlnx,initial=0) #len m
         cumint = np.outer(np.ones_like(self.r),cumint) # r,m
-        return np.where(cumint>np.outer(self.density_mod,np.ones_like(self.m)),
+        return np.where(cumint>1.0001*np.outer(self.density_mod,np.ones_like(self.m)),
                         np.ones_like(cumint,dtype=bool),np.zeros_like(cumint,dtype=bool))
 
     def integrate(self):
@@ -361,12 +396,34 @@ if USE_NUMBA:
         @cached_property
         def mask(self):
             integrand = self.density*self.m
+            #cumint = cumsimps(integrand,dx = self.dlnx)
             cumint = intg.cumtrapz(integrand,dx=self.dlnx,initial=0) #len m
             cumint = np.outer(np.ones_like(self.r),cumint) # r,m
-            return np.where(cumint>np.outer(self.density_mod,np.ones_like(self.m)),
+            return np.where(cumint>1.0001*np.outer(self.density_mod,np.ones_like(self.m)),
                             np.ones_like(cumint,dtype=bool),np.zeros_like(cumint,dtype=bool))
 
         def integrate(self):
             integ = self.raw_integrand() #r,k,m
             integ.transpose((1,0,2))[:,self.mask] = 0
             return intg.simps(integ,dx=self.dlnx)**2
+
+def cumsimps(func,dx):
+    """
+    A very simplistic cumulative simpsons rule integrator. func is an array,
+    h is the equal spacing. It is somewhat inaccurate in the first few bins, since
+    we just truncate the integral, regardless of whether it is odd or even numbered.
+
+    Examples
+    --------
+    >>> x = np.linspace(0,1,1001)
+    >>> y = np.sin(x)
+    >>> print cumsimps(y,0.001)/(1-np.cos(x))
+    """
+    f1 = func.copy()
+    f1[1:-1] *= 2
+    f1[1:-1:2] *=2
+    rm = func.copy()
+    rm[1:-1:2] *=3
+    cs= np.cumsum(f1)
+    cs -= rm
+    return cs*dx/3
