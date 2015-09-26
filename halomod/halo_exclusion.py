@@ -27,6 +27,7 @@ def dbltrapz(X,dx,dy=None):
     """
     Double-integral over the last two dimensions of X using trapezoidal rule
     """
+    dy = dy or dx
     out = X.copy()
     out[1:-1,:] *= 2
     out[:,1:-1] *= 2
