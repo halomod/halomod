@@ -18,8 +18,9 @@ class HOD(Model):
 
     Derived classes of :class:`HOD` should define two methods: :method:`nc` and
     :method:`ns` (central and satellite distributions respectively).
-    Additionally, any parameters of the model should have their names and
-    defaults defined as class variables.
+    Additionally, as with all :class:`hmf._framework.Model` classes,
+    each class should specify its parameters in a _defaults dictionary at
+    class-level.
 
     The exception to this is the M_min parameter, which is defined for every
     model (it may still be defined to modify the default). This parameter acts
@@ -136,9 +137,9 @@ class Zheng05(HOD):
     def mmin(self):
         return self.params["M_min"] - 5 * self.params["sig_logm"]
 
-class Contreras(HOD):
+class Contreras13(HOD):
     """
-    Nine-parameter model of Contreras (2009)
+    Nine-parameter model of Contreras (2013)
 
     Parameters
     ----------
@@ -195,6 +196,26 @@ class Contreras(HOD):
         Number of satellite galaxies at mass M
         """
         return self.params["fs"] * (1 + sp.erf(np.log10(M.value / 10 ** self.params["M_1"]) / self.params["delta"])) * (M.value / 10 ** self.params["M_1"]) ** self.params["alpha"]
+
+class Geach12(Contreras13):
+    """
+    8-parameter model of Geach et. al. (2012). This is identical to `Contreras13`,
+    but with `x==1`.
+    """
+    pass
+
+class Tinker05(Zehavi05):
+    """
+    3-parameter model of Tinker et. al. (2005).
+    """
+    _defaults = {"M_min":11.6222,
+                 "M_1":12.851,
+                 "M_cut":12.0}
+
+    def ns(self,M):
+        out = self.nc(M)
+        return out*np.exp(-10**self.params["M_cut"]/(M.value-10**self.params["M_min"]))*(M.value/10**self.params["M_1"])
+
 
 class HI(HOD):
     _defaults = {"M_min":11.6222,
