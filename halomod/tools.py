@@ -26,7 +26,7 @@ def power_to_corr_ogata(power, k, r, N=640, h=0.005):
     dpsi[dpsi!=0] = (np.pi*t*np.cosh(t)+np.sinh(s))/dpsi[dpsi!=0]
     sumparts = np.pi*np.sin(x)*dpsi*x
 
-    allparts = sumparts * spl(np.log(np.divide.outer(x,r.value))).T * power.unit
+    allparts = sumparts * spl(np.log(np.divide.outer(x,r))).T
     return np.sum(allparts,axis=-1)/(2*np.pi**2*r**3)
 
 def power_to_corr_ogata_matrix(power, k,r, N=640, h=0.005):
@@ -50,7 +50,7 @@ def power_to_corr_ogata_matrix(power, k,r, N=640, h=0.005):
     out = np.zeros(len(r))
     for ir,rr in enumerate(r):
         spl = spline(lnk,power[ir,:])
-        allparts = sumparts * spl(np.log(x/rr.value)) * power.unit
+        allparts = sumparts * spl(np.log(x/rr))
         out[ir] = np.sum(allparts)/(2*np.pi**2*rr**3)
     return out
 

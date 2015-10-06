@@ -7,7 +7,6 @@ from scipy.interpolate import InterpolatedUnivariateSpline as spline
 import numpy as np
 from hmf._framework import Component
 from scipy.optimize import minimize
-from hmf.units import r_unit,m_unit
 
 class CMRelation(Component):
     r"""
@@ -66,12 +65,12 @@ class CMRelation(Component):
         z : float
             Redshift. Must not be an array.
         """
-        model = lambda lnr : (self.filter.sigma(np.exp(lnr)*r_unit)*self.growth.growth_factor(z) - self.delta_c)**2
+        model = lambda lnr : (self.filter.sigma(np.exp(lnr))*self.growth.growth_factor(z) - self.delta_c)**2
 
         res = minimize(model,[1.0,])
 
         if res.success:
-            r = np.exp(res.x[0])*r_unit
+            r = np.exp(res.x[0])
             return self.filter.radius_to_mass(r,self.mean_density0*(1+z)**3)
         else:
             warnings.warn("Minimization failed :(")
@@ -99,10 +98,6 @@ class Bullock01_Power(CMRelation):
 
     def cm(self, m,z=0):
         ms = (self.params['ms'] or self.mstar) or self.mass_nonlinear(z)
-        if hasattr(ms,"unit"):
-            ms = ms.value
-        if hasattr(m,"unit"):
-            m = m.value
         return self.params['a'] / (1 + z) ** self.params['c'] * (m / ms) ** self.params['b']
 
 class Duffy08(Bullock01_Power):

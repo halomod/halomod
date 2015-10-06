@@ -23,7 +23,6 @@ from numpy import issubclass_
 from hmf._framework import get_model,get_model_
 import profiles
 import bias
-import astropy.units as u
 from hmf.filters import TopHat
 
 USEFORT = False
@@ -221,7 +220,7 @@ class HaloModel(MassFunction):
             else:
                 r = np.linspace(self.rmin, self.rmax, self.rnum)
 
-        return r * u.Mpc / self._hunit
+        return r
 
     @cached_property("hod_model", "hod_params")
     def hod(self):
@@ -232,7 +231,7 @@ class HaloModel(MassFunction):
 
     @cached_property("hod", "dlog10m")
     def M(self):
-        return 10 ** np.arange(self.hod.mmin, 18, self.dlog10m) * u.MsolMass / self._hunit
+        return 10 ** np.arange(self.hod.mmin, 18, self.dlog10m)
 
     @cached_property("bias_model", "nu", "delta_c", "delta_halo", "n", "bias_params")
     def bias(self):
@@ -345,7 +344,7 @@ class HaloModel(MassFunction):
         The mean number density of galaxies
         """
         if self.ng is not None:
-            return self.ng * self.M.unit * self.dndm.unit
+            return self.ng
         else:
             integrand = self.M * self.dndm * self.n_tot
         return intg.trapz(integrand, dx=np.log(self.M[1] / self.M[0]))
@@ -370,7 +369,7 @@ class HaloModel(MassFunction):
         integrand = self.M ** 2 * self.dndm * self.n_tot
 
         m = intg.trapz(integrand, dx=np.log(self.M[1] / self.M[0]))
-        return np.log10((m / self.mean_gal_den).value)
+        return np.log10((m / self.mean_gal_den))
 
     @cached_property("M", "dndm", "n_sat", "mean_gal_den")
     def satellite_fraction(self):
@@ -412,15 +411,15 @@ class HaloModel(MassFunction):
             return self.nonlinear_power
         elif self.hc_spectrum == "filtered-nl":
             f = TopHat(None, None)
-            return self.nonlinear_power * f.k_space(self.k * 2.0*self.r.unit)
+            return self.nonlinear_power * f.k_space(self.k * 2.0)
 
     @cached_property("power",'k','r')
     def corr_mm_lin(self):
-        return tools.power_to_corr_ogata(self.power,self.k.value,self.r)
+        return tools.power_to_corr_ogata(self.power,self.k,self.r)
 
     @cached_property("nonlinear_power",'k','r')
     def corr_mm_halofit(self):
-        return tools.power_to_corr_ogata(self.nonlinear_power,self.k.value,self.r)
+        return tools.power_to_corr_ogata(self.nonlinear_power,self.k,self.r)
 
     @cached_property("corr_mm_lin","corr_mm_halofit","hc_spectrum")
     def corr_mm_base(self):
@@ -444,7 +443,7 @@ class HaloModel(MassFunction):
         ### The following may not need to be done?
         r = np.pi/self.k # half the radius
         mmin = 4*np.pi * r**3 * self.mean_density * self.delta_halo/3
-        mask = np.outer(self.M,np.ones_like(self.k)) < mmin.value
+        mask = np.outer(self.M,np.ones_like(self.k)) < mmin
         integrand[mask.T] = 0
 
         return intg.trapz(integrand,dx=np.log(10)*self.dlog10m)/self.mean_density**2
@@ -460,7 +459,7 @@ class HaloModel(MassFunction):
 
             return intg.trapz(integrand,dx=np.log(10)*self.dlog10m)/self.mean_density**2
         else:
-            return tools.power_to_corr_ogata(self._power_mm_1h,self.k.value,self.r)
+            return tools.power_to_corr_ogata(self._power_mm_1h,self.k,self.r)
 
     @cached_property("profile","k","M","sd_bias_model","sd_bias","bias",
                      "exclusion_model","dndlnm",'r',"delta_halo","mean_density",
@@ -488,9 +487,9 @@ class HaloModel(MassFunction):
     @cached_property("power_mm_2h","k","r","rho_gtm")
     def corr_mm_2h(self):
         if len(self.power_mm_2h.shape)==2:
-            corr = tools.power_to_corr_ogata_matrix(self.power_mm_2h,self.k.value,self.r)
+            corr = tools.power_to_corr_ogata_matrix(self.power_mm_2h,self.k,self.r)
         else:
-            corr = tools.power_to_corr_ogata(self.power_mm_2h,self.k.value,self.r)
+            corr = tools.power_to_corr_ogata(self.power_mm_2h,self.k,self.r)
 
         ## modify by the new density
         return (self.__density_mod/self.mean_density)**2 * (1+corr)-1
@@ -519,10 +518,10 @@ class HaloModel(MassFunction):
             p = fort.power_gal_1h_ss(nlnk=len(self.k),
                                      nm=len(self.M),
                                      u=np.asfortranarray(u),
-                                     dndm=self.dndm.value,
+                                     dndm=self.dndm,
                                      nsat=self.n_sat,
                                      ncen=self.n_cen,
-                                     mass=self.M.value,
+                                     mass=self.M,
                                      central=self.hod._central)
         else:
             u = self.profile.u(self.k, self.M, norm='m')
@@ -547,7 +546,7 @@ class HaloModel(MassFunction):
             return c / self.mean_gal_den ** 2
         else:
             return tools.power_to_corr_ogata(self.power_gg_1h_ss,
-                                             self.k.value, self.r)
+                                             self.k, self.r)
 
     @cached_property("r", "M", "dndm", "n_cen", "n_sat", "mean_density0",
                      "delta_halo", "mean_gal_den")
@@ -557,14 +556,14 @@ class HaloModel(MassFunction):
         if USEFORT:
             c = fort.corr_gal_1h_cs(nr=len(self.r),
                                     nm=len(self.M),
-                                    r=self.r.value,
-                                    mass=self.M.value,
-                                    dndm=self.dndm.value,
+                                    r=self.r,
+                                    mass=self.M,
+                                    dndm=self.dndm,
                                     ncen=self.n_cen,
                                     nsat=self.n_sat,
                                     rho=np.asfortranarray(rho),
-                                    mean_dens=self.mean_density0.value,
-                                    delta_halo=self.delta_halo) * self.mean_gal_den.unit ** 2
+                                    mean_dens=self.mean_density0,
+                                    delta_halo=self.delta_halo)
         else:
             #mmin = 4*np.pi * self.r**3 * self.mean_density * self.delta_halo/3
             #mask = np.repeat(self.M,len(self.r)).reshape(len(self.M),len(self.r)) < mmin
@@ -586,16 +585,16 @@ class HaloModel(MassFunction):
                 ## Using fortran only saves about 15% of time on this single routine (eg. 7ms --> 8.7ms)
                 c = fort.corr_gal_1h(nr=len(self.r),
                                      nm=len(self.M),
-                                     r=self.r.value,
-                                     mass=self.M.value,
-                                     dndm=self.dndm.value,
+                                     r=self.r,
+                                     mass=self.M,
+                                     dndm=self.dndm,
                                      ncen=self.n_cen,
                                      nsat=self.n_sat,
                                      rho=np.asfortranarray(rho),
                                      lam=np.asfortranarray(lam),
                                      central=self.hod._central,
-                                     mean_dens=self.mean_density0.value,
-                                     delta_halo=self.delta_halo) * self.mean_gal_den.unit ** 2
+                                     mean_dens=self.mean_density0,
+                                     delta_halo=self.delta_halo)
             else:
                 integ = self.M* self.dndm * self.n_sat*(self.n_sat * lam + 2*rho)
                 if self.hod._central:
@@ -639,16 +638,16 @@ class HaloModel(MassFunction):
         if USEFORT:
             u = self.profile.u(self.k, self.M , norm='m')
             corr = thalo(self.exclusion_model, self.sd_bias_model,
-                         self.M.value, self.bias, self.n_tot,
-                         self.dndm.value, np.log(self.k.value),
-                         self._power_halo_centres.value, u, self.r.value, self.corr_mm_base,
-                         self.mean_gal_den.value, self.delta_halo,
-                         self.mean_density.value, 1)
+                         self.M, self.bias, self.n_tot,
+                         self.dndm, np.log(self.k),
+                         self._power_halo_centres, u, self.r, self.corr_mm_base,
+                         self.mean_gal_den, self.delta_halo,
+                         self.mean_density, 1)
         else:
             if len(self.power_gg_2h.shape)==2:
-                corr = tools.power_to_corr_ogata_matrix(self.power_gg_2h,self.k.value,self.r)
+                corr = tools.power_to_corr_ogata_matrix(self.power_gg_2h,self.k,self.r)
             else:
-                corr = tools.power_to_corr_ogata(self.power_gg_2h,self.k.value,self.r)
+                corr = tools.power_to_corr_ogata(self.power_gg_2h,self.k,self.r)
 
             ## modify by the new density. This step is *extremely* sensitive to the
             ## exact value of __density_mod at large scales, where the ratio *should*
@@ -693,7 +692,7 @@ class HaloModel(MassFunction):
             integral = integral[max(ind - 4, 0):min(ind + 4, len(c.M))]
 
 
-            spline_int = spline(np.log(integral), np.log(m.value), k=3)
+            spline_int = spline(np.log(integral), np.log(m), k=3)
             mmin = spline_int(np.log(ng)) / np.log(10)
         else:
             # Anything else requires us to do some optimization unfortunately.

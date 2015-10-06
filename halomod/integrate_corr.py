@@ -11,7 +11,6 @@ from scipy.interpolate import InterpolatedUnivariateSpline as spline
 from scipy.integrate import simps
 from halo_model import HaloModel
 from hmf._cache import cached_property, parameter
-from astropy import units as u
 from halo_exclusion import dblsimps
 
 class ProjectedCF(HaloModel):
@@ -61,19 +60,19 @@ class ProjectedCF(HaloModel):
             else:
                 rp = np.linspace(self.rp_min, self.rp_max, self.rp_num)
 
-        return rp * u.Mpc / self._hunit
+        return rp
 
     @cached_property("proj_limit", "rp_max")
     def rlim(self):
         if self.proj_limit is None:
-            rlim = max(80.0, 5 * self.rp.value.max())
+            rlim = max(80.0, 5 * self.rp.max())
         else:
             rlim = self.proj_limit
-        return rlim * u.Mpc / self._hunit
+        return rlim
 
     @cached_property("rp_min", "rlim", "rnum")
     def r(self):
-        return np.logspace(np.log10(self.rp.min().value), np.log10(self.rlim.value), self.rnum) * u.Mpc / self._hunit
+        return np.logspace(np.log10(self.rp.min()), np.log10(self.rlim), self.rnum)
 
     @cached_property("r", "corr_gg", "rlim", "rp")
     def projected_corr_gal(self):
@@ -105,7 +104,7 @@ def projected_corr_gal(r, xir, rlim, rp_out=None):
     if rp_out is None:
         rp_out = r
 
-    lnr = np.log(r.value)
+    lnr = np.log(r)
     lnxi = np.log(xir)
 
     p = np.zeros_like(rp_out)
@@ -127,12 +126,12 @@ def projected_corr_gal(r, xir, rlim, rp_out=None):
         ylim = rlim - rp
 
         # Set the y vector for this rp
-        y = np.logspace(np.log(min_y.value), np.log(ylim.value), 1000, base=np.e) * rp.unit
+        y = np.logspace(np.log(min_y), np.log(ylim), 1000, base=np.e) 
 
         # Integrate
         integ_corr = fit(y + rp)
         integrand = (y + rp) * integ_corr / np.sqrt((y + 2 * rp) * y)
-        p[i] = simps(integrand, y) * 2 * r.unit
+        p[i] = simps(integrand, y) * 2
 
     return p
 
@@ -226,7 +225,7 @@ class AngularCF(HaloModel):
     def r(self):
         rmin = np.sqrt((10 ** self.umin) ** 2 + self.theta.min() ** 2 * self.x.min() ** 2)
         rmax = np.sqrt((10 ** self.umax) ** 2 + self.theta.max() ** 2 * self.x.max() ** 2)
-        return np.logspace(np.log10(rmin), np.log10(rmax), self.rnum) * u.Mpc / self._hunit
+        return np.logspace(np.log10(rmin), np.log10(rmax), self.rnum)
 
     @cached_property("f", "x", "theta", "r", "corr_gal")
     def angular_corr_gal(self):

@@ -79,8 +79,8 @@ class Zehavi05(HOD):
         """
         Number of central galaxies at mass M
         """
-        n_c = np.zeros_like(M.value)
-        n_c[M.value >= 10 ** self.params["M_min"]] = 1
+        n_c = np.zeros_like(M)
+        n_c[M >= 10 ** self.params["M_min"]] = 1
 
         return n_c
 
@@ -88,7 +88,7 @@ class Zehavi05(HOD):
         """
         Number of satellite galaxies at mass M
         """
-        return (M.value / 10 ** self.params["M_1"]) ** self.params["alpha"]
+        return (M / 10 ** self.params["M_1"]) ** self.params["alpha"]
 
 class Zheng05(HOD):
     """
@@ -122,15 +122,15 @@ class Zheng05(HOD):
         """
         Number of central galaxies at mass M
         """
-        nc = 0.5 * (1 + sp.erf((np.log10(M.value) - self.params["M_min"]) / self.params["sig_logm"]))
+        nc = 0.5 * (1 + sp.erf((np.log10(M) - self.params["M_min"]) / self.params["sig_logm"]))
         return nc
 
     def ns(self, M):
         """
         Number of satellite galaxies at mass M
         """
-        ns = np.zeros_like(M.value)
-        ns[M.value > 10 ** self.params["M_0"]] = ((M.value[M.value > 10 ** self.params["M_0"]] - 10 ** self.params["M_0"]) / 10 ** self.params["M_1"]) ** self.params["alpha"]
+        ns = np.zeros_like(M)
+        ns[M > 10 ** self.params["M_0"]] = ((M[M > 10 ** self.params["M_0"]] - 10 ** self.params["M_0"]) / 10 ** self.params["M_1"]) ** self.params["alpha"]
         return ns
 
     @property
@@ -189,13 +189,13 @@ class Contreras13(HOD):
         """
         Number of central galaxies at mass M
         """
-        return self.params["fcb"] * (1 - self.params["fca"]) * np.exp(np.log10(M.value / 10 ** self.params["M_min"]) ** 2 / (2 * (self.params["x"] * self.params["sig_logm"]) ** 2)) + self.params["fca"] * (1 + sp.erf(np.log10(M.value / 10 ** self.params["M_min"]) / self.params["x"] / self.params["sig_logm"]))
+        return self.params["fcb"] * (1 - self.params["fca"]) * np.exp(np.log10(M / 10 ** self.params["M_min"]) ** 2 / (2 * (self.params["x"] * self.params["sig_logm"]) ** 2)) + self.params["fca"] * (1 + sp.erf(np.log10(M / 10 ** self.params["M_min"]) / self.params["x"] / self.params["sig_logm"]))
 
     def ns(self, M):
         """
         Number of satellite galaxies at mass M
         """
-        return self.params["fs"] * (1 + sp.erf(np.log10(M.value / 10 ** self.params["M_1"]) / self.params["delta"])) * (M.value / 10 ** self.params["M_1"]) ** self.params["alpha"]
+        return self.params["fs"] * (1 + sp.erf(np.log10(M / 10 ** self.params["M_1"]) / self.params["delta"])) * (M / 10 ** self.params["M_1"]) ** self.params["alpha"]
 
 class Geach12(Contreras13):
     """
@@ -214,7 +214,7 @@ class Tinker05(Zehavi05):
 
     def ns(self,M):
         out = self.nc(M)
-        return out*np.exp(-10**self.params["M_cut"]/(M.value-10**self.params["M_min"]))*(M.value/10**self.params["M_1"])
+        return out*np.exp(-10**self.params["M_cut"]/(M-10**self.params["M_min"]))*(M/10**self.params["M_1"])
 
 
 class HI(HOD):
@@ -226,13 +226,13 @@ class HI(HOD):
                  }
 
     def nc(self, M):
-        return np.exp(-0.5 * (np.log10(M.value) - self.params["M_min"]) ** 2 / self.params["sig_logm"] ** 2)
+        return np.exp(-0.5 * (np.log10(M) - self.params["M_min"]) ** 2 / self.params["sig_logm"] ** 2)
 
     def ns(self, M):
         """
         Number of satellite galaxies at mass M
         """
-        return (M.value / 10 ** self.params["M_1"]) ** self.params["alpha"]
+        return (M / 10 ** self.params["M_1"]) ** self.params["alpha"]
 
     @property
     def mmin(self):

@@ -11,7 +11,6 @@ from scipy import integrate as intg
 from hmf.wdm import MassFunctionWDM
 from hmf._framework import get_model
 import sys
-import astropy.units as u
 from integrate_corr import ProjectedCF
 
 #===============================================================================
@@ -65,7 +64,7 @@ class HaloModelWDM(HaloModel, MassFunctionWDM):
     # @cached_property("_wdm", "dlog10m")
     # def M(self):
     #     """ Halo masses in M_sun/h """
-    #     return 10 ** np.arange(np.log10(self._wdm.m_fs.value), 18, self.dlog10m) * u.MsolMass / self._hunit
+    #     return 10 ** np.arange(np.log10(self._wdm.m_fs), 18, self.dlog10m)
 
     @cached_property("rho_gtm", "mean_dens", "_wdm")
     def f_halos(self):

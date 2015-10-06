@@ -513,10 +513,6 @@ class NFW(Profile):
         return np.log(1.0 + c) - c / (1.0 + c)
 
     def _p(self, K, c=None):
-        if hasattr(K, "value"):
-            K = K.value
-        if hasattr(c, "value"):
-            c = c.value
         bs, bc = sp.sici(K)
         asi, ac = sp.sici((1 + c) * K)
         return (np.sin(K) * (asi - bs) - np.sin(c * K) / ((1 + c) * K) + np.cos(K) * (ac - bc))
@@ -565,8 +561,6 @@ class NFW(Profile):
 
 class NFWInf(NFW, ProfileInf):
     def _p(self, K):
-        if hasattr(K, "value"):
-            K = K.value
         bs, bc = sp.sici(K)
         return 0.5 * ((np.pi - 2 * bs) * np.sin(K) - 2 * np.cos(K) * bc)
 

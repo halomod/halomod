@@ -192,12 +192,12 @@ class Sphere(Exclusion):
         """
         density = np.outer(np.ones_like(self.r),self.density*self.m)
         density[self.mask] = 0
-        return np.sqrt(intg.simps(density,dx=self.dlnx))*self.density.unit*self.m.unit
+        return np.sqrt(intg.simps(density,dx=self.dlnx))
 
     @cached_property
     def mask(self):
         "Elements that should be set to 0"
-        return (np.outer(self.m,np.ones_like(self.r)) > self.mlim().value).T
+        return (np.outer(self.m,np.ones_like(self.r)) > self.mlim()).T
 
     def mlim(self):
         return 4*np.pi*(self.r/2)**3 * self.mean_density * self.delta_halo/3
@@ -226,7 +226,7 @@ class DblSphere(Sphere):
             integrand = np.outer(self.density*self.m,np.ones_like(self.density))
             integrand[self.mask] = 0
             out[i] = dblsimps(integrand,self.dlnx)
-        return np.sqrt(out)*self.density.unit*self.m.unit
+        return np.sqrt(out)
 
     def integrate(self):
         integ = self.raw_integrand() #(r,k,m)
@@ -288,7 +288,7 @@ class DblEllipsoid(DblSphere):
         integrand = self.prob * outer(np.ones_like(self.r),np.outer(self.density*self.m,self.density*self.m))
         a = np.sqrt(dbltrapz(integrand,self.dlnx))
 
-        return a*self.density.unit*self.m.unit
+        return a
 
     def integrate(self):
         integ = self.raw_integrand() #(r,k,m)
@@ -306,7 +306,7 @@ if USE_NUMBA:
     class DblEllipsoid_(DblEllipsoid):
         @cached_property
         def density_mod(self):
-            return density_mod_(self.r,self.rvir,np.outer(self.density*self.m,self.density*self.m),self.dlnx)*self.density.unit*self.m.unit
+            return density_mod_(self.r,self.rvir,np.outer(self.density*self.m,self.density*self.m),self.dlnx)
 
         @cached_property
         def prob(self):
