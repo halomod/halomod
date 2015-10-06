@@ -4,7 +4,7 @@ Module defining halo model components for halo exclusion.
 
 # Imports
 import numpy as np
-from hmf._framework import Model
+from hmf._framework import Component
 from cached_property import cached_property
 from scipy import integrate as intg
 import warnings
@@ -130,7 +130,7 @@ if USE_NUMBA:
 #===============================================================================
 # Halo-Exclusion Models
 #===============================================================================
-class Exclusion(Model):
+class Exclusion(Component):
     """
     Base class for exclusion models.
 

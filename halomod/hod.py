@@ -1,9 +1,9 @@
 import numpy as np
 import scipy.special as sp
-from hmf._framework import Model
+from hmf._framework import Component
 _allmodels = ["Zehavi05", "Zheng05", "Contreras"]
 
-class HOD(Model):
+class HOD(Component):
     """
     Halo Occupation Distribution model base class.
 

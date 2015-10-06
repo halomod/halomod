@@ -18,7 +18,7 @@ from fort.routines import hod_routines as fort
 from twohalo_wrapper import twohalo_wrapper as thalo
 from twohalo_wrapper import dblsimps
 # from hmf.filters import TopHat
-from copy import deepcopy
+from copy import copy,deepcopy
 from numpy import issubclass_
 from hmf._framework import get_model,get_model_
 import profiles
@@ -48,12 +48,14 @@ class HaloModel(MassFunction):
     '''
     rlog = True
 
-    def __init__(self, rmin=0.1, rmax=50.0, rnum=20, hod_params={},
-                 hod_model="Zehavi05",
-                 halo_profile='NFW', cm_relation='Duffy', bias_model="Tinker10",
-                 nonlinear=True,_hc_spectrum="nonlinear", scale_dependent_bias="Tinker_SD05",
-                 halo_exclusion="NgMatched", ng=None, nthreads_2halo=0,
-                 bias_params={}, cm_params={}, sd_bias_params={},** hmf_kwargs):
+    def __init__(self, rmin=0.1, rmax=50.0, rnum=20,
+                 hod_model="Zehavi05",hod_params={},
+                 profile_model='NFW', profile_params={},
+                 concentration_model='Duffy08', concentration_params={},
+                 bias_model="Tinker10",bias_params={},
+                 sd_bias_model="Tinker_SD05",sd_bias_params={},
+                 exclusion_model="NgMatched",exclusion_params={},
+                 hc_spectrum="nonlinear",ng=None,** hmf_kwargs):
 
         # Do Mass Function __init__ MUST BE DONE FIRST (to init Cache)
         super(HaloModel, self).__init__(**hmf_kwargs)
@@ -61,20 +63,16 @@ class HaloModel(MassFunction):
         # Initially save parameters to the class.
         self.hod_params = hod_params
         self.hod_model = hod_model
-        self.halo_profile = halo_profile
-        self.cm_relation = cm_relation
-        self.bias_model = bias_model
+        self.profile_model,self.profile_params = profile_model,profile_params
+        self.concentration_model,self.concentration_params =  concentration_model,concentration_params
+        self.bias_model,self.bias_params = bias_model,bias_params
+        self.sd_bias_model, self.sd_bias_params = sd_bias_model,sd_bias_params
+        self.exclusion_model,self.exclusion_params = exclusion_model,exclusion_params
+
         self.rmin = rmin
         self.rmax = rmax
         self.rnum = rnum
-        self.nonlinear = nonlinear
-        self.halo_exclusion = halo_exclusion
-        self.scale_dependent_bias = scale_dependent_bias
-        self.bias_params = bias_params
-        self.nthreads_2halo = nthreads_2halo
-        self.cm_params = cm_params
-        self.sd_bias_params = sd_bias_params
-        self._hc_spectrum = _hc_spectrum
+        self.hc_spectrum = hc_spectrum
         # A special argument, making it possible to define M_min by mean density
         self.ng = ng
 
@@ -117,7 +115,7 @@ class HaloModel(MassFunction):
         return val
 
     @parameter
-    def _hc_spectrum(self, val):
+    def hc_spectrum(self, val):
         return val
 
     @parameter
@@ -148,17 +146,22 @@ class HaloModel(MassFunction):
             raise ValueError("nonlinear must be a logical value")
 
     @parameter
-    def halo_profile(self, val):
-        """The halo density profile"""
-        if not isinstance(val, basestring) and not issubclass_(val, profiles.Profile):
-            raise ValueError("halo_profile must be a subclass of profiles.Profile")
+    def profile_params(self, val):
+        """Dictionary of parameters for the Profile model"""
         return val
 
     @parameter
-    def cm_relation(self, val):
+    def profile_model(self, val):
+        """The halo density profile"""
+        if not isinstance(val, basestring) and not issubclass_(val, profiles.Profile):
+            raise ValueError("profile_model must be a subclass of profiles.Profile")
+        return val
+
+    @parameter
+    def concentration_model(self, val):
         """A concentration-mass relation"""
         if not isinstance(val, basestring) and not issubclass_(val, CMRelation):
-            raise ValueError("cm_relation must be a subclass of concentration.CMRelation")
+            raise ValueError("concentration_model must be a subclass of concentration.CMRelation")
         return val
 
     @parameter
@@ -168,7 +171,12 @@ class HaloModel(MassFunction):
         return val
 
     @parameter
-    def halo_exclusion(self, val):
+    def exclusion_params(self, val):
+        """Dictionary of parameters for the Exclusion model"""
+        return val
+
+    @parameter
+    def exclusion_model(self, val):
         """A string identifier for the type of halo exclusion used (or None)"""
         if val is None:
             val = "NoExclusion"
@@ -179,7 +187,7 @@ class HaloModel(MassFunction):
             return get_model_(val, "halomod.halo_exclusion")
 
     @parameter
-    def cm_params(self, val):
+    def concentration_params(self, val):
         return val
 
     @parameter
@@ -195,7 +203,7 @@ class HaloModel(MassFunction):
         return val
 
     @parameter
-    def scale_dependent_bias(self, val):
+    def sd_bias_model(self, val):
         if not isinstance(val, basestring) and not issubclass_(val, bias.ScaleDepBias) and val is not None:
             raise ValueError("scale_dependenent_bias must be a subclass of bias.ScaleDepBias")
         return val
@@ -231,54 +239,64 @@ class HaloModel(MassFunction):
         """A class containing the elements necessary to calculate the halo bias"""
         if issubclass_(self.bias_model, bias.Bias):
             return self.bias_model(nu=self.nu, delta_c=self.delta_c,
-                                   delta_halo=self.delta_halo, n=self.n,
+                                   m=self.M,mstar=self.mass_nonlinear,
+                                   delta_halo=self.delta_halo, n=self.n,Om0=self.cosmo.Om0,
+                                   h = self.cosmo.h,sigma_8=self.sigma_8,
                                    **self.bias_params).bias()
         else:
             return get_model(self.bias_model, "halomod.bias",
                              nu=self.nu, delta_c=self.delta_c,
-                             delta_halo=self.delta_halo, n=self.n,
+                             m=self.M,mstar=self.mass_nonlinear,
+                             delta_halo=self.delta_halo, n=self.n,Om0=self.cosmo.Om0,
+                             h = self.cosmo.h,sigma_8=self.sigma_8,
                              **self.bias_params).bias()
 
-    @cached_property("cm_relation", "nu", "z", "growth_model", "M", "cm_params")
+    @cached_property("concentration_model", "nu", "z", "growth_model", "M", "concentration_params")
     def cm(self):
         """A class containing the elements necessary to calculate the concentration-mass relation"""
-        if issubclass_(self.cm_relation, CMRelation):
-            return self.cm_relation(nu=self.nu, z=self.z, growth=self._growth,
-                                    M=self.M, **self.cm_params)
+        this_filter = copy(self.filter_mod)
+        this_filter.power = self._power0
+        if issubclass_(self.concentration_model, CMRelation):
+            return self.concentration_model(filter0=this_filter, mean_density0=self.mean_density0,
+                                    growth=self.growth,delta_c=self.delta_c,
+                                    mstar=self.mass_nonlinear, **self.concentration_params)
         else:
-            return get_model(self.cm_relation, "halomod.concentration",
-                           nu=self.nu, z=self.z, growth=self._growth,
-                           M=self.M, **self.cm_params)
+            return get_model(self.concentration_model, "halomod.concentration",
+                            filter0=this_filter, mean_density0=self.mean_density0,
+                            growth=self.growth,delta_c=self.delta_c,
+                            mstar=self.mass_nonlinear, **self.concentration_params)
 
     @cached_property("cm","M")
     def concentration(self):
         """
         The concentrations corresponding to `.M`
         """
-        return self.cm.cm(self.M)
+        return self.cm.cm(self.M,self.z)
 
-    @cached_property("halo_profile", "delta_halo", "cm", "z", "mean_density0")
+    @cached_property("profile_model", "profile_params","delta_halo", "cm", "z", "mean_density0")
     def profile(self):
         """A class containing the elements necessary to calculate halo profile quantities"""
-        if issubclass_(self.halo_profile, profiles.Profile):
-            return self.halo_profile(cm_relation=self.cm,
+        if issubclass_(self.profile_model, profiles.Profile):
+            return self.profile_model(cm_relation=self.cm,
                                      mean_dens=self.mean_density0,
-                                     delta_halo=self.delta_halo, z=self.z)
+                                     delta_halo=self.delta_halo, z=self.z,
+                                     **self.profile_params)
         else:
-            return get_model(self.halo_profile, "halomod.profiles",
+            return get_model(self.profile_model, "halomod.profiles",
                              cm_relation=self.cm,
                              mean_dens=self.mean_density0,
-                             delta_halo=self.delta_halo, z=self.z)
+                             delta_halo=self.delta_halo, z=self.z,
+                             **self.profile_params)
 
-    @cached_property("scale_dependent_bias","corr_mm_base","sd_bias_params")
+    @cached_property("sd_bias_model","corr_mm_base","sd_bias_params")
     def sd_bias(self):
         """A class containing relevant methods to calculate scale-dependent bias corrections"""
-        if self.scale_dependent_bias is None:
+        if self.sd_bias_model is None:
             return None
-        elif issubclass_(self.scale_dependent_bias, bias.ScaleDepBias):
-            return self.scale_dependent_bias(self.corr_mm_base,**self.sd_bias_params)
+        elif issubclass_(self.sd_bias_model, bias.ScaleDepBias):
+            return self.sd_bias_model(self.corr_mm_base,**self.sd_bias_params)
         else:
-            return get_model(self.scale_dependent_bias, "halomod.bias",
+            return get_model(self.sd_bias_model, "halomod.bias",
                              xi_dm = self.corr_mm_base,**self.sd_bias_params)
 
     #===========================================================================
@@ -375,7 +393,7 @@ class HaloModel(MassFunction):
     #===========================================================================
     # Halo/DM Statistics
     #===========================================================================
-    @cached_property("nonlinear", "power", "nonlinear_power","_hc_spectrum")
+    @cached_property("power", "nonlinear_power","hc_spectrum")
     def _power_halo_centres(self):
         """
         Power spectrum of halo centres, unbiased.
@@ -388,12 +406,12 @@ class HaloModel(MassFunction):
 
         This should probably be expanded to its own component module.
         """
-        if self._hc_spectrum == "linear":
+        if self.hc_spectrum == "linear":
             return self.power
-        elif self._hc_spectrum == "nonlinear":
+        elif self.hc_spectrum == "nonlinear":
             return self.nonlinear_power
-        elif self._hc_spectrum == "filtered-nl":
-            f = TopHat(None, None, None, None)
+        elif self.hc_spectrum == "filtered-nl":
+            f = TopHat(None, None)
             return self.nonlinear_power * f.k_space(self.k * 2.0*self.r.unit)
 
     @cached_property("power",'k','r')
@@ -404,12 +422,12 @@ class HaloModel(MassFunction):
     def corr_mm_halofit(self):
         return tools.power_to_corr_ogata(self.nonlinear_power,self.k.value,self.r)
 
-    @cached_property("corr_mm_lin","corr_mm_halofit","_hc_spectrum")
+    @cached_property("corr_mm_lin","corr_mm_halofit","hc_spectrum")
     def corr_mm_base(self):
         "The matter correlation function used throughout the calculations"
-        if self._hc_spectrum=="linear":
+        if self.hc_spectrum=="linear":
             return self.corr_mm_lin
-        elif self._hc_spectrum=="nonlinear" or self._hc_spectrum=="filtered-nl":
+        elif self.hc_spectrum=="nonlinear" or self.hc_spectrum=="filtered-nl":
             return self.corr_mm_halofit
 
     #===========================================================================
@@ -440,29 +458,25 @@ class HaloModel(MassFunction):
             lam = self.profile.lam(self.r, self.M, norm="m")
             integrand = self.dndm * self.M ** 3 * lam
 
-            ### The following may not need to be done?
-            #r = self.r/2 # half the radius
-            #mmin = 4*np.pi * r**3 * self.mean_density * self.delta_halo/3
-            #mask = np.repeat(self.M,len(self.r)).reshape(len(self.M),len(self.r)) < mmin
-            #integrand[mask.T] = 0
             return intg.trapz(integrand,dx=np.log(10)*self.dlog10m)/self.mean_density**2
         else:
             return tools.power_to_corr_ogata(self._power_mm_1h,self.k.value,self.r)
 
-    @cached_property("profile","k","M","scale_dependent_bias","sd_bias","bias",
-                     "halo_exclusion","dndlnm",'r',"delta_halo","mean_density",
+    @cached_property("profile","k","M","sd_bias_model","sd_bias","bias",
+                     "exclusion_model","dndlnm",'r',"delta_halo","mean_density",
                      "rho_gtm","_power_halo_centres")
     def power_mm_2h(self):
         "A tuple of the matter power and modified density"
         u = self.profile.u(self.k,self.M,norm="m")
-        if self.scale_dependent_bias is not None:
+        if self.sd_bias_model is not None:
             bias = np.outer(self.sd_bias.bias_scale(),self.bias)
         else:
             bias = self.bias
-        inst = self.halo_exclusion(m=self.M,density=self.dndlnm,
+        inst = self.exclusion_model(m=self.M,density=self.dndlnm,
                                     I=self.dndlnm*u/self.rho_gtm[0],bias=bias,r=self.r,
                                     delta_halo=self.delta_halo,
-                                    mean_density=self.mean_density)
+                                    mean_density=self.mean_density,
+                                    **self.exclusion_params)
 
         if hasattr(inst,"density_mod"):
             self.__density_mod = inst.density_mod
@@ -594,19 +608,20 @@ class HaloModel(MassFunction):
         else:
             return self.corr_gg_1h_cs + self.corr_gg_1h_ss -1
 
-    @cached_property("profile","k","M","scale_dependent_bias","sd_bias","bias",
-                     "halo_exclusion","dndlnm",'r',"delta_halo","mean_density",
+    @cached_property("profile","k","M","sd_bias_model","sd_bias","bias",
+                     "exclusion_model","dndlnm",'r',"delta_halo","mean_density",
                      "rho_gtm","_power_halo_centres")
     def power_gg_2h(self):
         u = self.profile.u(self.k,self.M,norm="m")
-        if self.scale_dependent_bias is not None:
+        if self.sd_bias_model is not None:
             bias = np.outer(self.sd_bias.bias_scale(),self.bias)
         else:
             bias = self.bias
-        inst = self.halo_exclusion(m=self.M,density=self.n_tot*self.dndm,
+        inst = self.exclusion_model(m=self.M,density=self.n_tot*self.dndm,
                                     I=self.n_tot*self.dndm*u/self.mean_gal_den,
                                     bias=bias,r=self.r,delta_halo=self.delta_halo,
-                                    mean_density=self.mean_density)
+                                    mean_density=self.mean_density,
+                                    **self.exclusion_params)
 
         if hasattr(inst,"density_mod"):
             self.__density_mod = inst.density_mod
@@ -615,7 +630,7 @@ class HaloModel(MassFunction):
 
         return inst.integrate() * self._power_halo_centres
 
-    @cached_property("profile", "k", "M", "halo_exclusion", "scale_dependent_bias",
+    @cached_property("profile", "k", "M", "exclusion_model", "sd_bias_model",
                      "bias", "n_tot", 'dndm', "r", "corr_mm_base",
                      "mean_gal_den", "delta_halo", "mean_density",
                      "power_gg_2h","_power_halo_centres")
@@ -623,12 +638,12 @@ class HaloModel(MassFunction):
         """The 2-halo term of the galaxy correlation"""
         if USEFORT:
             u = self.profile.u(self.k, self.M , norm='m')
-            corr = thalo(self.halo_exclusion, self.scale_dependent_bias,
+            corr = thalo(self.exclusion_model, self.sd_bias_model,
                          self.M.value, self.bias, self.n_tot,
                          self.dndm.value, np.log(self.k.value),
                          self._power_halo_centres.value, u, self.r.value, self.corr_mm_base,
                          self.mean_gal_den.value, self.delta_halo,
-                         self.mean_density.value, self.nthreads_2halo)
+                         self.mean_density.value, 1)
         else:
             if len(self.power_gg_2h.shape)==2:
                 corr = tools.power_to_corr_ogata_matrix(self.power_gg_2h,self.k.value,self.r)

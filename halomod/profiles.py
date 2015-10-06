@@ -4,9 +4,9 @@ import scipy.special as sp
 import scipy.integrate as intg
 from scipy.interpolate import UnivariateSpline as spline
 import mpmath
-from hmf._framework import Model
+from hmf._framework import Component
 
-class Profile(Model):
+class Profile(Component):
     """
     Halo radial density profiles.
 
@@ -358,19 +358,6 @@ class Profile(Model):
     #===========================================================================
     # CONCENTRATION-MASS RELATIONS
     #===========================================================================
-#     def _cm_duffy(self, m):
-#         return 6.71 * (m / (2.0 * 10 ** 12)) ** -0.091 * (1 + self.z) ** -0.44
-#
-#     def _cm_zehavi(self, m):
-#         return ((m / 1.5e13) ** -0.13) * 9.0 / (1 + self.z)
-#
-#     def _cm_bullock_rescaled(self, m):
-#         return (m / 10 ** 12.47) ** (-0.13) * 11 / (1 + self.z)
-#
-#     def _cm_bullock_wdm(self, m):
-#         cdm = (m / 10 ** 12.47) ** (-0.13) * 11 / (1 + self.z)
-#         return cdm * (1 + 15.0 * self.m_hm / m) ** -0.3
-
 class ProfileInf(Profile):
     """
     An extended profile (not truncated at x=c)
@@ -668,7 +655,7 @@ class Constant(Profile):
     def _p(self, K, c):
         return (-c * K * np.cos(c * K) + np.sin(c * K)) / K ** 3
 
-class GeneralNFWLike(Profile):
+class GeneralizedNFW(Profile):
     def __init__(self, alpha, *args, **kwargs):
         super(GeneralNFWLike, self).__init__(*args, **kwargs)
         self.alpha = alpha
@@ -682,7 +669,7 @@ class GeneralNFWLike(Profile):
         f2 = mpmath.betainc(-c, 3 - self.alpha, self.alpha - 2)
         return (f1 * f2).real
 
-class GeneralNFWLikeInf(GeneralNFWLike, ProfileInf):
+class GeneralizedNFWInf(GeneralizedNFW, ProfileInf):
     def _p(self, K):
         G = lambda k : mpmath.meijerg([[(self.alpha - 2) / 2.0, (self.alpha - 1) / 2.0], []],
                        [[0, 0, 0.5], [-0.5]],
