@@ -47,13 +47,12 @@ class CMRelation(Component):
 
     use_cosmo = False
     def __init__(self, filter0=None, mean_density0=None, growth=None,delta_c=1.686,
-                 mstar=None, **model_parameters):
+                 **model_parameters):
         # Save instance variables
         self.filter = filter0
         self.growth = growth
         self.mean_density0 = mean_density0
         self.delta_c=delta_c
-        self.mstar = mstar
         super(CMRelation, self).__init__(**model_parameters)
 
     def mass_nonlinear(self,z):
@@ -97,7 +96,7 @@ class Bullock01_Power(CMRelation):
     _defaults = {"a":9.0, "b":-0.13, "c":1.0, "ms":None}
 
     def cm(self, m,z=0):
-        ms = (self.params['ms'] or self.mstar) or self.mass_nonlinear(z)
+        ms = self.params['ms']  or self.mass_nonlinear(z)
         return self.params['a'] / (1 + z) ** self.params['c'] * (m / ms) ** self.params['b']
 
 class Duffy08(Bullock01_Power):

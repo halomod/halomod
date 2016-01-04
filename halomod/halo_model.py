@@ -236,6 +236,7 @@ class HaloModel(MassFunction):
     @cached_property("bias_model", "nu", "delta_c", "delta_halo", "n", "bias_params")
     def bias(self):
         """A class containing the elements necessary to calculate the halo bias"""
+
         if issubclass_(self.bias_model, bias.Bias):
             return self.bias_model(nu=self.nu, delta_c=self.delta_c,
                                    m=self.M,mstar=self.mass_nonlinear,
@@ -243,9 +244,14 @@ class HaloModel(MassFunction):
                                    h = self.cosmo.h,sigma_8=self.sigma_8,
                                    **self.bias_params).bias()
         else:
+            #FIXME: this is an ugly hack just to get things fast for the paper.
+            if self.bias_model in ["Jing98","Seljak04"]:
+                mstar = self.mass_nonlinear
+            else:
+                mstar = None
             return get_model(self.bias_model, "halomod.bias",
                              nu=self.nu, delta_c=self.delta_c,
-                             m=self.M,mstar=self.mass_nonlinear,
+                             m=self.M,mstar=mstar,
                              delta_halo=self.delta_halo, n=self.n,Om0=self.cosmo.Om0,
                              h = self.cosmo.h,sigma_8=self.sigma_8,
                              **self.bias_params).bias()
@@ -258,12 +264,12 @@ class HaloModel(MassFunction):
         if issubclass_(self.concentration_model, CMRelation):
             return self.concentration_model(filter0=this_filter, mean_density0=self.mean_density0,
                                     growth=self.growth,delta_c=self.delta_c,
-                                    mstar=self.mass_nonlinear, **self.concentration_params)
+                                    **self.concentration_params)
         else:
             return get_model(self.concentration_model, "halomod.concentration",
                             filter0=this_filter, mean_density0=self.mean_density0,
                             growth=self.growth,delta_c=self.delta_c,
-                            mstar=self.mass_nonlinear, **self.concentration_params)
+                            **self.concentration_params)
 
     @cached_property("cm","M")
     def concentration(self):
