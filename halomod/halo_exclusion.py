@@ -29,8 +29,8 @@ def dbltrapz(X,dx,dy=None):
     """
     dy = dy or dx
     out = X.copy()
-    out[1:-1,:] *= 2
-    out[:,1:-1] *= 2
+    out[...,1:-1,:] *= 2
+    out[...,:,1:-1] *= 2
     return dx*dy*np.sum(out,axis=(-2,-1))/4.0
 
 
