@@ -7,11 +7,12 @@ Module for routines and _frameworks that intelligently integrate the real-space
 correlation function
 '''
 import numpy as np
-from scipy.interpolate import InterpolatedUnivariateSpline as spline
+from scipy.interpolate import InterpolatedUnivariateSpline as _spline
 from scipy.integrate import simps
 from halo_model import HaloModel
 from hmf._cache import cached_property, parameter
 from halo_exclusion import dblsimps
+from hmf.cosmo import Cosmology as csm
 
 class ProjectedCF(HaloModel):
     def __init__(self, rp_min=0.01, rp_max=50.0, rp_num=30, rp_log=True, proj_limit=None, **kwargs):
@@ -108,7 +109,7 @@ def projected_corr_gal(r, xir, rlim, rp_out=None):
     lnxi = np.log(xir)
 
     p = np.zeros_like(rp_out)
-    fit = spline(r, xir, k=3)  # [self.corr_gal > 0] maybe?
+    fit = _spline(r, xir, k=3)  # [self.corr_gal > 0] maybe?
     f_peak = 0.01
     a = 0
 
@@ -142,52 +143,104 @@ def _get_theta(a):
     return theta
 
 
+def flat_z_dist(zmin,zmax):
+    def ret(z):
+        z = np.atleast_1d(z)
+        return np.where(np.logical_and(z>=zmin,z<=zmax),1./(zmax-zmin),0)
+    return ret
+
+def dxdz(z,cosmo=csm().cosmo):
+    "Derivative of comoving distance with redshift [Mpc/h]"
+    dh = cosmo.hubble_distance * cosmo.h
+    return dh.value/cosmo.efunc(z)
+
 class AngularCF(HaloModel):
     """
     Framework extension to angular correlation functions.
 
     Parameters
     ----------
-    f : float array
-        A float array specifying the pdf of galaxy counts as a function of
-        comoving distance from the Galaxy.
+    p1 : callable, optional
+        The redshift distribution of the sample. This needs not
+        be normalised to 1, as this will occur internally. May be
+        either a function of radial distance [Mpc/h] or redshift.
+        If a function of radial distance, `p_of_z` must be set to
+        False. Default is a flat distribution in redshift.
 
-    x : float array
-        The comoving distances which correspond to f.
+    p2 : callable, optional
+        See `p1`. This can optionally be a different function against
+        which to cross-correlate. By default is equivalent to `p1`.
 
-    theta_min : float, 0.01
-        Minimum theta value (in degrees)
+    theta_min, theta_max : float, optional
+        min,max angular separations [Rad]
 
-    theta_max : float, 10.0
-        Maximum theta value (in degrees)
+    theta_num : int, optional
+        Number of steps in angular separation
 
-    theta_num : int, 30
-        Number of theta values
-
-    theta_log : bool, True
+    theta_log : bool, optional
         Whether to use logspace for theta values
 
-    NOTE: this is definitely not optimal yet. How should f be passed??
+    zmin, zmax : float, optional
+        The redshift limits of the sample distribution. Note that
+        this is in redshit, regardless of the value of `p_of_z`.
+
+    znum : int, optional
+        Number of steps in redshift grid.
+
+    logu_min, logu_max : float, optional
+        min,max of the log10 of radial separation grid [Mpc/h]. Must be large
+        enough to let the integral over the 3D correlation function to converge.
+
+    unum : int, optional
+        Number of steps in the u grid.
+
+    check_p_norm : bool, optional
+        If False, cancels checking the normalisation of `p1` and `p2`.
+
+    p_of_z : bool, optional
+        Whether `p1` and `p2` are functions of redshift.
+
+    kwargs : unpacked-dict
+        Any keyword arguments passed down to :class:`halomod.HaloModel`.
     """
-    umin = -3
-    umax = 2.2
-    def __init__(self, f, x, theta_min=0.01, theta_max=10.0, theta_num=30, theta_log=True,
+
+    def __init__(self, p1=None, p2=None,
+                 theta_min=1e-3 * np.pi/180.0, theta_max=np.pi/180.0, theta_num=30, theta_log=True,
+                 zmin=0.2,zmax=0.4,znum=100,
+                 logu_min=-4,logu_max=2.3,unum=100,check_p_norm=True, p_of_z=True,
                  **kwargs):
         super(AngularCF, self).__init__(**kwargs)
 
-        self.f = f
-        self.x = x
+        if p1 is None:
+            return flat_z_dist(zmin,zmax)
+
+        self.p1 = p1
+        self.p2 = p2
+        self.zmin = zmin
+        self.zmax = zmax
+        self.znum = znum
+        self.logu_min = logu_min
+        self.logu_max = logu_max
+        self.unum = unum
+        self.check_p_norm = check_p_norm
+        self.p_of_z = p_of_z
+
         self.theta_min = theta_min
         self.theta_max = theta_max
         self.theta_num = theta_num
         self.theta_log = theta_log
 
     @parameter
-    def f(self, val):
+    def p1(self, val):
+        return val
+
+
+    @parameter
+    def p2(self, val):
         return val
 
     @parameter
-    def x(self, val):
+    def p_of_z(self,val):
         return val
 
     @parameter
@@ -210,83 +263,186 @@ class AngularCF(HaloModel):
     def theta_log(self, val):
         return val
 
+    @parameter
+    def zmin(self, val):
+        return val
+
+    @parameter
+    def zmax(self, val):
+        return val
+
+    @parameter
+    def znum(self, val):
+        return val
+
+    @parameter
+    def logu_min(self, val):
+        return val
+
+    @parameter
+    def logu_max(self, val):
+        return val
+
+    @parameter
+    def unum(self, val):
+        return val
+
+    @parameter
+    def check_p_norm(self, val):
+        return val
+
+    @cached_property("zmin","zmax","znum")
+    def zvec(self):
+        """
+        Redshift distribution grid.
+        """
+        return np.linspace(self.zmin,self.zmax,self.znum)
+
+    @cached_property("logu_min","logu_max","unum")
+    def uvec(self):
+        "Radial separation grid [Mpc/h]"
+        return np.logspace(self.logu_min,self.logu_max,self.unum)
+
+    @cached_property("zvec","cosmo")
+    def xvec(self):
+        "Radial distance grid (corresponds to zvec) [Mpc/h]"
+        return self.cosmo.comoving_distance(self.zvec).value
 
     @cached_property("theta_min", "theta_max", "theta_num", "theta_log")
     def theta(self):
+        "Angular separations, [Rad]"
         if self.theta_min > self.theta_max:
-            raise ValueError("theta_min must be greater than theta_max")
+            raise ValueError("theta_min must be less than theta_max")
 
         if self.theta_log:
             return np.logspace(np.log10(self.theta_min), np.log10(self.theta_max), self.theta_num)
         else:
             return np.linspace(self.theta_min, self.theta_max, self.theta_num)
 
-    @cached_property("theta", "x", "rnum")
+    @cached_property("theta", "xvec", "logu_min","logu_max","rnum")
     def r(self):
-        rmin = np.sqrt((10 ** self.umin) ** 2 + self.theta.min() ** 2 * self.x.min() ** 2)
-        rmax = np.sqrt((10 ** self.umax) ** 2 + self.theta.max() ** 2 * self.x.max() ** 2)
+        "Physical separation grid [Mpc/h]"
+        rmin = np.sqrt((10 ** self.logu_min) ** 2 + self.theta.min() ** 2 * self.xvec.min() ** 2)
+        rmax = np.sqrt((10 ** self.logu_max) ** 2 + self.theta.max() ** 2 * self.xvec.max() ** 2)
         return np.logspace(np.log10(rmin), np.log10(rmax), self.rnum)
 
-    @cached_property("f", "x", "theta", "r", "corr_gal")
+    @cached_property("p1", "p2", "zvec","uvec","check_p_norm","cosmo", "theta", "r", "corr_gg")
     def angular_corr_gal(self):
         """
-        Calculate the angular correlation function w(theta).
+        The angular correlation function w(theta).
 
         From Blake+08, Eq. 33
         """
-        return angular_corr_gal(self.f, self.x, self.theta, self.r,
-                                self.corr_gal, self.umin, self.umax)
+        def xi(r):
+            s = _spline(self.r,self.corr_gg)
+            return s(r)
 
+        return angular_corr_gal(self.theta, xi, self.p1,
+                                self.zmin, self.zmax, self.logu_min, self.logu_max,
+                                znum=self.znum, unum=self.unum, p2=self.p2,
+                                check_p_norm=self.check_p_norm, cosmo=self.cosmo,
+                                p_of_z = self.p_of_z)
 
-def angular_corr_gal(f, x, theta, r, corr_gal, umin, umax):
+def _check_p(p,z):
+    if hasattr(p,"integral"):
+        integ = p.integral(z.min(),z.max())
+    else:
+        integ = simps(p(z),z)
+    if not np.isclose(integ,1.0,rtol=0.01):
+        print "WARNING: Filter function p(x) did not integrate to 1 (%s). Tentatively re-normalising."%integ
+        return (lambda z: p(z)/integ)
+    else:
+        return p
+
+def angular_corr_gal(theta, xi, p1, zmin, zmax, logu_min, logu_max,
+                     znum=100, unum=100, p2=None, check_p_norm=True, cosmo=None,
+                     p_of_z=True,
+                     **xi_kw):
     """
     Calculate the angular correlation function w(theta).
 
-    From Blake+08, Eq. 33
+    From Blake+08, Eq. 33. That is, this uses the Limber approximation.
+    This does not hold either for wide angles, or thin radial distributions.
 
     Parameters
     ----------
-    f : function
-        A function of a single variable which returns the normalised
-        quantity of sources at a given comoving distance x.
+    theta : array_like
+        Angles at which to calculate the angular correlation. In radians.
 
-    x : float array
-        The comoving distances which correspond to f.
+    xi : callable
+        A function of one variable: r [Mpc/h], which returns
+        the 3D correlation function at the scale r.
 
-    theta : float array
-        Values of the angular separation (degrees)
+    p1: callable
+        The redshift distribution of sources. Should integrate to 1 between
+        `logz_min` and `logz_max`. A callable function of a single variable, z.
 
-    r : float array
-        Real-space separation
+    zmin, zmax : float
+        The redshift limits of the sample distribution. Note that
+        this is in redshit, regardless of the value of `p_of_z`.
 
-    corr_gal : float array
-        Real-space correlation function corresponding to ``r``.
+    logu_min, logu_max : float
+        min,max of the log10 of radial separation grid [Mpc/h]. Must be large
+        enough to let the integral over the 3D correlation function to converge.
 
-    umin : float
-        The minimum value of the integral variable
+    znum : int, optional
+        Number of steps in redshift grid.
 
-    umax : float
-        The maximum value of the integral variable
+    unum : int, optional
+        Number of steps in the u grid.
+
+    p2 : callable, optional
+        The same as `p1`, but for a second, cross-correlating dataset. If not
+        provided, defaults to `p1` (i.e. auto-correlation).
+
+    check_p_norm : bool, optional
+        If False, cancels checking the normalisation of `p1` and `p2`.
+
+    p_of_z : bool, optional
+        Whether `p1` and `p2` are functions of redshift.
+
+    cosmo : `hmf.cosmo.Cosmology` instance, optional
+        A cosmology, used to generate comoving distance from redshift. Default
+        is the default cosmology of the `hmf` package.
+
+    xi_kw : unpacked-dict
+        Any arguments to `xi` other than r,z.
+
+    Returns
+    -------
+    wtheta : array_like
+        The angular correlation function corresponding to `theta`.
     """
+    if cosmo is None:
+        cosmo = csm().cosmo
 
-    # Initialise result
-    w = np.zeros_like(theta)
+    # Arrays
+    u = np.logspace(logu_min, logu_max, unum)
+    dlnu = np.log(u[1]/u[0])
 
-    # Setup vectors u^2,x^2 and f(x)
-    u = np.logspace(umin, umax, 500)
-    u2 = u * u
-    x2 = x * x
-    du = u[1] - u[0]
-    dx = x[1] - x[0]
-    xfx = x * f ** 2  # multiply by x because of log integration
+    if p_of_z:
+        z = np.linspace(zmin,zmax,znum)
+        diff = z[1] - z[0]
+        x = (cosmo.comoving_distance(z)*cosmo.h).value
 
-    # Set up spline for xi(r)
-    xi = spline(r, corr_gal, k=3)
+    else:
+        xmin = (cosmo.comoving_distance(zmin)*cosmo.h).value
+        xmax = (cosmo.comoving_distance(zmax)*cosmo.h).value
+        x = np.linspace(xmin,xmax,znum)
+        diff = x[1] - x[0]
 
-    for i, th in enumerate(theta):
-        # Set up matrix integrand (for double-integration).
-        r = np.sqrt(np.add.outer(th * th * x2, u2)).flatten()  # # needs to be 1d for spline eval
-        integrand = np.einsum("ij,i,j->ij", xi(r).reshape((len(x2), len(u2))), xfx, u)  # reshape here for dblsimps, mult by u for log int
-        w[i] = dblsimps(integrand, dx, du)
+    if check_p_norm:
+        p1 = _check_p(p1,z if p_of_z else x)
 
-    return w * 2 * np.log(10) ** 2
+    if p2 is None:
+        p2 = p1
+    elif check_p_norm:
+        p2 = _check_p(p2,z if p_of_z else x)
+
+
+    p_integ = p1(z)*p2(z) /dxdz(z,cosmo) if p_of_z else p1(x)*p2(x)
+    R = np.sqrt(np.add.outer(np.outer(theta**2 ,x**2),u**2)).flatten()
+
+    integrand = np.einsum("kij,i,j->kij", xi(R,**xi_kw).reshape((len(theta),len(x), len(u))), p_integ, u)
+
+    return 2*dblsimps(integrand,diff,dlnu)
