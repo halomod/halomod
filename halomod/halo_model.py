@@ -259,7 +259,7 @@ class HaloModel(MassFunction):
     @cached_property("concentration_model", "nu", "z", "growth_model", "m", "concentration_params")
     def cm(self):
         """A class containing the elements necessary to calculate the concentration-mass relation"""
-        this_filter = copy(self.filter_mod)
+        this_filter = copy(self.filter_model)
         this_filter.power = self._power0
         if issubclass_(self.concentration_model, CMRelation):
             return self.concentration_model(filter0=this_filter, mean_density0=self.mean_density0,

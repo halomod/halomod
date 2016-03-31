@@ -212,7 +212,7 @@ class AngularCF(HaloModel):
         super(AngularCF, self).__init__(**kwargs)
 
         if p1 is None:
-            return flat_z_dist(zmin,zmax)
+            p1 = flat_z_dist(zmin,zmax)
 
         self.p1 = p1
         self.p2 = p2
