@@ -189,7 +189,7 @@ class Contreras13(HOD):
         """
         Number of central galaxies at mass M
         """
-        return self.params["fcb"] * (1 - self.params["fca"]) * np.exp(np.log10(M / 10 ** self.params["M_min"]) ** 2 / (2 * (self.params["x"] * self.params["sig_logm"]) ** 2)) + self.params["fca"] * (1 + sp.erf(np.log10(M / 10 ** self.params["M_min"]) / self.params["x"] / self.params["sig_logm"]))
+        return self.params["fcb"] * (1 - self.params["fca"]) * np.exp(-np.log10(M / 10 ** self.params["M_min"]) ** 2 / (2 * (self.params["x"] * self.params["sig_logm"]) ** 2)) + self.params["fca"] * (1 + sp.erf(np.log10(M / 10 ** self.params["M_min"]) / self.params["x"] / self.params["sig_logm"]))
 
     def ns(self, M):
         """

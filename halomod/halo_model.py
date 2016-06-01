@@ -15,9 +15,6 @@ import hod
 from concentration import CMRelation
 from halo_exclusion import Exclusion
 from fort.routines import hod_routines as fort
-from twohalo_wrapper import twohalo_wrapper as thalo
-from twohalo_wrapper import dblsimps
-# from hmf.filters import TopHat
 from copy import copy,deepcopy
 from numpy import issubclass_
 from hmf._framework import get_model,get_model_

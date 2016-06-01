@@ -6,7 +6,6 @@ Created on Sep 9, 2013
 import numpy as np
 import scipy.integrate as intg
 from scipy.stats import poisson
-from fort.twohalo import twohalo_calc as thalo
 import time
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 
@@ -16,20 +15,21 @@ def power_to_corr_ogata(power, k, r, N=640, h=0.005):
     to convert a given power spectrum to a correlation function.
     """
     lnk = np.log(k)
-    spl = spline(lnk,power)
-    roots=np.arange(1,N+1)
+    spl = spline(lnk, power)
+    roots = np.arange(1, N + 1)
     t = h*roots
     s = np.pi*np.sinh(t)
-    x = np.pi * roots * np.tanh(s/2)
+    x = np.pi*roots*np.tanh(s/2)
 
-    dpsi = 1+np.cosh(s)
-    dpsi[dpsi!=0] = (np.pi*t*np.cosh(t)+np.sinh(s))/dpsi[dpsi!=0]
+    dpsi = 1 + np.cosh(s)
+    dpsi[dpsi != 0] = (np.pi*t*np.cosh(t) + np.sinh(s))/dpsi[dpsi != 0]
     sumparts = np.pi*np.sin(x)*dpsi*x
 
-    allparts = sumparts * spl(np.log(np.divide.outer(x,r))).T
-    return np.sum(allparts,axis=-1)/(2*np.pi**2*r**3)
+    allparts = sumparts*spl(np.log(np.divide.outer(x, r))).T
+    return np.sum(allparts, axis=-1)/(2*np.pi**2*r**3)
 
-def power_to_corr_ogata_matrix(power, k,r, N=640, h=0.005):
+
+def power_to_corr_ogata_matrix(power, k, r, N=640, h=0.005):
     """
     Use Ogata's method for Hankel Transforms in 3D for nu=0 (nu=1/2 for 2D)
     to convert a given power spectrum to a correlation function.
@@ -38,21 +38,22 @@ def power_to_corr_ogata_matrix(power, k,r, N=640, h=0.005):
     faster for less recalculations than looping over the original.
     """
     lnk = np.log(k)
-    roots=np.arange(1,N+1)
+    roots = np.arange(1, N + 1)
     t = h*roots
     s = np.pi*np.sinh(t)
-    x = np.pi * roots * np.tanh(s/2)
+    x = np.pi*roots*np.tanh(s/2)
 
-    dpsi = 1+np.cosh(s)
-    dpsi[dpsi!=0] = (np.pi*t*np.cosh(t)+np.sinh(s))/dpsi[dpsi!=0]
+    dpsi = 1 + np.cosh(s)
+    dpsi[dpsi != 0] = (np.pi*t*np.cosh(t) + np.sinh(s))/dpsi[dpsi != 0]
     sumparts = np.pi*np.sin(x)*dpsi*x
 
     out = np.zeros(len(r))
-    for ir,rr in enumerate(r):
-        spl = spline(lnk,power[ir,:])
-        allparts = sumparts * spl(np.log(x/rr))
+    for ir, rr in enumerate(r):
+        spl = spline(lnk, power[ir, :])
+        allparts = sumparts*spl(np.log(x/rr))
         out[ir] = np.sum(allparts)/(2*np.pi**2*rr**3)
     return out
+
 
 def power_to_corr(power_func, R):
     """
@@ -85,27 +86,28 @@ def power_to_corr(power_func, R):
         # pi/r to be at a "zero", it must be >1 AND it must have a number of half
         # cycles > 38 (for 1E-5 precision).
 
-        min_k = (2 * np.ceil((temp_min_k * r / np.pi - 1) / 2) + 0.5) * np.pi / r
-        maxk = max(501.5 * np.pi / r, min_k)
-
+        min_k = (2*np.ceil((temp_min_k*r/np.pi - 1)/2) + 0.5)*np.pi/r
+        maxk = max(501.5*np.pi/r, min_k)
 
         # Now we calculate the requisite number of steps to have a good dk at hi-k.
-        nk = np.ceil(np.log(maxk / mink) / np.log(maxk / (maxk - np.pi / (minsteps * r))))
+        nk = np.ceil(np.log(maxk/mink)/np.log(maxk/(maxk - np.pi/(minsteps*r))))
 
         lnk, dlnk = np.linspace(np.log(mink), np.log(maxk), nk, retstep=True)
         P = power_func(lnk)
-        integ = P * np.exp(lnk) ** 2 * np.sin(np.exp(lnk) * r) / r
+        integ = P*np.exp(lnk)**2*np.sin(np.exp(lnk)*r)/r
 
-        corr[i] = (0.5 / np.pi ** 2) * intg.simps(integ, dx=dlnk)
+        corr[i] = (0.5/np.pi**2)*intg.simps(integ, dx=dlnk)
 
     return corr
 
+
 def exclusion_window(k, r):
     """Top hat window function"""
-    x = k * r
-    return 3 * (np.sin(x) - x * np.cos(x)) / x ** 3
+    x = k*r
+    return 3*(np.sin(x) - x*np.cos(x))/x**3
 
-def populate(centres, masses, profile,hodmod):
+
+def populate(centres, masses, profile, hodmod):
     """
     Populate a series of DM halos with galaxies given a HOD model.
 
@@ -161,6 +163,6 @@ def populate(centres, masses, profile,hodmod):
         end = begin + sgal[i]
         allpos[begin:end, :] = profile.populate(sgal[i], m, ba=1, ca=1) + centres[i, :]
         begin = end
-    print "Took ", time.time() - start, " seconds, or ", (time.time() - start) / nhalos_with_gal, " each."
-    print "MeanGal: ", np.mean(sgal + 1) , "MostGal: ", sgal.max() + 1
+    print "Took ", time.time() - start, " seconds, or ", (time.time() - start)/nhalos_with_gal, " each."
+    print "MeanGal: ", np.mean(sgal + 1), "MostGal: ", sgal.max() + 1
     return allpos
