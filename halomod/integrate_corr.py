@@ -343,6 +343,23 @@ class AngularCF(HaloModel):
                                 check_p_norm=self.check_p_norm, cosmo=self.cosmo,
                                 p_of_z = self.p_of_z)
 
+    @cached_property("p1", "p2", "zvec","uvec","check_p_norm","cosmo", "theta", "r", "corr_mm")
+    def angular_corr_matter(self):
+        """
+        The angular correlation function w(theta).
+
+        From Blake+08, Eq. 33
+        """
+        def xi(r):
+            s = _spline(self.r,self.corr_mm)
+            return s(r)
+
+        return angular_corr_gal(self.theta, xi, self.p1,
+                                self.zmin, self.zmax, self.logu_min, self.logu_max,
+                                znum=self.znum, unum=self.unum, p2=self.p2,
+                                check_p_norm=self.check_p_norm, cosmo=self.cosmo,
+                                p_of_z = self.p_of_z)
+
 def _check_p(p,z):
     if hasattr(p,"integral"):
         integ = p.integral(z.min(),z.max())
