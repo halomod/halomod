@@ -340,6 +340,8 @@ class Profile(Component):
         if coord == "k":
             if np.iterable(k) and np.iterable(r_s):
                 K = np.outer(k, r_s)
+            elif np.iterable(k):
+                K = k*r_s
         elif coord == "kappa":
             K = k
 
