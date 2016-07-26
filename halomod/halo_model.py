@@ -470,10 +470,11 @@ class HaloModel(MassFunction):
     def power_mm_2h(self):
         "A tuple of the matter power and modified density"
         u = self.profile.u(self.k,self.m,norm="m")
-        if self.sd_bias_model is not None:
-            bias = np.outer(self.sd_bias.bias_scale(),self.bias)
-        else:
-            bias = self.bias
+        # if self.sd_bias_model is not None:
+        #     bias = np.outer(self.sd_bias.bias_scale(),self.bias)
+        # else:
+        #     bias = self.bias
+        bias= np.ones_like(self.m)
         inst = self.exclusion_model(m=self.m,density=self.dndlnm,
                                     I=self.dndlnm*u/self.rho_gtm[0],bias=bias,r=self.r,
                                     delta_halo=self.delta_halo,
@@ -550,6 +551,29 @@ class HaloModel(MassFunction):
         else:
             return tools.power_to_corr_ogata(self.power_gg_1h_ss,
                                              self.k, self.r)
+
+    @cached_property("k","m","dndm","n_cen","n_sat","profile","dlog10m",
+                     'mean_gal_den')
+    def power_gg_1h_cs(self):
+        """The cen-sat part of the 1-halo galaxy-galaxy power"""
+        u = self.profile.u(self.k,self.m,norm="m")
+        integ = self.dndm * 2 * self.n_cen * self.n_sat * u**2 * self.m
+        c = intg.trapz(integ,dx=self.dlog10m*np.log(10))
+        return c/self.mean_gal_den**2
+
+    @cached_property("power_gg_1h_cs","power_gg_1h_ss")
+    def power_gg_1h(self):
+        """
+        Total 1-halo galaxy power.
+        """
+        return self.power_gg_1h_cs + self.power_gg_1h_ss
+
+    @cached_property("power_gg_1h","power_gg_2h")
+    def power_gg(self):
+        """
+        Total galaxy power
+        """
+        return self.power_gg_1h+self.power_gg_2h
 
     @cached_property("r", "m", "dndm", "n_cen", "n_sat", "mean_density0",
                      "delta_halo", "mean_gal_den")

@@ -71,6 +71,29 @@ class Profile(Component):
         rvir = self._mvir_to_rvir(m)
         return rvir / c
 
+    def virial_velocity(self,m=None,r=None):
+        """
+        Return the virial velocity for a halo of virial mass `m`.
+
+        Either `m` or `r` must be passed. If both are passed, `m`
+        is preferrentially used.
+
+        Parameters
+        ----------
+        m : array_like, optional
+            Masses of halos.
+
+        r : array_like, optional
+            Radii of halos.
+        """
+        if m is None and r is None:
+            raise ValueError("Either m or r must be specified")
+        if m is not None:
+            r = self._mvir_to_rvir(m)
+        else:
+            m = self._rvir_to_mvir(r)
+        return np.sqrt(6.673*1e-11*m/r)
+
     def _h(self, c=None, m=None):
         """
         The integral of f(x)*x^2 out to c
