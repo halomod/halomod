@@ -13,7 +13,7 @@ from hmf._cache import cached_property, parameter
 import tools
 import hod
 from concentration import CMRelation
-from halo_exclusion import Exclusion
+from halo_exclusion import Exclusion, NoExclusion
 from fort.routines import hod_routines as fort
 from copy import copy,deepcopy
 from numpy import issubclass_
@@ -253,10 +253,11 @@ class HaloModel(MassFunction):
                              h = self.cosmo.h,sigma_8=self.sigma_8,
                              **self.bias_params).bias()
 
-    @cached_property("concentration_model", "nu", "z", "growth_model", "m", "concentration_params")
+    @cached_property("concentration_model", "filter", "_power0", "mean_density0", "concentration_params",
+                     "growth","delta_c")
     def cm(self):
         """A class containing the elements necessary to calculate the concentration-mass relation"""
-        this_filter = copy(self.filter_model)
+        this_filter = copy(self.filter)
         this_filter.power = self._power0
         if issubclass_(self.concentration_model, CMRelation):
             return self.concentration_model(filter0=this_filter, mean_density0=self.mean_density0,
@@ -268,7 +269,7 @@ class HaloModel(MassFunction):
                             growth=self.growth,delta_c=self.delta_c,
                             **self.concentration_params)
 
-    @cached_property("cm","m")
+    @cached_property("cm","m","z")
     def concentration(self):
         """
         The concentrations corresponding to `.m`
@@ -322,20 +323,20 @@ class HaloModel(MassFunction):
     #===========================================================================
     # Derived DM Quantities
     #===========================================================================
-    @cached_property("m","dndm","dlog10m")
-    def mean_matter_density(self):
-        """
-        The mean matter density in halos with mass greater than ``m[0]``.
-        """
-        return self.rho_gtm[0]
+    # @cached_property("m","dndm","dlog10m")
+    # def mean_matter_density(self):
+    #     """
+    #     The mean matter density in halos with mass greater than ``m[0]``.
+    #     """
+    #     return self.rho_gtm[0]
 
-    @cached_property("m","dndm","dlog10m","bias","mean_matter_density")
+    @cached_property("m","dndm","dlog10m","bias","mean_density0")
     def bias_effective_matter(self):
         """
         The effective bias on linear scales for dark matter
         """
         integrand = self.m**2 * self.dndm * self.bias
-        return intg.trapz(integrand,dx=np.log(10)*self.dlog10m)/self.mean_density
+        return intg.trapz(integrand,dx=np.log(10)*self.dlog10m)/self.mean_density0
 
 
     #===========================================================================
@@ -435,23 +436,23 @@ class HaloModel(MassFunction):
     #===========================================================================
     # 2-point DM statistics
     #===========================================================================
-    @cached_property("profile","dndm","m","k","mean_density","delta_halo","dlog10m")
+    @cached_property("profile","dndm","m","k","mean_density0","dlog10m")
     def power_mm_1h(self):
         """
         The halo model-derived nonlinear 1-halo matter power
         """
-        u = self.profile.u(self.k, self.m, norm="m")
-        integrand = self.dndm * self.m ** 3 * u**2
+        u = self.profile.u(self.k, self.m) # NOT normalised by m, so don't need m^2 in next line
+        integrand = self.dndm * self.m  * u**2
 
         ### The following may not need to be done?
-        r = np.pi/self.k # half the radius
-        mmin = 4*np.pi * r**3 * self.mean_density * self.delta_halo/3
-        mask = np.outer(self.m,np.ones_like(self.k)) < mmin
-        integrand[mask.T] = 0
+        #r = np.pi/self.k # half the radius
+        #mmin = 4*np.pi * r**3 * self.mean_density0 * self.delta_halo/3
+        #mask = np.outer(self.m,np.ones_like(self.k)) < mmin
+        #integrand[mask.T] = 0
 
-        return intg.trapz(integrand,dx=np.log(10)*self.dlog10m)/self.mean_density**2
+        return intg.trapz(integrand,dx=np.log(10)*self.dlog10m)/self.mean_density0**2
 
-    @cached_property("profile","dndm","m","r","mean_density","delta_halo","dlog10m")
+    @cached_property("profile","dndm","m","r","mean_density0","delta_halo","dlog10m")
     def corr_mm_1h(self):
         """
         The halo model-derived nonlinear 1-halo matter power
@@ -460,35 +461,35 @@ class HaloModel(MassFunction):
             lam = self.profile.lam(self.r, self.m, norm="m")
             integrand = self.dndm * self.m ** 3 * lam
 
-            return intg.trapz(integrand,dx=np.log(10)*self.dlog10m)/self.mean_density**2
+            return intg.trapz(integrand,dx=np.log(10)*self.dlog10m)/self.mean_density0**2
         else:
-            return tools.power_to_corr_ogata(self._power_mm_1h,self.k,self.r)
+            return tools.power_to_corr_ogata(self.power_mm_1h,self.k,self.r)
 
     @cached_property("profile","k","m","sd_bias_model","sd_bias","bias",
-                     "exclusion_model","dndlnm",'r',"delta_halo","mean_density",
+                     "exclusion_model","dndlnm",'r',"delta_halo","mean_density0",
                      "rho_gtm","_power_halo_centres")
     def power_mm_2h(self):
         "A tuple of the matter power and modified density"
-        u = self.profile.u(self.k,self.m,norm="m")
-        # if self.sd_bias_model is not None:
-        #     bias = np.outer(self.sd_bias.bias_scale(),self.bias)
-        # else:
-        #     bias = self.bias
-        bias= np.ones_like(self.m)
-        inst = self.exclusion_model(m=self.m,density=self.dndlnm,
-                                    I=self.dndlnm*u/self.rho_gtm[0],bias=bias,r=self.r,
-                                    delta_halo=self.delta_halo,
-                                    mean_density=self.mean_density,
-                                    **self.exclusion_params)
-
+        if self.exclusion_model != NoExclusion:
+            u = self.profile.u(self.k,self.m,norm="m")
+            bias= np.ones_like(self.m)
+            inst = self.exclusion_model(m=self.m,density=self.dndlnm,
+                                        I=self.dndlnm*u/self.rho_gtm[0],bias=bias,r=self.r,
+                                        delta_halo=self.delta_halo,
+                                        mean_density=self.mean_density0,
+                                        **self.exclusion_params)
+            mult = inst.integrate()
+        else:
+            inst = 0
+            mult = 1
         if hasattr(inst,"density_mod"):
             self.__density_mod = inst.density_mod
         else:
-            self.__density_mod = self.rho_gtm[0]
+            self.__density_mod = self.mean_density0
 
-        return inst.integrate() * self._power_halo_centres
+        return mult * self._power_halo_centres
 
-    @cached_property("power_mm_2h","k","r","rho_gtm")
+    @cached_property("power_mm_2h","k","r","rho_gtm","mean_density0")
     def corr_mm_2h(self):
         if len(self.power_mm_2h.shape)==2:
             corr = tools.power_to_corr_ogata_matrix(self.power_mm_2h,self.k,self.r)
@@ -496,7 +497,7 @@ class HaloModel(MassFunction):
             corr = tools.power_to_corr_ogata(self.power_mm_2h,self.k,self.r)
 
         ## modify by the new density
-        return (self.__density_mod/self.mean_density)**2 * (1+corr)-1
+        return (self.__density_mod/self.mean_density0)**2 * (1+corr)-1
 
     @cached_property("corr_mm_1h", "corr_mm_2h")
     def corr_mm(self):
@@ -556,8 +557,8 @@ class HaloModel(MassFunction):
                      'mean_gal_den')
     def power_gg_1h_cs(self):
         """The cen-sat part of the 1-halo galaxy-galaxy power"""
-        u = self.profile.u(self.k,self.m,norm="m")
-        integ = self.dndm * 2 * self.n_cen * self.n_sat * u**2 * self.m
+        u = self.profile.u(self.k,self.m)
+        integ = self.dndm * 2 * self.n_cen * self.n_sat * u  #no need for *m since u is not normalised
         c = intg.trapz(integ,dx=self.dlog10m*np.log(10))
         return c/self.mean_gal_den**2
 
@@ -592,7 +593,7 @@ class HaloModel(MassFunction):
                                     mean_dens=self.mean_density0,
                                     delta_halo=self.delta_halo)
         else:
-            #mmin = 4*np.pi * self.r**3 * self.mean_density * self.delta_halo/3
+            #mmin = 4*np.pi * self.r**3 * self.mean_density0 * self.delta_halo/3
             #mask = np.repeat(self.m,len(self.r)).reshape(len(self.m),len(self.r)) < mmin
             integ = self.dndm * 2 * self.n_cen * self.n_sat * rho * self.m
             #integ[mask.T] = 0
@@ -635,7 +636,7 @@ class HaloModel(MassFunction):
             return self.corr_gg_1h_cs + self.corr_gg_1h_ss -1
 
     @cached_property("profile","k","m","sd_bias_model","sd_bias","bias",
-                     "exclusion_model","dndlnm",'r',"delta_halo","mean_density",
+                     "exclusion_model","dndlnm",'r',"delta_halo","mean_density0",
                      "rho_gtm","_power_halo_centres")
     def power_gg_2h(self):
         u = self.profile.u(self.k,self.m,norm="m")
@@ -646,13 +647,13 @@ class HaloModel(MassFunction):
         inst = self.exclusion_model(m=self.m,density=self.n_tot*self.dndm,
                                     I=self.n_tot*self.dndm*u/self.mean_gal_den,
                                     bias=bias,r=self.r,delta_halo=self.delta_halo,
-                                    mean_density=self.mean_density,
+                                    mean_density=self.mean_density0,
                                     **self.exclusion_params)
 
         if hasattr(inst,"density_mod"):
             self.__density_mod = inst.density_mod
         else:
-            self.__density_mod = self.mean_gal_den
+            self.__density_mod = np.ones_like(self.r) * self.mean_gal_den
 
         return inst.integrate() * self._power_halo_centres
 
@@ -667,7 +668,7 @@ class HaloModel(MassFunction):
         #                  self.dndm, np.log(self.k),
         #                  self._power_halo_centres, u, self.r, self.corr_mm_base,
         #                  self.mean_gal_den, self.delta_halo,
-        #                  self.mean_density, 1)
+        #                  self.mean_density0, 1)
         # else:
         if len(self.power_gg_2h.shape)==2:
             corr = tools.power_to_corr_ogata_matrix(self.power_gg_2h,self.k,self.r)
