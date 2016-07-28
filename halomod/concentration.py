@@ -7,6 +7,7 @@ from scipy.interpolate import InterpolatedUnivariateSpline as spline
 import numpy as np
 from hmf._framework import Component
 from scipy.optimize import minimize
+import warnings
 
 class CMRelation(Component):
     r"""
@@ -79,18 +80,18 @@ class CMRelation(Component):
 #    _defaults = {'f':,"k":}
 
 class Bullock01(CMRelation):
-    _defaults = {"F":0.001, "K":3.4}
+    _defaults = {"F":0.01, "K":3.4}
 
-    def zc(self,m):
+    def zc(self,m,z=0):
         r = self.filter.mass_to_radius(self.params["F"]*m,self.mean_density0)
         nu = self.filter.nu(r,self.delta_c)
         g = self.growth.growth_factor_fn(inverse=True)
         zc = g(np.sqrt(nu))
-        zc[zc < 0] = 0.0  # hack?
+        zc[zc < z] = z  # hack?
         return zc
 
     def cm(self, m,z=0):
-        return self.params["K"] * (self.zc(m) + 1.0) / (z + 1.0)
+        return self.params["K"] * (self.zc(m,z) + 1.0) / (z + 1.0)
 
 class Bullock01_Power(CMRelation):
     _defaults = {"a":9.0, "b":-0.13, "c":1.0, "ms":None}
