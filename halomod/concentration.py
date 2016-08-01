@@ -71,7 +71,7 @@ class CMRelation(Component):
 
         if res.success:
             r = np.exp(res.x[0])
-            return self.filter.radius_to_mass(r,self.mean_density0*(1+z)**3)
+            return self.filter.radius_to_mass(r,self.mean_density0) #TODO *(1+z)**3 ????
         else:
             warnings.warn("Minimization failed :(")
             return 0

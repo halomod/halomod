@@ -217,7 +217,7 @@ class Profile(Component):
 
         return self._reduce(rho)
 
-    def u(self, k, m, norm=None, c=None, coord="k"):
+    def u(self, k, m, norm="m", c=None, coord="k"):
         """
         The (optionally normalised) Fourier-transform of the density profile
 
@@ -312,7 +312,7 @@ class Profile(Component):
         """
         The concentration-mass relation
         """
-        return self._cm_relation.cm(m)
+        return self._cm_relation.cm(m, self.z)
 
     def _get_r_variables(self, r, m, c=None, coord="r"):
         """
