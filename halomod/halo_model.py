@@ -150,10 +150,11 @@ class HaloModel(MassFunction):
 
     @parameter
     def profile_model(self, val):
-        """The halo density profile"""
+        """The halo density profile model"""
         if not isinstance(val, basestring) and not issubclass_(val, profiles.Profile):
             raise ValueError("profile_model must be a subclass of profiles.Profile")
-        return val
+
+        return get_model_(val,"halomod.profiles")
 
     @parameter
     def concentration_model(self, val):
@@ -271,14 +272,18 @@ class HaloModel(MassFunction):
         """A class containing the elements necessary to calculate the concentration-mass relation"""
         this_filter = copy(self.filter)
         this_filter.power = self._power0
+        this_profile = self.profile_model(None,self.mean_density0, self.delta_halo, self.z, **self.profile_params)
+
         if issubclass_(self.concentration_model, CMRelation):
             return self.concentration_model(filter0=this_filter, mean_density0=self.mean_density0,
-                                    growth=self.growth,delta_c=self.delta_c,
+                                    growth=self.growth,delta_c=self.delta_c,rhos=this_profile._rho_s,
+                                    cosmo = self.cosmo,
                                     **self.concentration_params)
         else:
             return get_model(self.concentration_model, "halomod.concentration",
                             filter0=this_filter, mean_density0=self.mean_density0,
-                            growth=self.growth,delta_c=self.delta_c,
+                            growth=self.growth,delta_c=self.delta_c,rhos=this_profile._rho_s,
+                            cosmo = self.cosmo,
                             **self.concentration_params)
 
     @cached_property("cm","m","z")

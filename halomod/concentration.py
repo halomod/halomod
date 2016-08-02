@@ -8,6 +8,9 @@ import numpy as np
 from hmf._framework import Component
 from scipy.optimize import minimize
 import warnings
+from scipy import special as sp
+from scipy.optimize import fsolve
+
 
 class CMRelation(Component):
     r"""
@@ -48,12 +51,16 @@ class CMRelation(Component):
 
     use_cosmo = False
     def __init__(self, filter0=None, mean_density0=None, growth=None,delta_c=1.686,
+                 rhos=None, cosmo=None,
                  **model_parameters):
         # Save instance variables
         self.filter = filter0
         self.growth = growth
         self.mean_density0 = mean_density0
         self.delta_c=delta_c
+
+        self.rhos = rhos
+        self.cosmo = cosmo
         super(CMRelation, self).__init__(**model_parameters)
 
     def mass_nonlinear(self,z):
@@ -105,3 +112,37 @@ class Duffy08(Bullock01_Power):
 
 class Zehavi11(Bullock01_Power):
     _defaults = {"a":11.0, "b":-0.13, "c":1.0, "ms":2.26e12}
+
+
+class Ludlow2016(CMRelation):
+    ## Note: only defined for NFW for now.
+    _defaults = {"f":0.02, ## Fraction of mass assembled at "formation"
+                 "C":400   ## Constant scaling
+                }
+    def _solve(self,m,z):
+        def eq6(x,C):
+            c,zf = x
+            lhs = 3 * self.rhos(c) * (np.log(2) - 0.5)
+            rhs = C * 2.7755e11 * (self.cosmo.efunc(zf)/self.cosmo.efunc(0))**2
+            return lhs - rhs
+
+        def eq7(x,f):
+            c,zf = x
+            lhs = (np.log(2)-0.5)/(np.log(1+c) - c/(1+c))
+            rf = self.filter.mass_to_radius(f*m, self.mean_density0)
+            r = self.filter.mass_to_radius(m, self.mean_density0)
+            rhs = sp.erfc((self.delta_c*(1./self.growth.growth_factor(zf) - 1./self.growth.growth_factor(z)))/
+                           np.sqrt(2*(self.filter.sigma(rf)**2 - self.filter.sigma(r)**2)))
+            return lhs - rhs
+
+        def eqs(x,C,f):
+            return (eq6(x,C), eq7(x,f))
+
+        res = fsolve(eqs,(4,5),args=(self.params['C'],self.params['f']))
+        print res
+        return res[0]
+
+    def cm(self,m,z=0):
+
+        res = np.array([self._solve(M,z)[0] for M in m])
+        return res
