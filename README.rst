@@ -3,16 +3,7 @@ halomod
 -------
 
 ``halomod`` is a python application that provides a flexible and simple interface for
-dealing with the Halo Model of Dark Matter Halos. It comes with several HOD 
-models, halo density profiles, bias models and Mass Function models (through the 
-``hmf`` package, by the same people).
-
-For a given choice of parameters (for each of the above models), it can 
-calculate the large-scale structure correlation function. There is also a module
-which enables fitting the correlation function model to data via MCMC.
-
-It includes some parallelisation capabilities also (which are necessary for the
-MCMC fitting for more than a couple of parameters).
+dealing with the Halo Model of Dark Matter Halos.
 
 Disclaimer/Note
 ---------------
@@ -24,6 +15,7 @@ grab the ``develop`` branch of this repo.
 
 To be more clear, there are several features which are still under development and so should
 either appear or be more robust soon, including:
+
 * Documentation (sphinx + readthedocs)
 * Tests
 * A simpler conceptual split between the dark matter halo model, and the HOD.
@@ -34,9 +26,10 @@ Installation
 ------------
 Almost all of the dependencies for ``halomod`` will be installed automatically. However, there
 are a few optional dependencies which can make things better if you decide to install them:
- * `pycamb`: for using CAMB to generate transfer functions See
-   `documentation <http://hmf.readthedocs.io/en/latest/>` of `hmf` for instructions.
- * `Numba`: to accelerate some of the integrations when halo exclusion is involved.
+
+* `pycamb`: for using CAMB to generate transfer functions See
+  `documentation <http://hmf.readthedocs.io/en/latest/>` of `hmf` for instructions.
+* `Numba`: to accelerate some of the integrations when halo exclusion is involved.
 
 Also, at this point, you'll need a fortran compiler. We plan on removing this as a necessity in
 future versions (but you will still need it if you want to use CAMB, of course).
@@ -51,12 +44,12 @@ Features
 * All the features of `hmf` (several transfer function models, 15+ HMF fitting functions,
   efficient caching etc.)
 * Extended components for halo model:
-  * 10 halo bias models, plus scale-dependent bias from Tinker (2005).
-  * 3 basic concentration-mass-redshift relations, including the analytic Bullock (2001) model
-  * Several plug-and-play halo-exclusion models (including ng-matched from Tinker+2005).
-  * 5 built-in HOD parameterisations
-  * Many built-in halo profiles, including NFW, generalised NFW, Hernquist etc.
-  * Support for WDM models.
+    * 10 halo bias models, plus scale-dependent bias from Tinker (2005).
+    * 3 basic concentration-mass-redshift relations, including the analytic Bullock (2001) model
+    * Several plug-and-play halo-exclusion models (including ng-matched from Tinker+2005).
+    * 5 built-in HOD parameterisations
+    * Many built-in halo profiles, including NFW, generalised NFW, Hernquist etc.
+    * Support for WDM models.
 * All basic quantities such as 3D correlations and power spectra, and projected 2PCF.
 * Several derived quantities (eg. effective bias, satellite fraction etc.)
 * All models/components specifically written to be easily extendible
@@ -65,9 +58,9 @@ Features
 
 Usage
 -----
-`halomod` can be used interactively (for instance in `ipython` or a `jupyter` notebook)
+``halomod`` can be used interactively (for instance in ``ipython`` or a ``jupyter`` notebook)
 or in a script.
-To use interactively, in `ipython` do something like the following:
+To use interactively, in ``ipython`` do something like the following:
 
 >>> from halomod import HaloModel
 >>> hm = HaloModel() ## Construct the object
@@ -78,7 +71,7 @@ To use interactively, in `ipython` do something like the following:
 
 All parameters to ``HaloModel`` have defaults so none need to be specified. There are
 quite a few that *can* be specified however. Check the docstring to see the
-details. Furthermore, as `halomod` extends the functionality of `hmf`, almost all
+details. Furthermore, as ``halomod`` extends the functionality of ``hmf``, almost all
 parameters accepted by ``hmf.MassFunction()`` can be used (check its docstring).
 
 To change the parameters (cosmological or otherwise), one should use the 
@@ -116,6 +109,7 @@ who have all contributed significantly to the ideas, implementation and testing
 of this code.
 
 Some parts of the code have been adapted from, influenced by or tested against:
+
 * chomp (https://github.com/JoeMcEwen/chomp)
 * AUM  (https://github.com/surhudm/aum)
 * HMcode (https://github.com/alexander-mead/HMcode/)
