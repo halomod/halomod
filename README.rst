@@ -32,9 +32,16 @@ either appear or be more robust soon, including:
 
 Installation
 ------------
-The only tricky part of the installation should be installing `pycamb`. See
-`documentation <http://hmf.readthedocs.io/en/latest/>` of `hmf`. You will also need a fortran compiler. Once `hmf`
-is installed properly, simply use ``pip install git+git://github.com/steven-murray/halomod``.
+Almost all of the dependencies for ``halomod`` will be installed automatically. However, there
+are a few optional dependencies which can make things better if you decide to install them:
+ * `pycamb`: for using CAMB to generate transfer functions See
+   `documentation <http://hmf.readthedocs.io/en/latest/>` of `hmf` for instructions.
+ * `Numba`: to accelerate some of the integrations when halo exclusion is involved.
+
+Also, at this point, you'll need a fortran compiler. We plan on removing this as a necessity in
+future versions (but you will still need it if you want to use CAMB, of course).
+
+To install, simply use ``pip install git+git://github.com/steven-murray/halomod``.
 
 For the development version (at this stage, it may be actually be better to get this), tack a
 ``@develop`` on the end of the url.
