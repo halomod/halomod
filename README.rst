@@ -28,7 +28,7 @@ Almost all of the dependencies for ``halomod`` will be installed automatically. 
 are a few optional dependencies which can make things better if you decide to install them:
 
 * `pycamb`: for using CAMB to generate transfer functions See
-   `documentation <http://hmf.readthedocs.io/en/latest/>` of `hmf` for instructions.
+  `documentation <http://hmf.readthedocs.io/en/latest/>` of `hmf` for instructions.
 * `Numba`: to accelerate some of the integrations when halo exclusion is involved.
 
 Also, at this point, you'll need a fortran compiler. We plan on removing this as a necessity in
@@ -58,9 +58,9 @@ Features
 
 Usage
 -----
-`halomod` can be used interactively (for instance in `ipython` or a `jupyter` notebook)
+``halomod`` can be used interactively (for instance in ``ipython`` or a ``jupyter`` notebook)
 or in a script.
-To use interactively, in `ipython` do something like the following:
+To use interactively, in ``ipython`` do something like the following:
 
 >>> from halomod import HaloModel
 >>> hm = HaloModel() ## Construct the object
@@ -71,7 +71,7 @@ To use interactively, in `ipython` do something like the following:
 
 All parameters to ``HaloModel`` have defaults so none need to be specified. There are
 quite a few that *can* be specified however. Check the docstring to see the
-details. Furthermore, as `halomod` extends the functionality of `hmf`, almost all
+details. Furthermore, as ``halomod`` extends the functionality of ``hmf``, almost all
 parameters accepted by ``hmf.MassFunction()`` can be used (check its docstring).
 
 To change the parameters (cosmological or otherwise), one should use the 
@@ -109,6 +109,7 @@ who have all contributed significantly to the ideas, implementation and testing
 of this code.
 
 Some parts of the code have been adapted from, influenced by or tested against:
+
 * chomp (https://github.com/JoeMcEwen/chomp)
 * AUM  (https://github.com/surhudm/aum)
 * HMcode (https://github.com/alexander-mead/HMcode/)
