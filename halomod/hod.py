@@ -1,45 +1,34 @@
-
 import numpy as np
 import scipy.special as sp
-import sys
-import copy
+from hmf._framework import Component
 _allmodels = ["Zehavi05", "Zheng05", "Contreras"]
 
-def get_hod(hod):
-    """
-    A function that chooses the correct Profile class and returns it
-    """
-    try:
-        return getattr(sys.modules[__name__], hod)
-    except AttributeError:
-        raise
-        raise AttributeError(str(hod) + "  is not a valid profile class")
-
-class HOD(object):
+class HOD(Component):
     """
     Halo Occupation Distribution model base class.
-    
+
     This class defines three methods -- the average central galaxies, average
-    satellite galaxies and total galaxies. 
-    
+    satellite galaxies and total galaxies.
+
     The total number of galaxies can take two forms: one if there MUST be a
-    central galaxy to have a satellite, and the other if not. 
-    
+    central galaxy to have a satellite, and the other if not.
+
     This class should not be called directly. The user
     should call a derived class.
-    
-    Derived classes of :class:`HOD` should define two methods: :method:`nc` and 
+
+    Derived classes of :class:`HOD` should define two methods: :method:`nc` and
     :method:`ns` (central and satellite distributions respectively).
-    Additionally, any parameters of the model should have their names and
-    defaults defined as class variables. 
-    
+    Additionally, as with all :class:`hmf._framework.Model` classes,
+    each class should specify its parameters in a _defaults dictionary at
+    class-level.
+
     The exception to this is the M_min parameter, which is defined for every
     model (it may still be defined to modify the default). This parameter acts
     as the one that may be set via the mean number density given all the other
     parameters. If the model has a sharp cutoff at low mass, corresponding to
     M_min, the extra parameter sharp_cut may be set to True, allowing for simpler
-    setting of M_min via this route. 
-    
+    setting of M_min via this route.
+
     See the derived classes in this module for examples of how to define derived
     classes of :class:`HOD`.
     """
@@ -47,14 +36,9 @@ class HOD(object):
     sharp_cut = False
 
     def __init__(self, central=True, **model_parameters):
-        for k in model_parameters:
-            if k not in self._defaults:
-                raise ValueError("%s is not a valid argument for the HOD" % k)
 
-        self.params = copy.copy(self._defaults)
-        self.params.update(model_parameters)
         self._central = central
-
+        super(HOD, self).__init__(**model_parameters)
     def nc(self, M):
         pass
 
@@ -74,15 +58,15 @@ class HOD(object):
 class Zehavi05(HOD):
     """
     Three-parameter model of Zehavi (2005)
-    
+
     Parameters
     ----------
     M_min : float, default = 11.6222
         Minimum mass of halo that supports a central galaxy
-        
+
     M_1 : float, default = 12.851
         Mass of a halo which on average contains 1 satellite
-        
+
     alpha : float, default = 1.049
         Index of power law for satellite galaxies
     """
@@ -109,21 +93,21 @@ class Zehavi05(HOD):
 class Zheng05(HOD):
     """
     Five-parameter model of Zehavi (2005)
-    
+
     Parameters
     ----------
     M_min : float, default = 11.6222
         Minimum mass of halo that supports a central galaxy
-        
+
     M_1 : float, default = 12.851
         Mass of a halo which on average contains 1 satellite
-        
+
     alpha : float, default = 1.049
         Index of power law for satellite galaxies
-        
+
     sig_logm : float, default = 0.26
         Width of smoothed cutoff
-        
+
     M_0 : float, default = 11.5047
         Minimum mass of halo containing satellites
     """
@@ -153,39 +137,39 @@ class Zheng05(HOD):
     def mmin(self):
         return self.params["M_min"] - 5 * self.params["sig_logm"]
 
-class Contreras(HOD):
+class Contreras13(HOD):
     """
-    Nine-parameter model of Contreras (2009)
-    
+    Nine-parameter model of Contreras (2013)
+
     Parameters
     ----------
     M_min : float, default = 11.6222
         Minimum mass of halo that supports a central galaxy
-        
+
     M_1 : float, default = 12.851
         Mass of a halo which on average contains 1 satellite
-        
+
     alpha : float, default = 1.049
         Index of power law for satellite galaxies
-        
+
     sig_logm : float, default = 0.26
         Width of smoothed cutoff
-        
+
     M_0 : float, default = 11.5047
         Minimum mass of halo containing satellites
-        
+
     fca : float, default = 0.5
         fca
-        
+
     fcb : float, default = 0
         fcb
-        
+
     fs : float, default = 1
         fs
-        
+
     delta : float, default  = 1
         delta
-        
+
     x : float, default = 1
         x
     """
@@ -205,13 +189,33 @@ class Contreras(HOD):
         """
         Number of central galaxies at mass M
         """
-        return self.params["fcb"] * (1 - self.params["fca"]) * np.exp(np.log10(M / 10 ** self.params["M_min"]) ** 2 / (2 * (self.params["x"] * self.params["sig_logm"]) ** 2)) + self.params["fca"] * (1 + sp.erf(np.log10(M / 10 ** self.params["M_min"]) / self.params["x"] / self.params["sig_logm"]))
+        return self.params["fcb"] * (1 - self.params["fca"]) * np.exp(-np.log10(M / 10 ** self.params["M_min"]) ** 2 / (2 * (self.params["x"] * self.params["sig_logm"]) ** 2)) + self.params["fca"] * (1 + sp.erf(np.log10(M / 10 ** self.params["M_min"]) / self.params["x"] / self.params["sig_logm"]))
 
     def ns(self, M):
         """
         Number of satellite galaxies at mass M
         """
         return self.params["fs"] * (1 + sp.erf(np.log10(M / 10 ** self.params["M_1"]) / self.params["delta"])) * (M / 10 ** self.params["M_1"]) ** self.params["alpha"]
+
+class Geach12(Contreras13):
+    """
+    8-parameter model of Geach et. al. (2012). This is identical to `Contreras13`,
+    but with `x==1`.
+    """
+    pass
+
+class Tinker05(Zehavi05):
+    """
+    3-parameter model of Tinker et. al. (2005).
+    """
+    _defaults = {"M_min":11.6222,
+                 "M_1":12.851,
+                 "M_cut":12.0}
+
+    def ns(self,M):
+        out = self.nc(M)
+        return out*np.exp(-10**self.params["M_cut"]/(M-10**self.params["M_min"]))*(M/10**self.params["M_1"])
+
 
 class HI(HOD):
     _defaults = {"M_min":11.6222,

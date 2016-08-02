@@ -1,2 +1,3 @@
+__version__="1.4.0"
 from halo_model import HaloModel
-from profiles import get_profile
+from integrate_corr import ProjectedCF, AngularCF

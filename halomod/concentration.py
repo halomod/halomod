@@ -3,130 +3,105 @@ Created on 08/12/2014
 
 @author: Steven
 '''
-import copy
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
-from hmf.tools import growth_factor
 import numpy as np
-import sys
+from hmf._framework import Component
+from scipy.optimize import minimize
+import warnings
 
-def get_cm(name, **kwargs):
-    """
-    Returns the correct subclass of :class:`CMRelation`.
-    
-    Parameters
-    ----------
-    name : str
-        The class name of the appropriate fit
-        
-    \*\*kwargs : 
-        Any parameters for the instantiated fit (including model parameters)
-    """
-    try:
-        return getattr(sys.modules[__name__], name)(**kwargs)
-    except AttributeError:
-        raise AttributeError(str(name) + "  is not a valid CMRelation class")
-
-
-class CMRelation(object):
+class CMRelation(Component):
     r"""
     Base-class for Concentration-Mass relations
-    
-    This class should not be called directly, rather use a subclass which is 
-    specific to a certain relation. 
     """
     _pdocs = \
     """
-    
+
     Parameters
     ----------
-    M   : array
-        A vector of halo masses [units M_sun/h]
-        
-    nu2  : array
-        A vector of peak-heights, :math:`\delta_c^2/\sigma^2` corresponding to ``M``
-        
-    z   : float, optional
-        The redshift. 
-        
-    delta_halo : float, optional
-        The overdensity of the halo w.r.t. the mean density of the universe.
-        
-    cosmo : :class:`cosmo.Cosmology` instance, optional
-        A cosmology. Default is the default provided by the :class:`cosmo.Cosmology`
-        class. Not required if ``omegam_z`` is passed.
-         
-    omegam_z : float, optional
-        A value for the mean matter density at the given redshift ``z``. If not
-        provided, will be calculated using the value of ``cosmo``. 
-        
+    filter0 : :class:`hmf.filters.Filter` instance
+        An instance of a filter function, with the power specified at z=0.
+        Required for ``Bullock01``.
+
+    mean_density0 : float
+        Mean density of the universe at z=0
+        Required for ``Bullock01``
+
+    growth : :class:`hmf.growth_factor.GrowthFactor` instance
+        Specifies the growth function for the cosmology.
+        Required for ``Bullock01``
+
+    delta_c : float, optional
+        Critical density for collapse
+        Used in ``Bullock01``
+
+    mstar : float, optional
+        The nonlinear mass at the desired redshift.
+        If not provided, will be calculated if required.
+
     \*\*model_parameters : unpacked-dictionary
         These parameters are model-specific. For any model, list the available
         parameters (and their defaults) using ``<model>._defaults``
-        
+
     """
     __doc__ += _pdocs
     _defaults = {}
 
     use_cosmo = False
-    def __init__(self, filter, delta_c, z, cdict, **model_parameters):
-        """
-        filter : a filter function at z = 0
-        """
-        # Check that all parameters passed are valid
-        for k in model_parameters:
-            if k not in self._defaults:
-                raise ValueError("%s is not a valid argument for the %s CMRelation" % (k, self.__class__.__name__))
-
-        # Gather model parameters
-        self.params = copy.copy(self._defaults)
-        self.params.update(model_parameters)
-
+    def __init__(self, filter0=None, mean_density0=None, growth=None,delta_c=1.686,
+                 **model_parameters):
         # Save instance variables
-        self.filter = filter
-        self.delta_c = delta_c
-        self.z = z
-        self.cdict = cdict
+        self.filter = filter0
+        self.growth = growth
+        self.mean_density0 = mean_density0
+        self.delta_c=delta_c
+        super(CMRelation, self).__init__(**model_parameters)
+
+    def mass_nonlinear(self,z):
+        """
+        Return the nonlinear mass at z.
+
+        Parameters
+        ----------
+        z : float
+            Redshift. Must not be an array.
+        """
+        model = lambda lnr : (self.filter.sigma(np.exp(lnr))*self.growth.growth_factor(z) - self.delta_c)**2
+
+        res = minimize(model,[1.0,])
+
+        if res.success:
+            r = np.exp(res.x[0])
+            return self.filter.radius_to_mass(r,self.mean_density0) #TODO *(1+z)**3 ????
+        else:
+            warnings.warn("Minimization failed :(")
+            return 0
+
+#class NFW(CMRelation):
+#    _defaults = {'f':,"k":}
 
 class Bullock01(CMRelation):
-    _defaults = {"F":0.001, "K":3.4}
+    _defaults = {"F":0.01, "K":3.4}
 
-    def zc(self, m):
-
-        ms = self.params["F"] * m
-        rs = self.filter.mass_to_radius(ms)
-        sigma = self.filter.sigma(rs)
-        g = growth_factor(100.0, self.cdict, True)
-        s = spline(g[1, :], g[0, :])
-        zc = s(self.delta_c / sigma)
-        zc[zc < 0] = 0.0  # hack?
+    def zc(self,m,z=0):
+        r = self.filter.mass_to_radius(self.params["F"]*m,self.mean_density0)
+        nu = self.filter.nu(r,self.delta_c)
+        g = self.growth.growth_factor_fn(inverse=True)
+        zc = g(np.sqrt(nu))
+        zc[zc < z] = z  # hack?
         return zc
 
-    def cm(self, m):
-        return self.params["K"] * (self.zc(m) + 1.0) / (self.z + 1.0)
+    def cm(self, m,z=0):
+        return self.params["K"] * (self.zc(m,z) + 1.0) / (z + 1.0)
 
-class Cooray(CMRelation):
-    _defaults = {"a":9.0, "b":0.13, "c":1.0, "ms":None}
-    def ms(self):
-        ms = np.logspace(5, 15, 1000)
-        rs = self.filter.mass_to_radius(ms)
-        sigma = self.filter.sigma(rs)
-        d = sigma[1:] - sigma[:-1]
-        try:
-            # this to start below "saturation level" in sharp-k filters.
-            pos = np.where(d > 0)[0][-1]
-        except IndexError:
-            pos = 0
-        sigma = sigma[pos:]
-        ms = ms[pos:]
-        s = spline(sigma[::-1], ms[::-1])
-        return s(self.delta_c)
+class Bullock01_Power(CMRelation):
+    _defaults = {"a":9.0, "b":-0.13, "c":1.0, "ms":None}
 
-    def cm(self, m):
-        if self.params['ms'] is None:
-            ms = self.ms()
-        else:
-            ms = self.params['ms']
-        return self.params['a'] / (1 + self.z) ** self.params['c'] * (ms / m) ** self.params['b']
+    def cm(self, m,z=0):
+        ms = self.params['ms']  or self.mass_nonlinear(z)
+        return self.params['a'] / (1 + z) ** self.params['c'] * (m / ms) ** self.params['b']
 
-class Duffy(Cooray):
-    _defaults = {"a":6.71, "b":0.091, "c":0.44, "ms":2e12}
+class Duffy08(Bullock01_Power):
+    _defaults = {"a":6.71, "b":-0.091, "c":0.44, "ms":2e12}
+
+class Zehavi11(Bullock01_Power):
+    _defaults = {"a":11.0, "b":-0.13, "c":1.0, "ms":2.26e12}
