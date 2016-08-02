@@ -2,10 +2,10 @@
 halomod
 -------
 
-`halomod` is a python application that provides a flexible and simple interface for 
+``halomod`` is a python application that provides a flexible and simple interface for
 dealing with the Halo Model of Dark Matter Halos. It comes with several HOD 
 models, halo density profiles, bias models and Mass Function models (through the 
-`hmf` package, by the same people).
+``hmf`` package, by the same people).
 
 For a given choice of parameters (for each of the above models), it can 
 calculate the large-scale structure correlation function. There is also a module
@@ -14,117 +14,105 @@ which enables fitting the correlation function model to data via MCMC.
 It includes some parallelisation capabilities also (which are necessary for the
 MCMC fitting for more than a couple of parameters).
 
+Disclaimer/Note
+---------------
+``halomod`` is currently undergoing some pretty heavy development, and so may
+change reasonably significantly at short notice. If you are using it, and have any
+problems, don't hesitate to contact me (@steven-murray) and I'll walk you through anything
+that I can help with. Thanks for your patience. Also, for the most up-to-date version,
+grab the ``develop`` branch of this repo.
 
-INSTALLATION
+To be more clear, there are several features which are still under development and so should
+either appear or be more robust soon, including:
+* Documentation (sphinx + readthedocs)
+* Tests
+* A simpler conceptual split between the dark matter halo model, and the HOD.
+* Angular correlation functions work, but are a bit hacky at the moment
+* Robust support for multi-epoch calculations
+
+Installation
 ------------
 The only tricky part of the installation should be installing `pycamb`. See
-notes in the readme of `hmf`. You will also need a fortran compiler. Once `hmf`
-is installed properly, simply use ``pip install hod``.
-    					 
-USAGE
+`documentation <http://hmf.readthedocs.io/en/latest/>` of `hmf`. You will also need a fortran compiler. Once `hmf`
+is installed properly, simply use ``pip install git+git://github.com/steven-murray/halomod``.
+
+For the development version (at this stage, it may be actually be better to get this), tack a
+``@develop`` on the end of the url.
+
+Features
+--------
+* All the features of `hmf` (several transfer function models, 15+ HMF fitting functions,
+  efficient caching etc.)
+* Extended components for halo model:
+  * 10 halo bias models, plus scale-dependent bias from Tinker (2005).
+  * 3 basic concentration-mass-redshift relations, including the analytic Bullock (2001) model
+  * Several plug-and-play halo-exclusion models (including ng-matched from Tinker+2005).
+  * 5 built-in HOD parameterisations
+  * Many built-in halo profiles, including NFW, generalised NFW, Hernquist etc.
+  * Support for WDM models.
+* All basic quantities such as 3D correlations and power spectra, and projected 2PCF.
+* Several derived quantities (eg. effective bias, satellite fraction etc.)
+* All models/components specifically written to be easily extendible
+* Built-in routines for efficient fitting of arbitrary parameters to data. **BETA**
+* CLI scripts both for producing any quantity included, or fitting any quantity. **BETA**
+
+Usage
 -----
-`hod` can be used interactively (for instance in `ipython`) or in a script. 
+`halomod` can be used interactively (for instance in `ipython` or a `jupyter` notebook)
+or in a script.
 To use interactively, in `ipython` do something like the following:
 
->>> from hod import HOD
->>> h = HOD()
->>> galcorr = h.corr_gal
->>> bias = h.bias.bias
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_gg
+>>> bias = hm.bias
 >>> ...
 
-All parameters to ``HOD()`` have defaults so none must be specified. There are 
-quite a few that CAN be specified however. Check the docstring to see the
-details. Furthermore, as `hod` extends the functionality of `hmf`, almost all
-parameters accepted by ``hmf.Perturbations()`` can be used (check its docstring). 
-The exception is `cut_fit`, which is necessarily set to `False` in `hod`. 
+All parameters to ``HaloModel`` have defaults so none need to be specified. There are
+quite a few that *can* be specified however. Check the docstring to see the
+details. Furthermore, as `halomod` extends the functionality of `hmf`, almost all
+parameters accepted by ``hmf.MassFunction()`` can be used (check its docstring).
 
 To change the parameters (cosmological or otherwise), one should use the 
-``update()`` method, if a ``HOD()`` object already exists. For example
+``update()`` method, if a ``HaloModel()`` object already exists. For example
 
- >>> h = HOD()
- >>> h.update(r=np.linspace(0.1,1,1000)) #update scale vector
- >>> corr_2h = h.corr_gal_2h #The 2-halo term of the galaxy correlation function
+>>> hm.update(r=np.linspace(0.1,1,1000)) #update scale vector
+>>> corr_2h = hm.corr_gg_2h #The 2-halo term of the galaxy correlation function
 
-One can access any of the properties of the ``Perturbations()`` class for the 
-given parameters through the ``pert`` attribute of ``HOD``:
+Since ``HaloModel`` is a sub-class of ``MassFunction``, all the quantities associated
+with the hmf are also included, so for example
 
- >>> h = HOD()
- >>> mass_variance = h.pert.sigma
- >>> mass_function = h.pert.dndlnm
+>>> h = HaloModel()
+>>> mass_variance = h.sigma
+>>> mass_function = h.dndm
+>>> linear_power = h.power
 
-ACKNOWLEDGMENTS
+We have tried to stick to reasonable naming conventions for the quantities. In particular,
+galaxy-galaxy correlations are labelled ``xxx_gg_xxx``, matter correlations
+``xxx_mm_xxx``, central-satellite have ``xxx_cs_xxx`` and satellite-satellite ``xxx_ss_xxx``.
+
+In addition, all parameters passed to the constructor are saved within the class with the *same name*
+as they are passed with. Any parameter which defines a model choice (eg. a bias model) is named ``<component>_model``,
+so for example, the bias model is called ``bias_model``. *Every* model has an associated parameter called
+``<component>_params``, which is a dictionary of parameters to that model. The available choices for this
+dictionary depend precisely on the model chosen (so that the Sheth-Tormen HMF has a different set of parameters
+than does the Tinker+2008 model). Within the constructed object, the actual model is instantiated and saved
+as ``<component>``, so that this object can be accessed, and several internal methods can be called. *Some* of these
+are exposed directly by the ``HaloModel`` class (eg. one can call ``hm.n_sat`` directly, which itself calls a method
+of the ``hm.hod`` component).
+
+Acknowledgments
 ---------------
-Thanks to Florian Beutler, Chris Blake, David Palamara, Peder Norberg and Charles
+Thanks to Florian Beutler, Chris Blake and David Palamara
 who have all contributed significantly to the ideas, implementation and testing
 of this code.
 
-HISTORY
--------
-1.2.2 - October 7, 2014
-		Many changes again
-		
-1.2.1 - June 18, 2014
-		Changed package name to halomod
-		Fixed some import issues that were being covered up in my system.
-		
-1.2.0 - May 14, 2014
-		Added ng_matched and ellipsoid halo exclusion options
-		Cleaned up and enhanced performance of halo exclusion in general
-		Added ability to pass mean density and evaluate M_min from this.
-		Moved 2-halo estimation to fortran to improve speed (*10-100)
-		A LOT of testing against other codes to find small bugs.
-		
-1.1.6 - January 15, 2014
-		Corrected auto-calc of nthreads in fit_hod()
-		Fixed chunks output in fit_hod()
-		Fixed API for updated hmf API
-		Cleaned up the update process considerably
-		Added an optimization routine to fit
-		
-1.1.5 - December 23, 2013
-		Added automatic cpu counting in fit_hod()
-		Better setting of number of threads in fit_hod()
-		matter_power is now not deleted unless a cosmo param is changed.
-		Fixed writing out file in chunks in fit_hod()
-		Added some std output when chunks used in fit_hod()
-		
-1.1.4 - December 19, 2013
-		Much needed fix for fit_hod(), in which a crash occured if nthreads>1
-		
-1.1.3 - December 12, 2013
-		Documentation upgrade (sphinx/numpydoc format)
-		:func:`fit_hod()` can now periodically output results to a file.
-		Schneider halo exclusion now abs(W(kr)). This is as much a hack as the 
-		exclusion itself. It goes negative and we need to take logs.
-		Better initial estimation in :func:`fit_hod()`
-		
-1.1.2 - December 10, 2013
-		A few bugfixes to match the slightly modified API of ``hmf`` v1.2.x
-		
-1.1.1 - December 6, 2013
-		Bugfixes to :func:`fit_hod()` routine
-		
-1.1.0 - December 5, 2013
-		Added multivariate guassian priors
-		Updated to reflect changes in hmf API
-		
-1.0.0 - November 22, 2013
-		MCMC routines now work properly -- all basic routines are in place.
-		
-0.7.0 - October 16, 2013
-		Added ability to get HOD, cosmo params from given xi(r) data using mcmc
-		
-0.6.1 - October 10, 2013
-		Added schneider halo_exclusion option
-		
-0.6.0 - October 4, 2013
-		Added halo exclusion options (Most Buggy)
-		Added scale-dependent bias
-		Added lower mvir bound on 1h term
-		Fixed nonlinear P(k)
-		
-0.5.1 - October 2, 2013
-		Added nonlinear P(k) option
-		
-0.5.0 - October 2, 2013
-		First working version
+Some parts of the code have been adapted from, influenced by or tested against:
+* chomp (https://github.com/JoeMcEwen/chomp)
+* AUM  (https://github.com/surhudm/aum)
+* HMcode (https://github.com/alexander-mead/HMcode/)
+
+Along with these, several other private codes have been compared to.
+
+
