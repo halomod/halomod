@@ -143,6 +143,39 @@ class Ludlow2016(CMRelation):
         return res[0]
 
     def cm(self,m,z=0):
-
+        raise NotImplementedError("Ludlow2016 concentration relation is not implemented yet.")
         res = np.array([self._solve(M,z)[0] for M in m])
         return res
+
+class Ludlow2016Empirical(CMRelation):
+
+    _defaults = {'c0_0':3.395, "c0_z":-0.215,
+                 "beta_0":0.307, "beta_z":0.54,
+                 "gamma1_0":0.628, "gamma1_z":-0.047,
+                 "gamma2_0":0.317, "gamma2_z":-0.893}
+
+    def _c0(self,z):
+        return self.params['c0_0'] * (1+z)**self.params['c0_z']
+
+    def _beta(self, z):
+        return self.params['beta_0']*(1 + z) ** self.params['beta_z']
+
+    def _gamma1(self, z):
+        return self.params['gamma1_0']*(1 + z) ** self.params['gamma1_z']
+
+    def _gamma2(self, z):
+        return self.params['gamma2_0']*(1 + z) ** self.params['gamma2_z']
+
+    def _nu_0(self,z):
+        a = 1./(1+z)
+        return (4.135 - 0.564/a - 0.21/a**2 + 0.0557/a**3 - 0.00348/a**4)/self.growth.growth_factor(z)
+
+    def cm(self,m,z):
+        warnings.warn("Only use Ludlow2016Empirical c(m,z) relation when using Planck-like cosmology")
+        ## May be better to use real nu, but we'll do what they do in the paper
+        #r = self.filter.mass_to_radius(m, self.mean_density0)
+        #nu = self.filter.nu(r,self.delta_c)/self.growth.growth_factor(z)
+        xi = 1e10/m
+        sig = self.growth.growth_factor(z) * 22.26 * xi**0.292 / (1 + 1.53*xi**0.275 + 3.36 * xi**0.198)
+        nu = self.delta_c/sig
+        return self._c0(z) * (nu/self._nu_0(z))**(-self._gamma1(z)) * (1 + (nu/self._nu_0(z))**(1./self._beta(z))) **(-self._beta(z)*(self._gamma2(z) - self._gamma1(z)))
