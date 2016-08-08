@@ -229,7 +229,7 @@ class HaloModel(MassFunction):
         else:
             return get_model(self.hod_model, "halomod.hod", **self.hod_params)
 
-    @cached_property("hod", "Mmax",  "dlog10m")
+    @cached_property("hod", "Mmin", "Mmax",  "dlog10m")
     def m(self):
         if self.Mmax < 17:
             warnings.warn("Mmax is less than 10^17 Msun/h, so integrations *may not* converge")
