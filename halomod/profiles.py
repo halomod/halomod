@@ -5,6 +5,10 @@ import scipy.integrate as intg
 from scipy.interpolate import UnivariateSpline as spline
 import mpmath
 from hmf._framework import Component
+from scipy.special import gammainc, gamma
+
+def ginc(a,x):
+    return gamma(a) * gammainc(a,x)
 
 class Profile(Component):
     """
@@ -35,8 +39,10 @@ class Profile(Component):
     z : float, default 0.0
         The redshift of the halo
     """
+    _defaults={}
+
     def __init__(self, cm_relation, mean_dens,
-                 delta_halo=200.0, z=0.0):
+                 delta_halo=200.0, z=0.0,**model_parameters):
 
         self.delta_halo = delta_halo
         self.z = z
@@ -44,6 +50,8 @@ class Profile(Component):
         self.mean_dens = mean_dens
 
         self.has_lam = hasattr(self, "_l")
+
+        super(Profile, self).__init__(**model_parameters)
 
     # -- BASIC TRANSFORMATIONS --------------------------------------
     def _mvir_to_rvir(self, m):
@@ -363,7 +371,7 @@ class Profile(Component):
         if coord == "k":
             if np.iterable(k) and np.iterable(r_s):
                 K = np.outer(k, r_s)
-            elif np.iterable(k):
+            else:
                 K = k*r_s
         elif coord == "kappa":
             K = k
@@ -707,3 +715,18 @@ class GeneralizedNFWInf(GeneralizedNFW, ProfileInf):
         res = np.reshape(np.exp(fit(np.log(np.reshape(K, -1)))), (len(K[:, 0]), len(K[0, :])))
 
         return res
+
+
+class Einasto(Profile):
+    """
+    An Einasto profile.
+    """
+    _defaults = {"alpha":0.18}
+
+    def _f(self,x):
+        a = self.params['alpha']
+        return np.exp((-2./a) * (x**a -1))
+
+    def _h(self,c):
+        a = self.params['alpha']
+        return np.exp(2/a) * (2/a)**(-3./a)*ginc(3./a, (2./a)*c**a)/a
