@@ -12,6 +12,7 @@ from hmf.wdm import MassFunctionWDM
 from hmf._framework import get_model
 import sys
 from integrate_corr import ProjectedCF
+from copy import copy
 
 #===============================================================================
 # C-M relations
@@ -58,7 +59,7 @@ class HaloModelWDM(HaloModel, MassFunctionWDM):
     """
 
     def __init__(self, **kw):
-        kw.setdefault("cm_relation", "DuffyWDM")
+        kw.setdefault("concentration_model", "Ludlow2016")
         super(HaloModelWDM, self).__init__(**kw)
 
     # @cached_property("_wdm", "dlog10m")
@@ -129,19 +130,21 @@ class HaloModelWDM(HaloModel, MassFunctionWDM):
         # integral = intg.simps(integrand, dx=self.dlog10m) * np.log(10)
         return (1-self.bias_effective_matter) / (1 - self.f_halos)
 
-    @cached_property("_wdm")
+    @cached_property("wdm")
     def cm(self):
-        kwargs = dict(nu=self.nu, z=self.z, growth=self.growth_model,
-                      M=self.M, **self.cm_params)
-        if np.issubclass_(self.cm_relation,CMRelation):
-            if self.cm_relation.__class__.__name__.endswith("WDM"):
-                cm = self.cm_relation(m_hm=self._wdm.m_hm, **kwargs)
+        this_filter = copy(self.filter)
+        this_filter.power = self._power0
+        kwargs = dict(filter0=this_filter, mean_density0=self.mean_density0,
+                      growth=self.growth,delta_c=self.delta_c, **self.concentration_params)
+        if np.issubclass_(self.concentration_model,CMRelation):
+            if self.concentration_model.__class__.__name__.endswith("WDM"):
+                cm = self.concentration_model(m_hm=self.wdm.m_hm, **kwargs)
             else:
-                cm = self.cm_relation(**kwargs)
-        elif self.cm_relation.endswith("WDM"):
-            cm = CMRelationWDMRescaled(self.cm_relation[:-3],m_hm=self._wdm.m_hm, **kwargs)
+                cm = self.concentration_model(**kwargs)
+        elif self.concentration_model.endswith("WDM"):
+            cm = CMRelationWDMRescaled(self.concentration_model[:-3],m_hm=self.wdm.m_hm, **kwargs)
         else:
-            cm = get_model(self.cm_relation, "halomod.concentration", **kwargs)
+            cm = get_model(self.concentration_model, "halomod.concentration", **kwargs)
 
         return cm
 
