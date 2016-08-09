@@ -267,7 +267,7 @@ class HaloModel(MassFunction):
                              **self.bias_params).bias()
 
     @cached_property("concentration_model", "filter", "_power0", "mean_density0", "concentration_params",
-                     "growth","delta_c")
+                     "growth","delta_c","profile_model","delta_halo",'cosmo')
     def cm(self):
         """A class containing the elements necessary to calculate the concentration-mass relation"""
         this_filter = copy(self.filter)
@@ -276,14 +276,14 @@ class HaloModel(MassFunction):
 
         if issubclass_(self.concentration_model, CMRelation):
             return self.concentration_model(filter0=this_filter, mean_density0=self.mean_density0,
-                                    growth=self.growth,delta_c=self.delta_c,rhos=this_profile._rho_s,
-                                    cosmo = self.cosmo,
-                                    **self.concentration_params)
+                                            growth=self.growth,delta_c=self.delta_c,profile=this_profile,
+                                            cosmo = self.cosmo, delta_halo = self.delta_halo,
+                                            **self.concentration_params)
         else:
             return get_model(self.concentration_model, "halomod.concentration",
                             filter0=this_filter, mean_density0=self.mean_density0,
-                            growth=self.growth,delta_c=self.delta_c,rhos=this_profile._rho_s,
-                            cosmo = self.cosmo,
+                            growth=self.growth,delta_c=self.delta_c,profile=this_profile,
+                            cosmo = self.cosmo, delta_halo = self.delta_halo,
                             **self.concentration_params)
 
     @cached_property("cm","m","z")

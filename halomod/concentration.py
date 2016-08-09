@@ -3,7 +3,7 @@ Created on 08/12/2014
 
 @author: Steven
 '''
-from scipy.interpolate import InterpolatedUnivariateSpline as spline
+from scipy.interpolate import interp1d
 import numpy as np
 from hmf._framework import Component
 from scipy.optimize import minimize
@@ -51,15 +51,16 @@ class CMRelation(Component):
 
     use_cosmo = False
     def __init__(self, filter0=None, mean_density0=None, growth=None,delta_c=1.686,
-                 rhos=None, cosmo=None,
+                 profile=None, cosmo=None, delta_halo=200.0,
                  **model_parameters):
         # Save instance variables
         self.filter = filter0
         self.growth = growth
         self.mean_density0 = mean_density0
         self.delta_c=delta_c
+        self.delta_halo = delta_halo
 
-        self.rhos = rhos
+        self.profile = profile
         self.cosmo = cosmo
         super(CMRelation, self).__init__(**model_parameters)
 
@@ -117,35 +118,60 @@ class Zehavi11(Bullock01_Power):
 class Ludlow2016(CMRelation):
     ## Note: only defined for NFW for now.
     _defaults = {"f":0.02, ## Fraction of mass assembled at "formation"
-                 "C":400   ## Constant scaling
+                 "C":650   ## Constant scaling
                 }
-    def _solve(self,m,z):
-        def eq6(x,C):
-            c,zf = x
-            lhs = 3 * self.rhos(c) * (np.log(2) - 0.5)
-            rhs = C * 2.7755e11 * (self.cosmo.efunc(zf)/self.cosmo.efunc(0))**2
-            return lhs - rhs
 
-        def eq7(x,f):
-            c,zf = x
-            lhs = (np.log(2)-0.5)/(np.log(1+c) - c/(1+c))
-            rf = self.filter.mass_to_radius(f*m, self.mean_density0)
-            r = self.filter.mass_to_radius(m, self.mean_density0)
-            rhs = sp.erfc((self.delta_c*(1./self.growth.growth_factor(zf) - 1./self.growth.growth_factor(z)))/
-                           np.sqrt(2*(self.filter.sigma(rf)**2 - self.filter.sigma(r)**2)))
-            return lhs - rhs
+    def _eq6_zf(self,c,C,z):
+        M2 = self.profile._h(1)/self.profile._h(c)
+        rho_2 = self.delta_halo * c**3 * M2
+        rhoc = rho_2 / C
+        in_brackets = (rhoc * (self.cosmo.Om0*(1+z)**3 + self.cosmo.Ode0) - self.cosmo.Ode0)/self.cosmo.Om0
+        c = c[in_brackets>0]
+        in_brackets = in_brackets[in_brackets>0]
+        return c, in_brackets**0.33333 - 1.
 
-        def eqs(x,C,f):
-            return (eq6(x,C), eq7(x,f))
+    def _eq7(self,f,C, m,z):
+        cvec = np.logspace(0,2,400)
 
-        res = fsolve(eqs,(4,5),args=(self.params['C'],self.params['f']))
-        print res
-        return res[0]
+        # Calculate zf for all values in cvec
+        cvec, zf = self._eq6_zf(cvec,C,z)
+
+        # Mask out those that are unphysical
+        mask = np.logical_or(np.logical_or(np.isnan(zf),np.isinf(zf)), zf < 0)
+        zf = zf[mask==False]
+        cvec = cvec[mask==False]
+
+
+        lhs = self.profile._h(1)/self.profile._h(cvec)
+
+        rf = self.filter.mass_to_radius(f*m, self.mean_density0)
+        r = self.filter.mass_to_radius(m, self.mean_density0)
+        sigf = self.filter.sigma(rf)**2
+        sigr = self.filter.sigma(r)**2
+
+        gf = self.growth.growth_factor_fn()
+        num = (self.delta_c*(1./gf(zf) - 1./gf(z)))
+        den = np.sqrt(2*(sigf - sigr))
+        rhs = sp.erfc(np.outer(num,1./den))
+
+        if np.isscalar(m):
+            rhs = rhs[:,0]
+            spl = interp1d(lhs-rhs,cvec)
+            return spl(0.0)
+        else:
+            out = np.zeros_like(m)
+            for i in range(len(m)):
+                arg = lhs - rhs[:,i]
+                if np.sum(arg<=0)==0:
+                    out[i] = cvec.min()
+                else:
+                    spl = interp1d(arg,cvec)
+                    out[i] = spl(0.0)
+            return out
+
 
     def cm(self,m,z=0):
-        raise NotImplementedError("Ludlow2016 concentration relation is not implemented yet.")
-        res = np.array([self._solve(M,z)[0] for M in m])
-        return res
+        return self._eq7(self.params['f'],self.params['C'],m,z)
 
 class Ludlow2016Empirical(CMRelation):
 

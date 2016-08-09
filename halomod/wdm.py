@@ -32,13 +32,13 @@ def CMRelationWDMRescaled(name,**kwargs):
         super(self.__class__, self).__init__(**kwargs)
         self.m_hm = m_hm
 
-    def cm(self, m):
+    def cm(self, m, z=0):
         cm = super(self.__class__, self).cm(m)
         g1 = self.params['g1']
         g2 = self.params['g2']
         b0 = self.params['beta0']
         b1 = self.params['beta1']
-        return cm * (1 + g1 * self.m_hm / m) ** (-g2)*(1+self.z)**(b0*self.z-b1)
+        return cm * (1 + g1 * self.m_hm / m) ** (-g2)*(1+z)**(b0*z-b1)
 
 
     K = type(name + "WDM", (x,),{})
@@ -130,12 +130,16 @@ class HaloModelWDM(HaloModel, MassFunctionWDM):
         # integral = intg.simps(integrand, dx=self.dlog10m) * np.log(10)
         return (1-self.bias_effective_matter) / (1 - self.f_halos)
 
-    @cached_property("wdm")
+    @cached_property("wdm","concentration_model", "filter", "_power0", "mean_density0", "concentration_params",
+                     "growth","delta_c","profile_model","delta_halo",'cosmo')
     def cm(self):
         this_filter = copy(self.filter)
         this_filter.power = self._power0
+        this_profile = self.profile_model(None,self.mean_density0, self.delta_halo, self.z, **self.profile_params)
+
         kwargs = dict(filter0=this_filter, mean_density0=self.mean_density0,
-                      growth=self.growth,delta_c=self.delta_c, **self.concentration_params)
+                      growth=self.growth,delta_c=self.delta_c,profile=this_profile,
+                      cosmo = self.cosmo, delta_halo = self.delta_halo, **self.concentration_params)
         if np.issubclass_(self.concentration_model,CMRelation):
             if self.concentration_model.__class__.__name__.endswith("WDM"):
                 cm = self.concentration_model(m_hm=self.wdm.m_hm, **kwargs)
