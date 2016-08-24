@@ -8,6 +8,7 @@ import mpmath
 from hmf._framework import Component
 from scipy.special import gammainc, gamma
 import os
+import warnings
 
 def ginc(a,x):
     return gamma(a) * gammainc(a,x)
@@ -86,7 +87,7 @@ class Profile(Component):
         Return the virial velocity for a halo of virial mass `m`.
 
         Either `m` or `r` must be passed. If both are passed, `m`
-        is preferrentially used.
+        is preferentially used.
 
         Parameters
         ----------
@@ -277,7 +278,7 @@ class Profile(Component):
 
         return self._reduce(u)
 
-    def lam(self, r, m, norm=None, c=None, coord='r'):
+    def lam(self, r, m, norm="m", c=None, coord='r'):
         """
         The density profile convolved with itself.
 
@@ -746,6 +747,13 @@ class Einasto(Profile):
     _defaults = {"alpha":0.18,
                  "use_interp":True}
 
+    def __init__(self,*args,**kwargs):
+        super(Einasto,self).__init__(*args,**kwargs)
+
+        if self.params['alpha'] != 0.18 and self.params['use_interp']:
+            warnings.warn("Einasto interpolation for p(K,c) is only defined for alpha=0.18, switching off.")
+            self.params['use_interp'] = False
+
     def _f(self,x):
         a = self.params['alpha']
         return np.exp((-2./a) * (x**a -1))
@@ -755,23 +763,26 @@ class Einasto(Profile):
         return np.exp(2/a) * (2/a)**(-3./a)*ginc(3./a, (2./a)*c**a)/a
 
     def _p(self,K,c):
-        data_path = os.path.join(os.path.dirname(__file__),'data')
-        data = np.load(os.path.join(data_path,"uKc_einasto.npz"))
+        if self.params['use_interp']:
+            data_path = os.path.join(os.path.dirname(__file__),'data')
+            data = np.load(os.path.join(data_path,"uKc_einasto.npz"))
 
-        pk = data['pk']
-        _k = data['K']
-        _c = data['c']
+            pk = data['pk']
+            _k = data['K']
+            _c = data['c']
 
-        c = np.atleast_1d(c)
-        if np.isscalar(K):
-            K = np.atleast_2d(K)
-        if K.ndim < 2:
-            if len(K)!=len(c):
-                K = np.atleast_2d(K).T # should be len(rs) x len(k)
-            else:
+            c = np.atleast_1d(c)
+            if np.isscalar(K):
                 K = np.atleast_2d(K)
-        pk[pk<=0] = 1e-8
+            if K.ndim < 2:
+                if len(K)!=len(c):
+                    K = np.atleast_2d(K).T # should be len(rs) x len(k)
+                else:
+                    K = np.atleast_2d(K)
+            pk[pk<=0] = 1e-8
 
-        spl = RectBivariateSpline(np.log(_k),np.log(_c),np.log(pk))
-        cc = np.repeat(c,K.shape[0])
-        return np.exp(self._reduce(spl.ev(np.log(K.flatten()),np.log(cc)).reshape(K.shape)))
+            spl = RectBivariateSpline(np.log(_k),np.log(_c),np.log(pk))
+            cc = np.repeat(c,K.shape[0])
+            return np.exp(self._reduce(spl.ev(np.log(K.flatten()),np.log(cc)).reshape(K.shape)))
+        else: #Numerical version.
+            return super(Einasto,self)._p(K,c)
