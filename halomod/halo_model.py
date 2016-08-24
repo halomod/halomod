@@ -154,7 +154,10 @@ class HaloModel(MassFunction):
         if not isinstance(val, basestring) and not issubclass_(val, profiles.Profile):
             raise ValueError("profile_model must be a subclass of profiles.Profile")
 
-        return get_model_(val,"halomod.profiles")
+        if isinstance(val,basestring):
+            return get_model_(val,"halomod.profiles")
+        else:
+            return val
 
     @parameter
     def concentration_model(self, val):
@@ -229,7 +232,7 @@ class HaloModel(MassFunction):
         else:
             return get_model(self.hod_model, "halomod.hod", **self.hod_params)
 
-    @cached_property("hod", "Mmin", "Mmax",  "dlog10m")
+    @cached_property("Mmin", "Mmax",  "dlog10m")
     def m(self):
         if self.Mmax < 17:
             warnings.warn("Mmax is less than 10^17 Msun/h, so integrations *may not* converge")
@@ -241,6 +244,10 @@ class HaloModel(MassFunction):
         A galaxy mask -- i.e. a mask on mass which restricts the range to those where galaxies exist
         for the given HOD.
         """
+        if self.Mmin> self.hod.mmin:
+            warnings.warn("Internal Mmin larger than required by HOD, setting lower.")
+            self.update(Mmin=self.hod.mmin)
+
         return self.m >= self.hod.mmin
 
     @cached_property("bias_model", "nu", "delta_c", "delta_halo", "n", "bias_params")
@@ -302,6 +309,7 @@ class HaloModel(MassFunction):
                                      delta_halo=self.delta_halo, z=self.z,
                                      **self.profile_params)
         else:
+            print self.profile_model
             return get_model(self.profile_model, "halomod.profiles",
                              cm_relation=self.cm,
                              mean_dens=self.mean_density0,
@@ -432,7 +440,16 @@ class HaloModel(MassFunction):
             return self.nonlinear_power
         elif self.hc_spectrum == "filtered-nl":
             f = TopHat(None, None)
-            return self.nonlinear_power * f.k_space(self.k * 2.0)
+            out = self.nonlinear_power*f.k_space(self.k*3.0)
+            first_zero = np.where(out<=0)[0][0]
+            out[first_zero:] = 0
+            return out
+        elif self.hc_spectrum == "filtered-lin":
+            f = TopHat(None, None)
+            out = self.power*f.k_space(self.k*2.0)
+            first_zero = np.where(out<=0)[0][0]
+            out[first_zero:] = 0
+            return out
 
     @cached_property("power",'k','r')
     def corr_mm_lin(self):
@@ -451,6 +468,21 @@ class HaloModel(MassFunction):
             return self.corr_mm_halofit
 
     #===========================================================================
+    # Halo Profile cached quantities
+    #===========================================================================
+    @cached_property("profile",'k','m')
+    def profile_ukm(self):
+        return self.profile.u(self.k,self.m)
+
+    @cached_property("profile",'r','m')
+    def profile_rho(self):
+        return self.profile.rho(self.r,self.m,norm="m")
+
+    @cached_property("profile",'r','m')
+    def profile_lam(self):
+        return self.profile.lam(self.r,self.m)
+
+    #===========================================================================
     # 2-point DM statistics
     #===========================================================================
     @cached_property("profile","dndm","m","k","mean_density0","dlog10m",
@@ -459,7 +491,7 @@ class HaloModel(MassFunction):
         """
         The halo model-derived nonlinear 1-halo matter power
         """
-        u = self.profile.u(self.k, self.m, norm = "m")
+        u = self.profile_ukm
         integrand = self.dndm * self.m**3  * u**2
 
         ### The following may not need to be done?
@@ -480,7 +512,7 @@ class HaloModel(MassFunction):
         The halo model-derived nonlinear 1-halo matter power
         """
         if self.profile.has_lam:
-            lam = self.profile.lam(self.r, self.m, norm="m")
+            lam = self.profile_lam
             integrand = self.dndm * self.m ** 3 * lam
 
             return intg.trapz(integrand,dx=np.log(10)*self.dlog10m)/self.mean_density0**2
@@ -498,7 +530,7 @@ class HaloModel(MassFunction):
         # since the matter power is for *all* mass. But other codes (eg. chomp)
         # do the normal integral which includes biasing...
         if self.exclusion_model != NoExclusion:
-            u = self.profile.u(self.k,self.m,norm="m")
+            u = self.profile_ukm
             bias= np.ones_like(self.m)
             inst = self.exclusion_model(m=self.m,density=self.dndlnm,
                                         I=self.dndlnm*u/self.rho_gtm[0],bias=bias,r=self.r,
@@ -539,14 +571,14 @@ class HaloModel(MassFunction):
     #===========================================================================
     # 2-point galaxy-galaxy (HOD) statistics
     #===========================================================================
-    @cached_property("k", "m", "dndm", "n_sat", "n_cen", 'hod', 'profile', "mean_gal_den")
+    @cached_property("k", "m", "dndm", "n_sat", "n_cen", 'hod', 'profile', "mean_gal_den","_gm")
     def power_gg_1h_ss(self):
         """
         The sat-sat part of the 1-halo term of the galaxy power spectrum
         """
         if USEFORT:
             ## The fortran routine is very very slightly faster. Should remove it.
-            u = self.profile.u(self.k, self.m[self._gm], norm='m')
+            u = self.profile_ukm
             p = fort.power_gal_1h_ss(nlnk=len(self.k),
                                      nm=len(self.m[self._gm]),
                                      u=np.asfortranarray(u),
@@ -556,7 +588,7 @@ class HaloModel(MassFunction):
                                      mass=self.m[self._gm],
                                      central=self.hod._central)
         else:
-            u = self.profile.u(self.k, self.m[self._gm], norm='m')
+            u = self.profile_ukm[:,self._gm]
             integ = u**2 * self.dndm[self._gm] * self.m[self._gm] * self.n_sat[self._gm]**2
             if self.hod._central:
                 integ *= self.n_cen[self._gm]
@@ -575,7 +607,7 @@ class HaloModel(MassFunction):
 
         return p / self.mean_gal_den ** 2
 
-    @cached_property("power_gg_1h_ss", "k", "r")
+    @cached_property("power_gg_1h_ss", "k", "r","_gm")
     def corr_gg_1h_ss(self):
         if self.profile.has_lam:
             lam = self.profile.lam(self.r, self.m[self._gm], norm="m")
@@ -591,10 +623,10 @@ class HaloModel(MassFunction):
                                              self.k, self.r)
 
     @cached_property("k","m","dndm","n_cen","n_sat","profile","dlog10m",
-                     'mean_gal_den')
+                     'mean_gal_den',"_gm")
     def power_gg_1h_cs(self):
         """The cen-sat part of the 1-halo galaxy-galaxy power"""
-        u = self.profile.u(self.k,self.m[self._gm],norm="m")
+        u = self.profile_ukm[:,self._gm]
         integ = self.dndm[self._gm] * 2 * self.n_cen[self._gm] * self.n_sat[self._gm] * u * self.m[self._gm]
 
         ### The following may not need to be done?
@@ -625,10 +657,10 @@ class HaloModel(MassFunction):
         return self.power_gg_1h+self.power_gg_2h
 
     @cached_property("r", "m", "dndm", "n_cen", "n_sat", "mean_density0",
-                     "delta_halo", "mean_gal_den")
+                     "delta_halo", "mean_gal_den","_gm")
     def corr_gg_1h_cs(self):
         """The cen-sat part of the 1-halo galaxy correlations"""
-        rho = self.profile.rho(self.r, self.m[self._gm], norm="m")
+        rho = self.profile_rho[:,self._gm]
         if USEFORT:
             c = fort.corr_gal_1h_cs(nr=len(self.r),
                                     nm=len(self.m[self._gm]),
@@ -641,22 +673,19 @@ class HaloModel(MassFunction):
                                     mean_dens=self.mean_density0,
                                     delta_halo=self.delta_halo)
         else:
-            #mmin = 4*np.pi * self.r**3 * self.mean_density0 * self.delta_halo/3
-            #mask = np.repeat(self.m,len(self.r)).reshape(len(self.m),len(self.r)) < mmin
             integ = self.dndm[self._gm] * 2 * self.n_cen[self._gm] * self.n_sat[self._gm] * rho * self.m[self._gm]
-            #integ[mask.T] = 0
             c = intg.trapz(integ,dx=self.dlog10m*np.log(10))
 
         return c / self.mean_gal_den ** 2
 
 
     @cached_property("r", "m", "dndm", "n_cen", "n_sat", "hod", "mean_density0", "delta_halo",
-                     "mean_gal_den", "corr_gg_1h_cs", "corr_gg_1h_ss")
+                     "mean_gal_den", "corr_gg_1h_cs", "corr_gg_1h_ss","_gm")
     def corr_gg_1h(self):
         """The 1-halo term of the galaxy correlations"""
         if self.profile.has_lam:
-            rho = self.profile.rho(self.r, self.m[self._gm], norm="m")
-            lam = self.profile.lam(self.r, self.m[self._gm], norm="m")
+            rho = self.profile_rho[:,self._gm]
+            lam = self.profile_lam[:,self._gm]
             if USEFORT:
                 ## Using fortran only saves about 15% of time on this single routine (eg. 7ms --> 8.7ms)
                 c = fort.corr_gal_1h(nr=len(self.r),
@@ -685,16 +714,16 @@ class HaloModel(MassFunction):
 
     @cached_property("profile","k","m","sd_bias_model","sd_bias","bias",
                      "exclusion_model","dndlnm",'r',"delta_halo","mean_density0",
-                     "rho_gtm","_power_halo_centres")
+                     "rho_gtm","_power_halo_centres","n_tot","_gm")
     def power_gg_2h(self):
-        u = self.profile.u(self.k,self.m[self._gm],norm="m")
+        u = self.profile_ukm[:,self._gm]
         if self.sd_bias_model is not None:
-            bias = np.outer(self.sd_bias.bias_scale(),self.bias)
+            bias = np.outer(self.sd_bias.bias_scale(),self.bias)[:,self._gm]
         else:
-            bias = self.bias
+            bias = self.bias[self._gm]
         inst = self.exclusion_model(m=self.m[self._gm],density=self.n_tot[self._gm]*self.dndm[self._gm],
                                     I=self.n_tot[self._gm]*self.dndm[self._gm]*u/self.mean_gal_den,
-                                    bias=bias[self._gm],r=self.r,delta_halo=self.delta_halo,
+                                    bias=bias,r=self.r,delta_halo=self.delta_halo,
                                     mean_density=self.mean_density0,
                                     **self.exclusion_params)
 
