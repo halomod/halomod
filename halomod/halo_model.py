@@ -244,6 +244,9 @@ class HaloModel(MassFunction):
         A galaxy mask -- i.e. a mask on mass which restricts the range to those where galaxies exist
         for the given HOD.
         """
+        if self.hod.mmin is None:
+            return self.m >= self.m.min()
+
         if self.Mmin> self.hod.mmin:
             warnings.warn("Internal Mmin larger than required by HOD, setting lower.")
             self.update(Mmin=self.hod.mmin)
@@ -781,7 +784,7 @@ class HaloModel(MassFunction):
         c = deepcopy(self)
         c.update(hod_params={"M_min":8}, dlog10m=0.01)
 
-        integrand = c.m * c.dndm * c.n_tot
+        integrand = c.m[c._gm] * c.dndm[c._gm] * c.n_tot[c._gm]
 
         if self.hod.sharp_cut:
             integral = intg.cumtrapz(integrand[::-1], dx=np.log(c.m[1] / c.m[0]))
@@ -791,7 +794,7 @@ class HaloModel(MassFunction):
 
             ind = np.where(integral > ng)[0][0]
 
-            m = c.m[::-1][1:][max(ind - 4, 0):min(ind + 4, len(c.m))]
+            m = c.m[c._gm][::-1][1:][max(ind - 4, 0):min(ind + 4, len(c.m))]
             integral = integral[max(ind - 4, 0):min(ind + 4, len(c.m))]
 
 
@@ -805,7 +808,7 @@ class HaloModel(MassFunction):
 
             def model(mmin):
                 c.update(hod_params={"M_min":mmin})
-                integrand = c.m * c.dndm * c.n_tot
+                integrand = c.m[c._gm] * c.dndm[c._gm] * c.n_tot[c._gm]
                 integral = intg.simps(integrand, dx=np.log(c.m[1] / c.m[0]))
                 return abs(integral - ng)
 
