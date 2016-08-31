@@ -15,6 +15,29 @@ Bugfixes
 
 Older Versions
 ~~~~~~~~~~~~~~
+v1.4.1
+------
+31st August, 2016
+
+Features
+++++++++
+* Einasto profile added, with analytic h(c), and numerical u(K,c).
+* Concentration relations from Ludlow+2016 added -- both empirical and analytic model.
+
+Enhancements
+++++++++++++
+* Changed some default values in halo profiles to be in line with common expectation.
+* HOD models now by default have the ``mmin`` property as ``None``, which results in the galaxy mass range
+  equalling the DM mass range.
+
+Bugfixes
+++++++++
+* Fixed extra white-space bug in version number
+* Several fixes for WDM models to bring them into line with hmf v2+
+* Fixed issue with Mmin not affecting m on update.
+* Fixed bug when setting profile with a class rather than a string.
+* Fixed bug in Geach/Contreras HOD models where they were effectively receiving a sharp cut in m (thanks to @prollejazz)
+
 v1.4.0
 ------
 1st August, 2016
