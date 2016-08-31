@@ -53,7 +53,7 @@ class HOD(Component):
 
     @property
     def mmin(self):
-        return self.params["M_min"]
+        return None
 
 class Zehavi05(HOD):
     """
@@ -89,6 +89,10 @@ class Zehavi05(HOD):
         Number of satellite galaxies at mass M
         """
         return (M / 10 ** self.params["M_1"]) ** self.params["alpha"]
+
+    @property
+    def mmin(self):
+        return self.params["M_min"]
 
 class Zheng05(HOD):
     """
