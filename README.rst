@@ -77,16 +77,15 @@ parameters accepted by ``hmf.MassFunction()`` can be used (check its docstring).
 To change the parameters (cosmological or otherwise), one should use the 
 ``update()`` method, if a ``HaloModel()`` object already exists. For example
 
->>> hm.update(r=np.linspace(0.1,1,1000)) #update scale vector
+>>> hm.update(rmin=0.1,rmax=1.0,rnum=100) #update scale vector
 >>> corr_2h = hm.corr_gg_2h #The 2-halo term of the galaxy correlation function
 
 Since ``HaloModel`` is a sub-class of ``MassFunction``, all the quantities associated
 with the hmf are also included, so for example
 
->>> h = HaloModel()
->>> mass_variance = h.sigma
->>> mass_function = h.dndm
->>> linear_power = h.power
+>>> mass_variance = hm.sigma
+>>> mass_function = hm.dndm
+>>> linear_power = hm.power
 
 We have tried to stick to reasonable naming conventions for the quantities. In particular,
 galaxy-galaxy correlations are labelled ``xxx_gg_xxx``, matter correlations
