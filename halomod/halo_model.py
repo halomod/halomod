@@ -374,6 +374,9 @@ class HaloModel(MassFunction):
     def mean_gal_den(self):
         """
         The mean number density of galaxies
+
+        This is always the *integrated* density. If `ng` is supplied to the constructor,
+        that value can be found as :meth:`.ng`. It should be very close to this value.
         """
         if self.ng is not None:
             return self.ng
