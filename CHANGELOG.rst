@@ -8,6 +8,9 @@ Features
 
 Enhancements
 ++++++++++++
+* When matching mean galaxy density to given value, the first guess is now the DM Mmin, rather than arbitrary 8.
+* Better error message for NGException
+* mean_gal_den now returns the *calculated* mean density, rather than ng if it exists.
 
 Bugfixes
 ++++++++
