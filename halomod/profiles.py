@@ -2,9 +2,16 @@
 import numpy as np
 import scipy.special as sp
 import scipy.integrate as intg
-from scipy.interpolate import UnivariateSpline as spline
+from scipy.interpolate import InterpolatedUnivariateSpline as spline
+from scipy.interpolate import RectBivariateSpline
 import mpmath
 from hmf._framework import Component
+from scipy.special import gammainc, gamma
+import os
+import warnings
+
+def ginc(a,x):
+    return gamma(a) * gammainc(a,x)
 
 class Profile(Component):
     """
@@ -35,8 +42,10 @@ class Profile(Component):
     z : float, default 0.0
         The redshift of the halo
     """
+    _defaults={}
+
     def __init__(self, cm_relation, mean_dens,
-                 delta_halo=200.0, z=0.0):
+                 delta_halo=200.0, z=0.0,**model_parameters):
 
         self.delta_halo = delta_halo
         self.z = z
@@ -44,6 +53,8 @@ class Profile(Component):
         self.mean_dens = mean_dens
 
         self.has_lam = hasattr(self, "_l")
+
+        super(Profile, self).__init__(**model_parameters)
 
     # -- BASIC TRANSFORMATIONS --------------------------------------
     def _mvir_to_rvir(self, m):
@@ -76,7 +87,7 @@ class Profile(Component):
         Return the virial velocity for a halo of virial mass `m`.
 
         Either `m` or `r` must be passed. If both are passed, `m`
-        is preferrentially used.
+        is preferentially used.
 
         Parameters
         ----------
@@ -135,30 +146,46 @@ class Profile(Component):
 
         .. note :: This should be replaced by an analytic function if possible
         """
-        # Make sure we use enough steps to fit every period at least 5 times
-        minsteps = 1000
-        smallest_period = np.pi / K.max()
-        dx = smallest_period / 5
-        nsteps = int(np.ceil(c / dx))
+        c = np.atleast_1d(c)
+        if K.ndim < 2:
+            if len(K)!=len(c):
+                K = np.atleast_2d(K).T # should be len(rs) x len(k)
+            else:
+                K = np.atleast_2d(K)
+        minsteps = 100
 
-        if nsteps < minsteps:
-            nsteps = minsteps
-
-        x, dx = np.linspace(0, c, nsteps, retstep=True)
-        if len(K.shape) == 2:
-            kk = np.linspace(np.log(K.min()), np.log(K.max()), 1000)
+        # if len(c)>50:
+        #     C = np.linspace(c.min(),c.max(),50)
+        # else:
+        #     C = c
+        #
+        if K.size > 100:
+            kk = np.logspace(np.log10(K.min()),np.log10(K.max()),100)
         else:
-            kk = np.log(K)
+            kk = np.sort(np.flatten(K))
 
-        res = np.empty(len(kk))
-        for i, k in enumerate(kk):
-            integrand = x * self._f(x) * np.sin(np.exp(k) * x) / np.exp(k)
-            res[i] = intg.simps(integrand, dx=dx)
+        res = np.zeros_like(K)
+        intermediate_res = np.zeros((len(kk),len(c)))
 
+        for ik, kappa in enumerate(kk):
+            smallest_period = np.pi / kappa
+            dx = smallest_period / 5
 
-        if len(K.shape) == 2:
-                fit = spline(kk, res[i], k=3)
-                res = fit(K)
+            nsteps = max(int(np.ceil(c.max() / dx)),minsteps)
+
+            x, dx = np.linspace(0, c.max(), nsteps, retstep=True)
+            spl = spline(x, x*self._f(x)*np.sin(kappa*x)/kappa)
+
+            intg = spl.antiderivative()
+
+            intermediate_res[ik,:] = intg(c) - intg(0)
+
+        for ic, cc in enumerate(c):
+            #print intermediate_res.shape, kk.shape, res.shape
+            # For high K, intermediate_res can be negative, so we mask that.
+            mask = intermediate_res[:,ic]>0
+            spl = spline(np.log(kk[mask]),np.log(intermediate_res[mask,ic]),k=1)
+            res[:,ic] = np.exp(spl(np.log(K[:,ic])))
 
         return res
 
@@ -237,8 +264,8 @@ class Profile(Component):
 
         coord : str, {``k``,``kappa``}
             What the radial coordinate represents. ``r`` represents physical
-            co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius
-            (r_vir = c), and ``s`` is in units of the virial radius (r_vir = 1).
+            wavenumbers [units h/Mpc]. ``kappa`` is in units of the scale radius,
+            kappa = k*rs.
         """
         c, K = self._get_k_variables(k, m, c, coord)
 
@@ -251,7 +278,7 @@ class Profile(Component):
 
         return self._reduce(u)
 
-    def lam(self, r, m, norm=None, c=None, coord='r'):
+    def lam(self, r, m, norm="m", c=None, coord='r'):
         """
         The density profile convolved with itself.
 
@@ -363,7 +390,7 @@ class Profile(Component):
         if coord == "k":
             if np.iterable(k) and np.iterable(r_s):
                 K = np.outer(k, r_s)
-            elif np.iterable(k):
+            else:
                 K = k*r_s
         elif coord == "kappa":
             K = k
@@ -707,3 +734,55 @@ class GeneralizedNFWInf(GeneralizedNFW, ProfileInf):
         res = np.reshape(np.exp(fit(np.log(np.reshape(K, -1)))), (len(K[:, 0]), len(K[0, :])))
 
         return res
+
+
+class Einasto(Profile):
+    """
+    An Einasto profile.
+
+    This profile has no analytic Fourier Transform. The numerical FT has been pre-computed and is by default
+    used to interpolate to the correct solution. If the full numerical calculation is preferred, set the
+    model parameter ``use_interp`` to `False`. The interpolation speeds up the calculation by at least 10 times.
+    """
+    _defaults = {"alpha":0.18,
+                 "use_interp":True}
+
+    def __init__(self,*args,**kwargs):
+        super(Einasto,self).__init__(*args,**kwargs)
+
+        if self.params['alpha'] != 0.18 and self.params['use_interp']:
+            warnings.warn("Einasto interpolation for p(K,c) is only defined for alpha=0.18, switching off.")
+            self.params['use_interp'] = False
+
+    def _f(self,x):
+        a = self.params['alpha']
+        return np.exp((-2./a) * (x**a -1))
+
+    def _h(self,c):
+        a = self.params['alpha']
+        return np.exp(2/a) * (2/a)**(-3./a)*ginc(3./a, (2./a)*c**a)/a
+
+    def _p(self,K,c):
+        if self.params['use_interp']:
+            data_path = os.path.join(os.path.dirname(__file__),'data')
+            data = np.load(os.path.join(data_path,"uKc_einasto.npz"))
+
+            pk = data['pk']
+            _k = data['K']
+            _c = data['c']
+
+            c = np.atleast_1d(c)
+            if np.isscalar(K):
+                K = np.atleast_2d(K)
+            if K.ndim < 2:
+                if len(K)!=len(c):
+                    K = np.atleast_2d(K).T # should be len(rs) x len(k)
+                else:
+                    K = np.atleast_2d(K)
+            pk[pk<=0] = 1e-8
+
+            spl = RectBivariateSpline(np.log(_k),np.log(_c),np.log(pk))
+            cc = np.repeat(c,K.shape[0])
+            return np.exp(self._reduce(spl.ev(np.log(K.flatten()),np.log(cc)).reshape(K.shape)))
+        else: #Numerical version.
+            return super(Einasto,self)._p(K,c)

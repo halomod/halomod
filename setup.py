@@ -57,5 +57,6 @@ if __name__ == "__main__":
         keywords="halo occupation distribution",
         url="https://github.com/steven-murray/halomod",
         ext_modules=[fort, corr_2h],
-        packages=['halomod', 'halomod.fort']
+        packages=['halomod', 'halomod.fort'],
+        package_data={"halomod":['data/*']}
         )

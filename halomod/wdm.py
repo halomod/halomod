@@ -12,6 +12,7 @@ from hmf.wdm import MassFunctionWDM
 from hmf._framework import get_model
 import sys
 from integrate_corr import ProjectedCF
+from copy import copy
 
 #===============================================================================
 # C-M relations
@@ -31,13 +32,13 @@ def CMRelationWDMRescaled(name,**kwargs):
         super(self.__class__, self).__init__(**kwargs)
         self.m_hm = m_hm
 
-    def cm(self, m):
+    def cm(self, m, z=0):
         cm = super(self.__class__, self).cm(m)
         g1 = self.params['g1']
         g2 = self.params['g2']
         b0 = self.params['beta0']
         b1 = self.params['beta1']
-        return cm * (1 + g1 * self.m_hm / m) ** (-g2)*(1+self.z)**(b0*self.z-b1)
+        return cm * (1 + g1 * self.m_hm / m) ** (-g2)*(1+z)**(b0*z-b1)
 
 
     K = type(name + "WDM", (x,),{})
@@ -58,7 +59,7 @@ class HaloModelWDM(HaloModel, MassFunctionWDM):
     """
 
     def __init__(self, **kw):
-        kw.setdefault("cm_relation", "DuffyWDM")
+        kw.setdefault("concentration_model", "Ludlow2016")
         super(HaloModelWDM, self).__init__(**kw)
 
     # @cached_property("_wdm", "dlog10m")
@@ -71,77 +72,51 @@ class HaloModelWDM(HaloModel, MassFunctionWDM):
         """
         The total fraction of mass bound up in halos
         """
-        return self.rho_gtm[0] / self.mean_dens
+        return self.rho_gtm[0] / self.mean_density0
 
     @cached_property("f_halos","power_ss","power_sh")
     def power_mm(self):
-        power_hh = super(HaloModelWDM,self).power_mm
-    # @cached_property("f_halos", "power_ss", "power_sh", "power_hh")
-    # def power_matter(self):
-        return (1 - self.f_halos) ** 2 * self.power_ss + \
-            2 * (1 - self.f_halos) * self.f_halos * self.power_sh + \
-            self.f_halos ** 2 * power_hh
+        return (1 - self.f_halos) ** 2 * self.power_mm_ss + \
+            2 * (1 - self.f_halos) * self.f_halos * self.power_mm_sh + \
+            self.f_halos ** 2 * self.power_mm_hh
 
-    # @cached_property("power_m_1h", "power_m_2h")
-    # def power_hh(self):
-    #     return self.power_m_1h + self.power_m_2h
-    #
-    # @cached_property("_wdm", "dndm", "M", "lnk", "profile", "dlog10m", "f_halos", "mean_dens")
-    # def power_m_1h(self):
-    #     integrand = self.dndm_rescaled * self.M ** 3
-    #     u = self.profile.u(self.k, self.M, norm="m") ** 2
-    #     out = np.zeros_like(self.k)
-    #     for i, k in enumerate(self.k):
-    #         r = (np.pi / k)  # half the radius
-    #         mmin = self.filter_mod.radius_to_mass(r)
-    #         if np.any(self.M > mmin):
-    #             integ = integrand[self.M > mmin] * u[i, self.M > mmin]
-    #             out[i] = intg.simps(integ, dx=self.dlog10m) * np.log(10)
-    #         else:
-    #             out[i] = 0.0
-    #     return out / (self.f_halos * self.mean_dens) ** 2
-    #
-    # @cached_property("dndm", "_wdm", "bias", "lnk", "M", "profile", "f_halos", "mean_dens",
-    #                  "matter_power")
-    # def power_m_2h(self):
-    #     # Only use schneider for now
-    #     integrand = self.M ** 2 * self.dndm_rescaled * self.bias
-    #     out = np.zeros_like(self.k)
-    #     u = self.profile.u(np.exp(self.k), self.M, norm="m")
-    #     for i, k in enumerate(self.k):
-    #         integ = integrand * u[i, :]
-    #         out[i] = (intg.simps(integ, dx=self.dlog10m) * np.log(10))
-    #     return self.p_lin * out ** 2 / (self.f_halos * self.mean_dens) ** 2
+    @cached_property("power_mm_1h","power_mm_2h")
+    def power_mm_hh(self):
+        return super(HaloModelWDM,self).power_mm * self.mean_density0**2/self.rho_gtm[0]**2
 
     @cached_property("M","dndm","bias","profile","k","dlog10m","bias_smooth","_power_halo_centres","mean_density")
-    def power_sh(self):
-        integrand = self.M ** 2 * self.dndm * self.bias*self.profile.u(self.k, self.M, norm="m")
+    def power_mm_sh(self):
+        integrand = self.m ** 2 * self.dndm * self.bias*self.profile.u(self.k, self.m, norm="m")
         pch = intg.simps(integrand,dx=np.log(10)*self.dlog10m)
-        return self.bias_smooth * self._power_halo_centres * pch / self.mean_density
+        return self.bias_smooth * self._power_halo_centres * pch / self.rho_gtm[0]
 
     @cached_property("bias_smooth", "matter_power")
-    def power_ss(self):
+    def power_mm_ss(self):
         return self.bias_smooth ** 2 * self._power_halo_centres
 
     @cached_property("f_halos", "bias_effective_matter")
     def bias_smooth(self):
-        # integrand = self.M ** 2 * self.dndm * self.bias
-        # integral = intg.simps(integrand, dx=self.dlog10m) * np.log(10)
-        return (1-self.bias_effective_matter) / (1 - self.f_halos)
+        return (1-self.f_halos * self.bias_effective_matter) / (1 - self.f_halos)
 
-    @cached_property("_wdm")
+    @cached_property("wdm","concentration_model", "filter", "_power0", "mean_density0", "concentration_params",
+                     "growth","delta_c","profile_model","delta_halo",'cosmo')
     def cm(self):
-        kwargs = dict(nu=self.nu, z=self.z, growth=self.growth_model,
-                      M=self.M, **self.cm_params)
-        if np.issubclass_(self.cm_relation,CMRelation):
-            if self.cm_relation.__class__.__name__.endswith("WDM"):
-                cm = self.cm_relation(m_hm=self._wdm.m_hm, **kwargs)
+        this_filter = copy(self.filter)
+        this_filter.power = self._power0
+        this_profile = self.profile_model(None,self.mean_density0, self.delta_halo, self.z, **self.profile_params)
+
+        kwargs = dict(filter0=this_filter, mean_density0=self.mean_density0,
+                      growth=self.growth,delta_c=self.delta_c,profile=this_profile,
+                      cosmo = self.cosmo, delta_halo = self.delta_halo, **self.concentration_params)
+        if np.issubclass_(self.concentration_model,CMRelation):
+            if self.concentration_model.__class__.__name__.endswith("WDM"):
+                cm = self.concentration_model(m_hm=self.wdm.m_hm, **kwargs)
             else:
-                cm = self.cm_relation(**kwargs)
-        elif self.cm_relation.endswith("WDM"):
-            cm = CMRelationWDMRescaled(self.cm_relation[:-3],m_hm=self._wdm.m_hm, **kwargs)
+                cm = self.concentration_model(**kwargs)
+        elif self.concentration_model.endswith("WDM"):
+            cm = CMRelationWDMRescaled(self.concentration_model[:-3],m_hm=self.wdm.m_hm, **kwargs)
         else:
-            cm = get_model(self.cm_relation, "halomod.concentration", **kwargs)
+            cm = get_model(self.concentration_model, "halomod.concentration", **kwargs)
 
         return cm
 
