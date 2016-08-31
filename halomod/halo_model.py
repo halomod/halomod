@@ -373,15 +373,12 @@ class HaloModel(MassFunction):
     @cached_property("m", "dndm", "n_tot", "ng")
     def mean_gal_den(self):
         """
-        The mean number density of galaxies
+        The mean number density of galaxies.
 
         This is always the *integrated* density. If `ng` is supplied to the constructor,
         that value can be found as :meth:`.ng`. It should be very close to this value.
         """
-        if self.ng is not None:
-            return self.ng
-        else:
-            integrand = self.m[self._gm] * self.dndm[self._gm] * self.n_tot[self._gm]
+        integrand = self.m[self._gm] * self.dndm[self._gm] * self.n_tot[self._gm]
         return intg.trapz(integrand, dx=np.log(self.m[1] / self.m[0]))
 
 
@@ -785,7 +782,7 @@ class HaloModel(MassFunction):
 
         self.power  # This just makes sure the power is gotten and copied
         c = deepcopy(self)
-        c.update(hod_params={"M_min":8}, dlog10m=0.01)
+        c.update(hod_params={"M_min":self.Mmin}, dlog10m=0.01)
 
         integrand = c.m[c._gm] * c.dndm[c._gm] * c.n_tot[c._gm]
 
@@ -793,7 +790,9 @@ class HaloModel(MassFunction):
             integral = intg.cumtrapz(integrand[::-1], dx=np.log(c.m[1] / c.m[0]))
 
             if integral[-1] < ng:
-                raise NGException("Maximum mean galaxy density exceeded: " + str(integral[-1]))
+                raise NGException("Maximum mean galaxy density exceeded. User input required density of %, " +
+                                  "but maximum density (with HOD M_min == DM Mmin) is %s. Consider decreasing Mmin,"
+                                  "or checking ng."%(ng,integral[-1]))
 
             ind = np.where(integral > ng)[0][0]
 
@@ -807,7 +806,9 @@ class HaloModel(MassFunction):
             # Anything else requires us to do some optimization unfortunately.
             integral = intg.simps(integrand, dx=np.log(c.m[1] / c.m[0]))
             if integral < ng:
-                raise NGException("Maximum mean galaxy density exceeded: " + str(integral))
+                raise NGException("Maximum mean galaxy density exceeded. User input required density of %, " +
+                                  "but maximum density (with HOD M_min == DM Mmin) is %s. Consider decreasing Mmin,"
+                                  "or checking ng."%(ng,integral))
 
             def model(mmin):
                 c.update(hod_params={"M_min":mmin})
