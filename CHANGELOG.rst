@@ -18,6 +18,15 @@ Bugfixes
 
 Older Versions
 ~~~~~~~~~~~~~~
+v1.4.2
+------
+2nd September, 2016
+
+Bugfixes
+++++++++
+* Fixed setting of _gm (missing power of 10!)
+
+
 v1.4.1
 ------
 31st August, 2016

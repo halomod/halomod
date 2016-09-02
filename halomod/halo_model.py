@@ -251,7 +251,7 @@ class HaloModel(MassFunction):
             warnings.warn("Internal Mmin larger than required by HOD, setting lower.")
             self.update(Mmin=self.hod.mmin)
 
-        return self.m >= self.hod.mmin
+        return self.m >= 10**self.hod.mmin
 
     @cached_property("bias_model", "nu", "delta_c", "delta_halo", "n", "bias_params")
     def bias(self):
