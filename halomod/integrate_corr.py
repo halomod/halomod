@@ -13,6 +13,7 @@ from halo_model import HaloModel
 from hmf._cache import cached_property, parameter
 from halo_exclusion import dblsimps
 from hmf.cosmo import Cosmology as csm
+import warnings
 
 class ProjectedCF(HaloModel):
     def __init__(self, rp_min=0.01, rp_max=50.0, rp_num=30, rp_log=True, proj_limit=None, **kwargs):
@@ -296,6 +297,8 @@ class AngularCF(HaloModel):
         """
         Redshift distribution grid.
         """
+        if self.z < self.zmin or self.z>self.zmax:
+            warnings.warn("Your specified redshift (z=%s) is not within your selection function, z=(%s,%s)"%(self.z,self.zmin,self.zmax))
         return np.linspace(self.zmin,self.zmax,self.znum)
 
     @cached_property("logu_min","logu_max","unum")
