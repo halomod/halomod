@@ -131,38 +131,43 @@ def populate(centres, masses, profile, hodmod):
         (N,3)-array of positions of galaxies.
     """
 
-    cgal = np.zeros_like(masses)
     masses = np.array(masses)
 
     # Define which halos have central galaxies.
-    cgal[np.random.rand() < hodmod.nc(masses)] = 1.0
+    cgal = np.random.binomial(1,hodmod.nc(masses))
+    mask = cgal>0
+
+    # Clear some memory
+    masses = masses[mask]
+    centres = centres[mask]
 
     # Calculate the number of satellite galaxies in halos
-    sgal = np.zeros_like(masses)
-    sgal[cgal != 0.0] = poisson.rvs(hodmod.ns(masses[cgal != 0.0]))
+    sgal = poisson.rvs(hodmod.ns(masses))
 
     # Get an array ready, hopefully speeds things up a bit
     nhalos_with_gal = np.sum(cgal)
     allpos = np.empty((np.sum(sgal) + nhalos_with_gal, 3))
 
     # Assign central galaxy positions
-    allpos[:nhalos_with_gal, :] = centres[cgal > 0]
+    allpos[:nhalos_with_gal, :] = centres[mask]
 
-    # Clean up some memory
+    # Clean up some more memory
     del cgal
 
-    begin = nhalos_with_gal
     mask = sgal > 0
     sgal = sgal[mask]
     centres = centres[mask]
-    M = masses[mask]
+    masses = masses[mask]
+
 
     # Now go through each halo and calculate galaxy positions
+    begin = nhalos_with_gal
     start = time.time()
-    for i, m in enumerate(M):
+    for i, (m,n,ctr) in enumerate(zip(masses,sgal,centres)):
         end = begin + sgal[i]
-        allpos[begin:end, :] = profile.populate(sgal[i], m, ba=1, ca=1) + centres[i, :]
+        allpos[begin:end, :] = profile.populate(n, m, ba=1, ca=1) + ctr
         begin = end
+
     print "Took ", time.time() - start, " seconds, or ", (time.time() - start)/nhalos_with_gal, " each."
     print "MeanGal: ", np.mean(sgal + 1), "MostGal: ", sgal.max() + 1
     return allpos
