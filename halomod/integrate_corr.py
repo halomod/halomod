@@ -212,6 +212,9 @@ class AngularCF(HaloModel):
                  **kwargs):
         super(AngularCF, self).__init__(**kwargs)
 
+        if self.z < zmin or self.z>zmax:
+            warnings.warn("Your specified redshift (z=%s) is not within your selection function, z=(%s,%s)"%(self.z,zmin,zmax))
+
         if p1 is None:
             p1 = flat_z_dist(zmin,zmax)
 
@@ -297,8 +300,6 @@ class AngularCF(HaloModel):
         """
         Redshift distribution grid.
         """
-        if self.z < self.zmin or self.z>self.zmax:
-            warnings.warn("Your specified redshift (z=%s) is not within your selection function, z=(%s,%s)"%(self.z,self.zmin,self.zmax))
         return np.linspace(self.zmin,self.zmax,self.znum)
 
     @cached_property("logu_min","logu_max","unum")
