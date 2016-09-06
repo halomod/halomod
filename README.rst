@@ -53,6 +53,7 @@ Features
 * All basic quantities such as 3D correlations and power spectra, and projected 2PCF.
 * Several derived quantities (eg. effective bias, satellite fraction etc.)
 * All models/components specifically written to be easily extendible
+* Simple routine for populating a halo catalogue with galaxies via a HOD.
 * Built-in routines for efficient fitting of arbitrary parameters to data. **BETA**
 * CLI scripts both for producing any quantity included, or fitting any quantity. **BETA**
 

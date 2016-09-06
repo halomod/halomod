@@ -5,6 +5,7 @@ Development Version
 ~~~~~~~~~~~~~~~~~~~
 Features
 ++++++++
+* Function to populate a halo catalogue with HOD-derived galaxies now properly implemented.
 
 Enhancements
 ++++++++++++
