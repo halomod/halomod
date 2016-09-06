@@ -107,7 +107,7 @@ def exclusion_window(k, r):
     return 3*(np.sin(x) - x*np.cos(x))/x**3
 
 
-def populate(centres, masses, profile, hodmod):
+def populate(centres, masses, halomodel=None,profile=None, hodmod=None,edges=None):
     """
     Populate a series of DM halos with galaxies given a HOD model.
 
@@ -119,17 +119,29 @@ def populate(centres, masses, profile, hodmod):
     masses : array_like
         The masses (in M_sun/h) of the halos
 
+    halomodel : type :class:`halomod.HaloModel`
+        A HaloModel object pre-instantiated. One can either use this, or
+        *both* `profile` and `hodmod` arguments.
+
     profile : type :class:`profile.Profile`
         A density profile to use.
 
     hodmod : object of type :class:`hod.HOD`
         A HOD model to use to populate the dark matter.
 
+    edges : float, len(2) iterable, or (2,3)-array
+        Periodic box edges. If float, defines the upper limit of cube, with lower limit at zero.
+        If len(2) iterable, defines edges of cube.
+        If (2,3)-array, specifies edges of arbitrary rectangular prism.
+
     Returns
     -------
     array :
         (N,3)-array of positions of galaxies.
     """
+    if halomodel is not None:
+        profile = halomodel.profile
+        hodmod = halomodel.hod
 
     masses = np.array(masses)
 
@@ -146,10 +158,10 @@ def populate(centres, masses, profile, hodmod):
 
     # Get an array ready, hopefully speeds things up a bit
     nhalos_with_gal = np.sum(cgal)
-    allpos = np.empty((np.sum(sgal) + nhalos_with_gal, 3))
+    pos = np.empty((np.sum(sgal) + nhalos_with_gal, 3))
 
     # Assign central galaxy positions
-    allpos[:nhalos_with_gal, :] = centres[mask]
+    pos[:nhalos_with_gal, :] = centres
 
     # Clean up some more memory
     del cgal
@@ -165,9 +177,24 @@ def populate(centres, masses, profile, hodmod):
     start = time.time()
     for i, (m,n,ctr) in enumerate(zip(masses,sgal,centres)):
         end = begin + sgal[i]
-        allpos[begin:end, :] = profile.populate(n, m, ba=1, ca=1) + ctr
+        pos[begin:end, :] = profile.populate(n, m, ba=1, ca=1,centre=ctr)
         begin = end
 
     print "Took ", time.time() - start, " seconds, or ", (time.time() - start)/nhalos_with_gal, " each."
     print "MeanGal: ", np.mean(sgal + 1), "MostGal: ", sgal.max() + 1
-    return allpos
+
+    if edges is None:
+        pass
+    elif np.isscalar(edges):
+        edges = np.array([[0,0,0],[edges,edges,edges]])
+    elif np.array(edges).shape==(2,):
+        edges = np.array([[edges[0]]*3, [edges[1]]*3])
+
+    if edges is not None:
+        for j in range(3):
+            d = pos[:,j] - edges[0][j]
+            pos[d<0,j] = edges[1][j] + d[d<0]
+            d = pos[:,j] - edges[1][j]
+            pos[d>0,j] = edges[0][j] + d[d>0]
+
+    return pos
