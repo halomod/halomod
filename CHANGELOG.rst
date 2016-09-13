@@ -13,10 +13,12 @@ Enhancements
 * Better error message for NGException
 * mean_gal_den now returns the *calculated* mean density, rather than ng if it exists.
 * If supplied redshift is outside redshift selection for AngularCF, warning is printed.
+* Mmin now set to 0 by default, to enable better matter-matter statistics.
 
 Bugfixes
 ++++++++
-
+* __density_mod_mm added so that __density_mod not overwritten when getting matter correlations.
+* __density_mod_mm modified to account for the fact that m[0] != 0, when halo exclusion performed.
 
 Older Versions
 ~~~~~~~~~~~~~~
