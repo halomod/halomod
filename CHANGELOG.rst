@@ -19,6 +19,7 @@ Bugfixes
 ++++++++
 * __density_mod_mm added so that __density_mod not overwritten when getting matter correlations.
 * __density_mod_mm modified to account for the fact that m[0] != 0, when halo exclusion performed.
+* Several fixes for correlation functions not being counts (+1 errors)
 
 Older Versions
 ~~~~~~~~~~~~~~
