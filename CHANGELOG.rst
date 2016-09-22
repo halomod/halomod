@@ -6,6 +6,7 @@ Development Version
 Features
 ++++++++
 * Function to populate a halo catalogue with HOD-derived galaxies now properly implemented.
+* Populate routine also returns an array with indices of the halos associated with each galaxy.
 
 Enhancements
 ++++++++++++
