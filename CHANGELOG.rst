@@ -15,7 +15,12 @@ Enhancements
 * mean_gal_den now returns the *calculated* mean density, rather than ng if it exists.
 * If supplied redshift is outside redshift selection for AngularCF, warning is printed.
 * Mmin now set to 0 by default, to enable better matter-matter statistics.
-
+* Entirely revised system for HODs, especially concerning the "central condition":
+  * Ns, not Ntot, now modified, giving consistent results for all derived quantities
+  * Pair-counts now intrinsic to HOD class.
+  * ``populate()`` routine handles both cases -- where centrals are required, and not.
+  * Documentation in HOD module explaining the assumptions made.
+  
 Bugfixes
 ++++++++
 * __density_mod_mm added so that __density_mod not overwritten when getting matter correlations.
