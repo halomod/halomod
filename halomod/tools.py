@@ -161,7 +161,9 @@ def populate(centres, masses, halomodel=None, profile=None, hodmod=None, edges=N
     centres = centres[mask]
 
     # Calculate the number of satellite galaxies in halos
-    sgal = poisson.rvs(hodmod.ns(masses))
+    # Using _ns, rather than ns, gives the correct answer for both central condition and not.
+    # Note that other parts of the algorithm also need to be changed if central condition is not true.
+    sgal = poisson.rvs(hodmod._ns(masses))
 
     # Get an array ready, hopefully speeds things up a bit
     nhalos_with_gal = np.sum(cgal)
