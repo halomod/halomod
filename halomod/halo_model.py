@@ -7,6 +7,8 @@ import numpy as np
 from scipy.optimize import minimize
 # import scipy.special as sp
 
+USEFORT = False
+
 from hmf import MassFunction
 from hmf._cache import cached_property, parameter
 # import hmf.tools as ht
@@ -14,7 +16,8 @@ import tools
 import hod
 from concentration import CMRelation
 from halo_exclusion import Exclusion, NoExclusion
-from fort.routines import hod_routines as fort
+if USEFORT:
+    from fort.routines import hod_routines as fort
 from copy import copy,deepcopy
 from numpy import issubclass_
 from hmf._framework import get_model,get_model_
@@ -23,7 +26,6 @@ import bias
 from hmf.filters import TopHat
 import warnings
 
-USEFORT = False
 
 ## TODO: I probably need to split this class into two: one for pure matter HaloModel,
 ##       one for galaxies (inheriting). This is because the Mmin setting should be
@@ -596,9 +598,7 @@ class HaloModel(MassFunction):
                                      central=self.hod._central)
         else:
             u = self.profile_ukm[:,self._gm]
-            integ = u**2 * self.dndm[self._gm] * self.m[self._gm] * self.n_sat[self._gm]**2
-            if self.hod._central:
-                integ *= self.n_cen[self._gm]
+            integ = u**2 * self.dndm[self._gm] * self.m[self._gm] * self.hod.ss_pairs(self.m[self._gm])
 
             ### The following may not need to be done?
             # TODO: investigate what on earth to do here.
@@ -618,9 +618,7 @@ class HaloModel(MassFunction):
     def corr_gg_1h_ss(self):
         if self.profile.has_lam:
             lam = self.profile.lam(self.r, self.m[self._gm], norm="m")
-            integ = self.m[self._gm]* self.dndm[self._gm] * self.n_sat[self._gm]**2* lam
-            if self.hod._central:
-                integ *= self.n_cen[self._gm]
+            integ = self.m[self._gm]* self.dndm[self._gm] * self.hod.ss_pairs(self.m[self._gm])* lam
 
             c = intg.trapz(integ,dx=self.dlog10m*np.log(10))
 
@@ -634,7 +632,7 @@ class HaloModel(MassFunction):
     def power_gg_1h_cs(self):
         """The cen-sat part of the 1-halo galaxy-galaxy power"""
         u = self.profile_ukm[:,self._gm]
-        integ = self.dndm[self._gm] * 2 * self.n_cen[self._gm] * self.n_sat[self._gm] * u * self.m[self._gm]
+        integ = self.dndm[self._gm] * 2 * self.hod.cs_pairs(self.m[self._gm]) * u * self.m[self._gm]
 
         ### The following may not need to be done?
         # TODO: investigate what on earth to do here.
@@ -680,7 +678,7 @@ class HaloModel(MassFunction):
                                     mean_dens=self.mean_density0,
                                     delta_halo=self.delta_halo)
         else:
-            integ = self.dndm[self._gm] * 2 * self.n_cen[self._gm] * self.n_sat[self._gm] * rho * self.m[self._gm]
+            integ = self.dndm[self._gm] * 2 * self.hod.cs_pairs(self.m)[self._gm] * rho * self.m[self._gm]
             c = intg.trapz(integ,dx=self.dlog10m*np.log(10))
 
         return c / self.mean_gal_den ** 2 - 1
@@ -708,7 +706,8 @@ class HaloModel(MassFunction):
                                      mean_dens=self.mean_density0,
                                      delta_halo=self.delta_halo)
             else:
-                integ = self.m[self._gm]* self.dndm[self._gm] * self.n_sat[self._gm]*(self.n_sat[self._gm] * lam + 2*rho)
+                integ = self.m[self._gm]* self.dndm[self._gm] * (self.hod.ss_pairs(self.m[self._gm]) * lam +
+                                                                 2*self.hod.cs_pairs(self.m[self._gm])*rho)
                 if self.hod._central:
                     integ *= self.n_cen[self._gm]
 
