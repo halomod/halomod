@@ -7,6 +7,8 @@ import numpy as np
 from scipy.optimize import minimize
 # import scipy.special as sp
 
+USEFORT = False
+
 from hmf import MassFunction
 from hmf._cache import cached_property, parameter
 # import hmf.tools as ht
@@ -14,7 +16,8 @@ import tools
 import hod
 from concentration import CMRelation
 from halo_exclusion import Exclusion, NoExclusion
-from fort.routines import hod_routines as fort
+if USEFORT:
+    from fort.routines import hod_routines as fort
 from copy import copy,deepcopy
 from numpy import issubclass_
 from hmf._framework import get_model,get_model_
@@ -23,7 +26,6 @@ import bias
 from hmf.filters import TopHat
 import warnings
 
-USEFORT = False
 
 ## TODO: I probably need to split this class into two: one for pure matter HaloModel,
 ##       one for galaxies (inheriting). This is because the Mmin setting should be
@@ -52,11 +54,11 @@ class HaloModel(MassFunction):
                  bias_model="Tinker10",bias_params={},
                  sd_bias_model="Tinker_SD05",sd_bias_params={},
                  exclusion_model="NgMatched",exclusion_params={},
-                 hc_spectrum="nonlinear",ng=None,Mmax=18,
+                 hc_spectrum="nonlinear",ng=None,Mmin=0,Mmax=18,
                  ** hmf_kwargs):
 
         # Do Mass Function __init__ MUST BE DONE FIRST (to init Cache)
-        super(HaloModel, self).__init__(Mmax=Mmax, **hmf_kwargs)
+        super(HaloModel, self).__init__(Mmin=Mmin, Mmax=Mmax, **hmf_kwargs)
 
         # Initially save parameters to the class.
         self.hod_params = hod_params
@@ -373,12 +375,12 @@ class HaloModel(MassFunction):
     @cached_property("m", "dndm", "n_tot", "ng")
     def mean_gal_den(self):
         """
-        The mean number density of galaxies
+        The mean number density of galaxies.
+
+        This is always the *integrated* density. If `ng` is supplied to the constructor,
+        that value can be found as :meth:`.ng`. It should be very close to this value.
         """
-        if self.ng is not None:
-            return self.ng
-        else:
-            integrand = self.m[self._gm] * self.dndm[self._gm] * self.n_tot[self._gm]
+        integrand = self.m[self._gm] * self.dndm[self._gm] * self.n_tot[self._gm]
         return intg.trapz(integrand, dx=np.log(self.m[1] / self.m[0]))
 
 
@@ -518,7 +520,7 @@ class HaloModel(MassFunction):
             lam = self.profile_lam
             integrand = self.dndm * self.m ** 3 * lam
 
-            return intg.trapz(integrand,dx=np.log(10)*self.dlog10m)/self.mean_density0**2
+            return intg.trapz(integrand,dx=np.log(10)*self.dlog10m)/self.mean_density0**2 - 1
         else:
             return tools.power_to_corr_ogata(self.power_mm_1h,self.k,self.r)
 
@@ -534,7 +536,7 @@ class HaloModel(MassFunction):
         # do the normal integral which includes biasing...
         if self.exclusion_model != NoExclusion:
             u = self.profile_ukm
-            bias= np.ones_like(self.m)
+            bias= self.bias
             inst = self.exclusion_model(m=self.m,density=self.dndlnm,
                                         I=self.dndlnm*u/self.rho_gtm[0],bias=bias,r=self.r,
                                         delta_halo=self.delta_halo,
@@ -544,10 +546,14 @@ class HaloModel(MassFunction):
         else:
             inst = 0
             mult = 1
+
         if hasattr(inst,"density_mod"):
-            self.__density_mod = inst.density_mod
+            self.__density_mod_mm = inst.density_mod
+            #FIXME: this is a bit of a hack, to take account of the fact that m[0] is not exactly 0, but should
+            # be in the analytic integral.
+            self.__density_mod_mm *= self.mean_density0/ self.rho_gtm[0]
         else:
-            self.__density_mod = self.mean_density0
+            self.__density_mod_mm = self.mean_density0
 
         return mult * self._power_halo_centres
 
@@ -559,12 +565,12 @@ class HaloModel(MassFunction):
             corr = tools.power_to_corr_ogata(self.power_mm_2h,self.k,self.r)
 
         ## modify by the new density
-        return (self.__density_mod/self.mean_density0)**2 * (1+corr)-1
+        return (self.__density_mod_mm/self.mean_density0)**2 * (1+corr)-1
 
     @cached_property("corr_mm_1h", "corr_mm_2h")
     def corr_mm(self):
         """The halo-model-derived matter correlation function"""
-        return self.corr_mm_1h + self.corr_mm_2h
+        return self.corr_mm_1h + self.corr_mm_2h + 1
 
     @cached_property("power_mm_1h","power_mm_2h")
     def power_mm(self):
@@ -592,9 +598,7 @@ class HaloModel(MassFunction):
                                      central=self.hod._central)
         else:
             u = self.profile_ukm[:,self._gm]
-            integ = u**2 * self.dndm[self._gm] * self.m[self._gm] * self.n_sat[self._gm]**2
-            if self.hod._central:
-                integ *= self.n_cen[self._gm]
+            integ = u**2 * self.dndm[self._gm] * self.m[self._gm] * self.hod.ss_pairs(self.m[self._gm])
 
             ### The following may not need to be done?
             # TODO: investigate what on earth to do here.
@@ -614,13 +618,11 @@ class HaloModel(MassFunction):
     def corr_gg_1h_ss(self):
         if self.profile.has_lam:
             lam = self.profile.lam(self.r, self.m[self._gm], norm="m")
-            integ = self.m[self._gm]* self.dndm[self._gm] * self.n_sat[self._gm]**2* lam
-            if self.hod._central:
-                integ *= self.n_cen[self._gm]
+            integ = self.m[self._gm]* self.dndm[self._gm] * self.hod.ss_pairs(self.m[self._gm])* lam
 
             c = intg.trapz(integ,dx=self.dlog10m*np.log(10))
 
-            return c / self.mean_gal_den ** 2
+            return c / self.mean_gal_den ** 2 - 1
         else:
             return tools.power_to_corr_ogata(self.power_gg_1h_ss,
                                              self.k, self.r)
@@ -630,7 +632,7 @@ class HaloModel(MassFunction):
     def power_gg_1h_cs(self):
         """The cen-sat part of the 1-halo galaxy-galaxy power"""
         u = self.profile_ukm[:,self._gm]
-        integ = self.dndm[self._gm] * 2 * self.n_cen[self._gm] * self.n_sat[self._gm] * u * self.m[self._gm]
+        integ = self.dndm[self._gm] * 2 * self.hod.cs_pairs(self.m[self._gm]) * u * self.m[self._gm]
 
         ### The following may not need to be done?
         # TODO: investigate what on earth to do here.
@@ -676,10 +678,10 @@ class HaloModel(MassFunction):
                                     mean_dens=self.mean_density0,
                                     delta_halo=self.delta_halo)
         else:
-            integ = self.dndm[self._gm] * 2 * self.n_cen[self._gm] * self.n_sat[self._gm] * rho * self.m[self._gm]
+            integ = self.dndm[self._gm] * 2 * self.hod.cs_pairs(self.m)[self._gm] * rho * self.m[self._gm]
             c = intg.trapz(integ,dx=self.dlog10m*np.log(10))
 
-        return c / self.mean_gal_den ** 2
+        return c / self.mean_gal_den ** 2 - 1
 
 
     @cached_property("r", "m", "dndm", "n_cen", "n_sat", "hod", "mean_density0", "delta_halo",
@@ -704,16 +706,17 @@ class HaloModel(MassFunction):
                                      mean_dens=self.mean_density0,
                                      delta_halo=self.delta_halo)
             else:
-                integ = self.m[self._gm]* self.dndm[self._gm] * self.n_sat[self._gm]*(self.n_sat[self._gm] * lam + 2*rho)
+                integ = self.m[self._gm]* self.dndm[self._gm] * (self.hod.ss_pairs(self.m[self._gm]) * lam +
+                                                                 2*self.hod.cs_pairs(self.m[self._gm])*rho)
                 if self.hod._central:
                     integ *= self.n_cen[self._gm]
 
                 c = intg.trapz(integ,dx=self.dlog10m*np.log(10))
 
-            return c / self.mean_gal_den ** 2 -1
+            return c / self.mean_gal_den ** 2 - 1
 
         else:
-            return self.corr_gg_1h_cs + self.corr_gg_1h_ss -1
+            return self.corr_gg_1h_cs + self.corr_gg_1h_ss + 1
 
     @cached_property("profile","k","m","sd_bias_model","sd_bias","bias",
                      "exclusion_model","dndlnm",'r',"delta_halo","mean_density0",
@@ -782,7 +785,7 @@ class HaloModel(MassFunction):
 
         self.power  # This just makes sure the power is gotten and copied
         c = deepcopy(self)
-        c.update(hod_params={"M_min":8}, dlog10m=0.01)
+        c.update(hod_params={"M_min":self.Mmin}, dlog10m=0.01)
 
         integrand = c.m[c._gm] * c.dndm[c._gm] * c.n_tot[c._gm]
 
@@ -790,7 +793,9 @@ class HaloModel(MassFunction):
             integral = intg.cumtrapz(integrand[::-1], dx=np.log(c.m[1] / c.m[0]))
 
             if integral[-1] < ng:
-                raise NGException("Maximum mean galaxy density exceeded: " + str(integral[-1]))
+                raise NGException("Maximum mean galaxy density exceeded. User input required density of %, " +
+                                  "but maximum density (with HOD M_min == DM Mmin) is %s. Consider decreasing Mmin,"
+                                  "or checking ng."%(ng,integral[-1]))
 
             ind = np.where(integral > ng)[0][0]
 
@@ -804,7 +809,9 @@ class HaloModel(MassFunction):
             # Anything else requires us to do some optimization unfortunately.
             integral = intg.simps(integrand, dx=np.log(c.m[1] / c.m[0]))
             if integral < ng:
-                raise NGException("Maximum mean galaxy density exceeded: " + str(integral))
+                raise NGException("Maximum mean galaxy density exceeded. User input required density of %, " +
+                                  "but maximum density (with HOD M_min == DM Mmin) is %s. Consider decreasing Mmin,"
+                                  "or checking ng."%(ng,integral))
 
             def model(mmin):
                 c.update(hod_params={"M_min":mmin})

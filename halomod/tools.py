@@ -107,7 +107,7 @@ def exclusion_window(k, r):
     return 3*(np.sin(x) - x*np.cos(x))/x**3
 
 
-def populate(centres, masses, profile, hodmod):
+def populate(centres, masses, halomodel=None, profile=None, hodmod=None, edges=None):
     """
     Populate a series of DM halos with galaxies given a HOD model.
 
@@ -119,50 +119,113 @@ def populate(centres, masses, profile, hodmod):
     masses : array_like
         The masses (in M_sun/h) of the halos
 
+    halomodel : type :class:`halomod.HaloModel`
+        A HaloModel object pre-instantiated. One can either use this, or
+        *both* `profile` and `hodmod` arguments.
+
     profile : type :class:`profile.Profile`
         A density profile to use.
 
     hodmod : object of type :class:`hod.HOD`
         A HOD model to use to populate the dark matter.
 
+    edges : float, len(2) iterable, or (2,3)-array
+        Periodic box edges. If float, defines the upper limit of cube, with lower limit at zero.
+        If len(2) iterable, defines edges of cube.
+        If (2,3)-array, specifies edges of arbitrary rectangular prism.
+
     Returns
     -------
-    array :
+    pos : array
         (N,3)-array of positions of galaxies.
-    """
 
-    cgal = np.zeros_like(masses)
+    halo : array
+        (N)-array of associated haloes (by index)
+
+    H : int
+        Number of central galaxies. The first H galaxies in pos/halo correspond to centrals.
+    """
+    if halomodel is not None:
+        profile = halomodel.profile
+        hodmod = halomodel.hod
+
     masses = np.array(masses)
 
     # Define which halos have central galaxies.
-    cgal[np.random.rand() < hodmod.nc(masses)] = 1.0
+    cgal = np.random.binomial(1, hodmod.nc(masses))
+    cmask = cgal > 0
+    central_halos = np.arange(len(masses))[cmask]
+
+    if hodmod._central:
+        masses = masses[cmask]
+        centres = centres[cmask]
 
     # Calculate the number of satellite galaxies in halos
-    sgal = np.zeros_like(masses)
-    sgal[cgal != 0.0] = poisson.rvs(hodmod.ns(masses[cgal != 0.0]))
+    # Using _ns, rather than ns, gives the correct answer for both central condition and not.
+    # Note that other parts of the algorithm also need to be changed if central condition is not true.
+    # if hodmod._central:
+    #     sgal = poisson.rvs(hodmod._ns(masses[cmask]))
+    # else:
+    sgal = poisson.rvs(hodmod._ns(masses))
 
     # Get an array ready, hopefully speeds things up a bit
-    nhalos_with_gal = np.sum(cgal)
-    allpos = np.empty((np.sum(sgal) + nhalos_with_gal, 3))
-
-    # Assign central galaxy positions
-    allpos[:nhalos_with_gal, :] = centres[cgal > 0]
+    ncen = np.sum(cgal)
+    nsat = np.sum(sgal)
 
     # Clean up some memory
-    del cgal
+    #del cgal
 
-    begin = nhalos_with_gal
-    mask = sgal > 0
-    sgal = sgal[mask]
-    centres = centres[mask]
-    M = masses[mask]
+    pos = np.empty((ncen + nsat, 3))
+    halo = np.empty(ncen+nsat)
+
+    # Assign central galaxy positions
+    halo[:ncen] = central_halos
+    if hodmod._central:
+        pos[:ncen, :] = centres
+    else:
+        pos[:ncen, :] = centres[cmask]
+
+
+    smask = sgal > 0
+    # if hodmod._central:
+    #     sat_halos = central_halos[np.arange(len(masses[cmask]))[smask]]
+    # else:
+    if hodmod._central:
+        sat_halos = central_halos[np.arange(len(masses))[smask]]
+    else:
+        sat_halos = np.arange(len(masses))[smask]
+
+    sgal = sgal[smask]
+    centres = centres[smask]
+    masses = masses[smask]
 
     # Now go through each halo and calculate galaxy positions
+    begin = ncen
     start = time.time()
-    for i, m in enumerate(M):
+    for i, (m, n, ctr) in enumerate(zip(masses, sgal, centres)):
         end = begin + sgal[i]
-        allpos[begin:end, :] = profile.populate(sgal[i], m, ba=1, ca=1) + centres[i, :]
+        pos[begin:end, :] = profile.populate(n, m, ba=1, ca=1, centre=ctr)
+        halo[begin:end] = sat_halos[i]
         begin = end
-    print "Took ", time.time() - start, " seconds, or ", (time.time() - start)/nhalos_with_gal, " each."
-    print "MeanGal: ", np.mean(sgal + 1), "MostGal: ", sgal.max() + 1
-    return allpos
+
+    nhalos_with_gal = len(set(central_halos.tolist()+sat_halos.tolist()))
+
+    print "Took ", time.time() - start, " seconds, or ", (time.time() - start)/nhalos_with_gal, " each halo."
+    print "NhalosWithGal: ", nhalos_with_gal, ", Ncentrals: ", ncen,", NumGal: ", len(halo), ", MeanGal: ", float(
+        len(halo))/nhalos_with_gal, ", MostGal: ", sgal.max() + 1
+
+    if edges is None:
+        pass
+    elif np.isscalar(edges):
+        edges = np.array([[0, 0, 0], [edges, edges, edges]])
+    elif np.array(edges).shape == (2,):
+        edges = np.array([[edges[0]]*3, [edges[1]]*3])
+
+    if edges is not None:
+        for j in range(3):
+            d = pos[:, j] - edges[0][j]
+            pos[d < 0, j] = edges[1][j] + d[d < 0]
+            d = pos[:, j] - edges[1][j]
+            pos[d > 0, j] = edges[0][j] + d[d > 0]
+
+    return pos, halo.astype("int"), ncen

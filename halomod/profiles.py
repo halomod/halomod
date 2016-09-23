@@ -407,9 +407,46 @@ class Profile(Component):
         else:
             return x
 
-    #===========================================================================
-    # CONCENTRATION-MASS RELATIONS
-    #===========================================================================
+    def populate(self,N,m, c=None, ba=1,ca=1,centre = np.zeros(3)):
+        """
+        Populate a halo with the current profile of mass ``m`` with ``N`` tracers.
+
+        Parameters
+        ----------
+        N : int
+            Number of tracers to place down
+
+        m : float
+            Mass of the halo.
+
+        c : float, optional
+            Concentration of the halo. Will be calculated if not given.
+
+        ba,bc : float
+            Major and minor axis ratios. **Currently not implemented**. Only spherical haloes supported.
+
+        centre : 3-array
+            (x,y,z) co-ordinates of centre of halo
+
+        Returns
+        -------
+        pos : (N,3)-array
+            Array of positions of the tracers, centred around (0,0,0).
+        """
+        c, r_s, x = self._get_r_variables(np.linspace(0,1,1000), m, c, coord='s')
+
+        cdf = self.cdf(x,c,m,coord='x')
+        spl = spline(cdf,x,k=3)
+
+        rnd = np.random.uniform(size=N)
+        x = spl(rnd)
+
+        r = r_s * x
+        pos = np.random.normal(size=(3,N))
+        pos *= r/np.sqrt(np.sum(pos**2,axis=0))
+        return pos.T + centre
+
+
 class ProfileInf(Profile):
     """
     An extended profile (not truncated at x=c)
