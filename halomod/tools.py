@@ -143,7 +143,7 @@ def populate(centres, masses, halomodel=None, profile=None, hodmod=None, edges=N
         (N)-array of associated haloes (by index)
 
     H : int
-        Number of haloes with galaxies. The first H galaxies in pos/halo correspond to centrals.
+        Number of central galaxies. The first H galaxies in pos/halo correspond to centrals.
     """
     if halomodel is not None:
         profile = halomodel.profile
@@ -153,39 +153,54 @@ def populate(centres, masses, halomodel=None, profile=None, hodmod=None, edges=N
 
     # Define which halos have central galaxies.
     cgal = np.random.binomial(1, hodmod.nc(masses))
-    mask = cgal > 0
-    central_halos = np.arange(len(masses))[mask]
+    cmask = cgal > 0
+    central_halos = np.arange(len(masses))[cmask]
 
-    # Clear some memory
-    masses = masses[mask]
-    centres = centres[mask]
+    if hodmod._central:
+        masses = masses[cmask]
+        centres = centres[cmask]
 
     # Calculate the number of satellite galaxies in halos
     # Using _ns, rather than ns, gives the correct answer for both central condition and not.
     # Note that other parts of the algorithm also need to be changed if central condition is not true.
+    # if hodmod._central:
+    #     sgal = poisson.rvs(hodmod._ns(masses[cmask]))
+    # else:
     sgal = poisson.rvs(hodmod._ns(masses))
 
     # Get an array ready, hopefully speeds things up a bit
-    nhalos_with_gal = np.sum(cgal)
-    pos = np.empty((np.sum(sgal) + nhalos_with_gal, 3))
-    halo = np.empty(np.sum(sgal) + nhalos_with_gal)
+    ncen = np.sum(cgal)
+    nsat = np.sum(sgal)
+
+    # Clean up some memory
+    #del cgal
+
+    pos = np.empty((ncen + nsat, 3))
+    halo = np.empty(ncen+nsat)
 
     # Assign central galaxy positions
-    pos[:nhalos_with_gal, :] = centres
-    halo[:nhalos_with_gal] = central_halos
+    halo[:ncen] = central_halos
+    if hodmod._central:
+        pos[:ncen, :] = centres
+    else:
+        pos[:ncen, :] = centres[cmask]
 
-    # Clean up some more memory
-    del cgal
 
-    mask = sgal > 0
-    sat_halos = central_halos[np.arange(len(masses))[mask]]
+    smask = sgal > 0
+    # if hodmod._central:
+    #     sat_halos = central_halos[np.arange(len(masses[cmask]))[smask]]
+    # else:
+    if hodmod._central:
+        sat_halos = central_halos[np.arange(len(masses))[smask]]
+    else:
+        sat_halos = np.arange(len(masses))[smask]
 
-    sgal = sgal[mask]
-    centres = centres[mask]
-    masses = masses[mask]
+    sgal = sgal[smask]
+    centres = centres[smask]
+    masses = masses[smask]
 
     # Now go through each halo and calculate galaxy positions
-    begin = nhalos_with_gal
+    begin = ncen
     start = time.time()
     for i, (m, n, ctr) in enumerate(zip(masses, sgal, centres)):
         end = begin + sgal[i]
@@ -193,9 +208,11 @@ def populate(centres, masses, halomodel=None, profile=None, hodmod=None, edges=N
         halo[begin:end] = sat_halos[i]
         begin = end
 
+    nhalos_with_gal = len(set(central_halos.tolist()+sat_halos.tolist()))
+
     print "Took ", time.time() - start, " seconds, or ", (time.time() - start)/nhalos_with_gal, " each halo."
-    print "NhalosWithGal: ", nhalos_with_gal, "NumGal: ", len(halo), "MeanGal: ", float(
-        len(halo))/nhalos_with_gal, "MostGal: ", sgal.max() + 1
+    print "NhalosWithGal: ", nhalos_with_gal, ", Ncentrals: ", ncen,", NumGal: ", len(halo), ", MeanGal: ", float(
+        len(halo))/nhalos_with_gal, ", MostGal: ", sgal.max() + 1
 
     if edges is None:
         pass
@@ -211,4 +228,4 @@ def populate(centres, masses, halomodel=None, profile=None, hodmod=None, edges=N
             d = pos[:, j] - edges[1][j]
             pos[d > 0, j] = edges[0][j] + d[d > 0]
 
-    return pos, halo.astype("int"), nhalos_with_gal
+    return pos, halo.astype("int"), ncen
