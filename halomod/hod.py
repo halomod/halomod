@@ -132,7 +132,6 @@ class Zehavi05(HOD):
                  "M_1":12.851,
                  "alpha":1.049}
     sharp_cut = True
-    central_condition_inherent = True
 
     def _nc(self, M):
         """
@@ -274,6 +273,7 @@ class Tinker05(Zehavi05):
     _defaults = {"M_min":11.6222,
                  "M_1":12.851,
                  "M_cut":12.0}
+    central_condition_inherent = True
 
     def _ns(self,M):
         out = self.nc(M)
