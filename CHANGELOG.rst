@@ -3,7 +3,11 @@ Releases
 
 Development Version
 ~~~~~~~~~~~~~~~~~~~
-
+Enhancements
+++++++++++++
+* Fortran routines have not been used for quite a few versions, but now dependence on having gfortran has been
+  removed by default. To install fortran routines, use "WITH_FORTRAN=True pip install halomod". There's no reason
+  you should do this though.
 
 Older Versions
 ~~~~~~~~~~~~~~
