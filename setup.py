@@ -56,7 +56,7 @@ if __name__ == "__main__":
         license='MIT',
         keywords="halo occupation distribution",
         url="https://github.com/steven-murray/halomod",
-        ext_modules=[fort, corr_2h],
-        packages=['halomod', 'halomod.fort'],
+        ext_modules=[fort, corr_2h] if os.getenv("WITH_FORTRAN",None) else [],
+        packages=['halomod', 'halomod.fort'] if os.getenv("WITH_FORTRAN",None) else ['halomod'],
         package_data={"halomod":['data/*']}
         )

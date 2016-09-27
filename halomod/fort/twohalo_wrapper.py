@@ -2,7 +2,7 @@
 Provides a simple wrapper for the 2-halo term function, which is written in 
 fortran (as it is one of the most compute-intensive parts of the calculation). 
 """
-from fort.twohalo import twohalo_calc as thalo
+from twohalo import twohalo_calc as thalo
 import numpy as np
 
 def twohalo_wrapper(excl, sdb, m, bias, ntot, dndm, lnk, dmpower, u, r, dmcorr,
