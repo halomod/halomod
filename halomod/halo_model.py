@@ -472,6 +472,56 @@ class HaloModel(MassFunction):
         elif self.hc_spectrum=="nonlinear" or self.hc_spectrum=="filtered-nl":
             return self.corr_mm_halofit
 
+    def power_hh(self,mmin=None,mmax=None,mmin2=None,mmax2=None):
+        """
+        The halo-centre power spectrum of haloes in a given mass range.
+
+        The power of a given pair of halo masses is assumed to be linearly biased,
+        :math:`P_hh(k) = b(m_1)b(m_2)P_{lin}(k)`
+
+        Parameters
+        ----------
+        mmin : real, default :attr:`.Mmin`
+            The minimum halo mass of the range (for the first of the halo pairs).
+            Note: masses here are log10 masses.
+
+        mmax : real, default :attr:`.Mmax`
+            The maximum halo mass of the range (for the first of the halo pairs).
+            If a single halo mass is desired, set mmax==mmin.
+
+        mmin2 : real, default `None`
+            The minimum halo mass of the range (for the second of the halo pairs).
+            By default, takes the same value as `mmin`.
+
+        mmax : real, default `None`
+            The maximum halo mass of the range (for the second of the halo pairs).
+            By default, takes the same value as `mmin`.
+        """
+        if mmin is None:
+            mmin = self.Mmin
+        if mmax is None:
+            mmax = self.Mmax
+        if mmin2 is None:
+            mmin2=mmin
+        if mmax2 is None:
+            mmax2 = mmax
+
+        if mmin==mmax or mmin2==mmax2:
+            spl = spline(np.log10(self.m),self.bias)
+        if mmin==mmax:
+            b1 = spl(mmin)
+        else:
+            mask = np.logical_and(self.m>=10**mmin,self.m<=10**mmax)
+            b1 = intg.simps(self.bias[mask]*self.dndm[mask],self.m[mask])/intg.simps(self.dndm[mask],self.m[mask])
+
+        if mmin2==mmax2:
+            b2 = spl(mmin2)
+        else:
+            mask = np.logical_and(self.m >= 10 ** mmin2, self.m <= 10 ** mmax2)
+            b2 = intg.simps(self.bias[mask]*self.dndm[mask], self.m[mask])/intg.simps(self.dndm[mask], self.m[mask])
+
+        return b1*b2 * self._power_halo_centres
+
     #===========================================================================
     # Halo Profile cached quantities
     #===========================================================================

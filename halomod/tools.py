@@ -212,7 +212,7 @@ def populate(centres, masses, halomodel=None, profile=None, hodmod=None, edges=N
 
     print "Took ", time.time() - start, " seconds, or ", (time.time() - start)/nhalos_with_gal, " each halo."
     print "NhalosWithGal: ", nhalos_with_gal, ", Ncentrals: ", ncen,", NumGal: ", len(halo), ", MeanGal: ", float(
-        len(halo))/nhalos_with_gal, ", MostGal: ", sgal.max() + 1
+        len(halo))/nhalos_with_gal, ", MostGal: ", sgal.max() + 1 if len(sgal)>0 else 1
 
     if edges is None:
         pass
