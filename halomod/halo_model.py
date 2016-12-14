@@ -575,13 +575,23 @@ class HaloModel(MassFunction):
         # do the normal integral which includes biasing...
         if self.exclusion_model != NoExclusion:
             u = self.profile_ukm
-            bias = self.bias
+
+            if self.sd_bias_model is not None:
+                bias = np.outer(self.sd_bias.bias_scale(), self.bias)
+            else:
+                bias = self.bias
+
+
             inst = self.exclusion_model(m=self.m, density=self.dndlnm,
                                         I=self.dndlnm*u/self.rho_gtm[0], bias=bias, r=self.r,
                                         delta_halo=self.delta_halo,
                                         mean_density=self.mean_density0,
                                         **self.exclusion_params)
             mult = inst.integrate()
+
+            # hackery to ensure large scales are unbiased independent of low-mass limit
+            mult /= mult[-1]
+
         else:
             inst = 0
             mult = 1
@@ -598,13 +608,14 @@ class HaloModel(MassFunction):
 
     @cached_quantity
     def corr_mm_2h(self):
-        if len(self.power_mm_2h.shape) == 2:
-            corr = tools.power_to_corr_ogata_matrix(self.power_mm_2h, self.k, self.r)
-        else:
+        if self.exclusion_model is NoExclusion:
             corr = tools.power_to_corr_ogata(self.power_mm_2h, self.k, self.r)
+        else:
+            corr = tools.power_to_corr_ogata_matrix(self.power_mm_2h, self.k, self.r)
 
         ## modify by the new density
         return (self.__density_mod_mm/self.mean_density0) ** 2*(1 + corr) - 1
+
 
     @cached_quantity
     def corr_mm(self):
@@ -785,10 +796,10 @@ class HaloModel(MassFunction):
         #                  self.mean_gal_den, self.delta_halo,
         #                  self.mean_density0, 1)
         # else:
-        if len(self.power_gg_2h.shape) == 2:
-            corr = tools.power_to_corr_ogata_matrix(self.power_gg_2h, self.k, self.r)
-        else:
+        if self.exclusion_model is NoExclusion and self.sd_bias_model is None:
             corr = tools.power_to_corr_ogata(self.power_gg_2h, self.k, self.r)
+        else:
+            corr = tools.power_to_corr_ogata_matrix(self.power_gg_2h, self.k, self.r)
 
         ## modify by the new density. This step is *extremely* sensitive to the
         ## exact value of __density_mod at large scales, where the ratio *should*
@@ -798,6 +809,7 @@ class HaloModel(MassFunction):
                 self.__density_mod *= self.mean_gal_den/self.__density_mod[-1]
             except TypeError:
                 pass
+
         return (self.__density_mod/self.mean_gal_den) ** 2*(1 + corr) - 1
         # return corr
 
