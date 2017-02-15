@@ -3,6 +3,14 @@ Releases
 
 Development Version
 ~~~~~~~~~~~~~~~~~~~
+
+
+Older Versions
+~~~~~~~~~~~~~~
+v1.4.4
+------
+15th February, 2017
+
 Features
 ++++++++
 * New power_hh method which calculates the properly-biased halo-halo power spectrum in a given mass range.
@@ -19,8 +27,7 @@ Bugfixes
 ++++++++
 * fixed a bug in populate routine where if there were zero satellites it would raise an exception.
 
-Older Versions
-~~~~~~~~~~~~~~
+
 v1.4.3
 ------
 23rd September, 2016
