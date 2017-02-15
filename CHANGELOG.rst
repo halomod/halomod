@@ -13,10 +13,11 @@ Enhancements
   removed by default. To install fortran routines, use "WITH_FORTRAN=True pip install halomod". There's no reason
   you should do this though.
 * Updated decorators to connect with new hmf caching system
+* populate routine now supports multi-processing for several-times speedup.
 
 Bugfixes
 ++++++++
-* fixed a bug in pophod routine where if there were zero satellites it would raise an exception.
+* fixed a bug in populate routine where if there were zero satellites it would raise an exception.
 
 Older Versions
 ~~~~~~~~~~~~~~
