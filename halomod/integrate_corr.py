@@ -10,7 +10,7 @@ import numpy as np
 from scipy.interpolate import InterpolatedUnivariateSpline as _spline
 from scipy.integrate import simps
 from halo_model import HaloModel
-from hmf._cache import cached_property, parameter
+from hmf._cache import cached_quantity, parameter
 from halo_exclusion import dblsimps
 from hmf.cosmo import Cosmology as csm
 import warnings
@@ -29,30 +29,30 @@ class ProjectedCF(HaloModel):
         self.rp_num = rp_num
         self.rp_log = rp_log
 
-    @parameter
+    @parameter("switch")
     def rp_min(self, val):
         return val
 
-    @parameter
+    @parameter("option")
     def rp_log(self, val):
         return bool(val)
 
-    @parameter
+    @parameter("res")
     def rp_max(self, val):
         return val
 
-    @parameter
+    @parameter("res")
     def rp_num(self, val):
         if val < 0:
             raise ValueError("rp_num must be > 0")
         return int(val)
 
-    @parameter
+    @parameter("switch")
     def proj_limit(self, val):
         return val
 
 
-    @cached_property("rp_min", "rp_max", "rp_num")
+    @cached_quantity
     def rp(self):
         if type(self.rp_min) == list or type(self.rp_min) == np.ndarray:
             rp = np.array(self.rp_min)
@@ -64,7 +64,7 @@ class ProjectedCF(HaloModel):
 
         return rp
 
-    @cached_property("proj_limit", "rp_max")
+    @cached_quantity
     def rlim(self):
         if self.proj_limit is None:
             rlim = max(80.0, 5 * self.rp.max())
@@ -72,11 +72,11 @@ class ProjectedCF(HaloModel):
             rlim = self.proj_limit
         return rlim
 
-    @cached_property("rp_min", "rlim", "rnum")
+    @cached_quantity
     def r(self):
         return np.logspace(np.log10(self.rp.min()), np.log10(self.rlim), self.rnum)
 
-    @cached_property("r", "corr_gg", "rlim", "rp")
+    @cached_quantity
     def projected_corr_gal(self):
         """
         Projected correlation function w(r_p).
@@ -234,85 +234,85 @@ class AngularCF(HaloModel):
         self.theta_num = theta_num
         self.theta_log = theta_log
 
-    @parameter
+    @parameter("param")
     def p1(self, val):
         return val
 
 
-    @parameter
+    @parameter("param")
     def p2(self, val):
         return val
 
-    @parameter
+    @parameter("model")
     def p_of_z(self,val):
         return val
 
-    @parameter
+    @parameter("res")
     def theta_min(self, val):
         if val < 0:
             raise ValueError("theta_min must be > 0")
         return val
 
-    @parameter
+    @parameter("res")
     def theta_max(self, val):
         if val > 180.0:
             raise ValueError("theta_max must be < 180.0")
         return val
 
-    @parameter
+    @parameter("res")
     def theta_num(self, val):
         return val
 
-    @parameter
+    @parameter("res")
     def theta_log(self, val):
         return val
 
-    @parameter
+    @parameter("param")
     def zmin(self, val):
         return val
 
-    @parameter
+    @parameter("param")
     def zmax(self, val):
         return val
 
-    @parameter
+    @parameter("res")
     def znum(self, val):
         return val
 
-    @parameter
+    @parameter("res")
     def logu_min(self, val):
         return val
 
-    @parameter
+    @parameter("res")
     def logu_max(self, val):
         return val
 
-    @parameter
+    @parameter("res")
     def unum(self, val):
         return val
 
-    @parameter
+    @parameter("option")
     def check_p_norm(self, val):
         return val
 
-    @cached_property("zmin","zmax","znum")
+    @cached_quantity
     def zvec(self):
         """
         Redshift distribution grid.
         """
         return np.linspace(self.zmin,self.zmax,self.znum)
 
-    @cached_property("logu_min","logu_max","unum")
+    @cached_quantity
     def uvec(self):
         "Radial separation grid [Mpc/h]"
         return np.logspace(self.logu_min,self.logu_max,self.unum)
 
-    @cached_property("zvec","cosmo")
+    @cached_quantity
     def xvec(self):
         "Radial distance grid (corresponds to zvec) [Mpc/h]"
         return self.cosmo.comoving_distance(self.zvec).value
 
-    @cached_property("theta_min", "theta_max", "theta_num", "theta_log")
+    @cached_quantity
     def theta(self):
         "Angular separations, [Rad]"
         if self.theta_min > self.theta_max:
@@ -323,14 +323,14 @@ class AngularCF(HaloModel):
         else:
             return np.linspace(self.theta_min, self.theta_max, self.theta_num)
 
-    @cached_property("theta", "xvec", "logu_min","logu_max","rnum")
+    @cached_quantity
     def r(self):
         "Physical separation grid [Mpc/h]"
         rmin = np.sqrt((10 ** self.logu_min) ** 2 + self.theta.min() ** 2 * self.xvec.min() ** 2)
         rmax = np.sqrt((10 ** self.logu_max) ** 2 + self.theta.max() ** 2 * self.xvec.max() ** 2)
         return np.logspace(np.log10(rmin), np.log10(rmax), self.rnum)
 
-    @cached_property("p1", "p2", "zvec","uvec","check_p_norm","cosmo", "theta", "r", "corr_gg")
+    @cached_quantity
     def angular_corr_gal(self):
         """
         The angular correlation function w(theta).
@@ -347,7 +347,7 @@ class AngularCF(HaloModel):
                                 check_p_norm=self.check_p_norm, cosmo=self.cosmo,
                                 p_of_z = self.p_of_z)
 
-    @cached_property("p1", "p2", "zvec","uvec","check_p_norm","cosmo", "theta", "r", "corr_mm")
+    @cached_quantity
     def angular_corr_matter(self):
         """
         The angular correlation function w(theta).

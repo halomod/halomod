@@ -8,6 +8,12 @@ import scipy.integrate as intg
 from scipy.stats import poisson
 import time
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
+try:
+    from pathos import multiprocessing as mp
+    HAVE_POOL = True
+except ImportError:
+    HAVE_POOL = False
+
 
 def power_to_corr_ogata(power, k, r, N=640, h=0.005):
     """
@@ -106,6 +112,12 @@ def exclusion_window(k, r):
     x = k*r
     return 3*(np.sin(x) - x*np.cos(x))/x**3
 
+# def fill_array(i,masses,sgal,centres,profile,ncen,indx,pos):
+#     m,n,ctr = masses[i], sgal[i],centres[i]
+#
+# #        for i, (m, n, ctr) in enumerate(zip(masses, sgal, centres)):
+#         #end = begin + sgal[i]
+#     pos[ncen+indx[i]:ncen+indx[i+1]] = profile.populate(n, m, ba=1, ca=1, centre=ctr)
 
 def populate(centres, masses, halomodel=None, profile=None, hodmod=None, edges=None):
     """
@@ -172,9 +184,6 @@ def populate(centres, masses, halomodel=None, profile=None, hodmod=None, edges=N
     ncen = np.sum(cgal)
     nsat = np.sum(sgal)
 
-    # Clean up some memory
-    #del cgal
-
     pos = np.empty((ncen + nsat, 3))
     halo = np.empty(ncen+nsat)
 
@@ -200,19 +209,26 @@ def populate(centres, masses, halomodel=None, profile=None, hodmod=None, edges=N
     masses = masses[smask]
 
     # Now go through each halo and calculate galaxy positions
-    begin = ncen
     start = time.time()
-    for i, (m, n, ctr) in enumerate(zip(masses, sgal, centres)):
-        end = begin + sgal[i]
-        pos[begin:end, :] = profile.populate(n, m, ba=1, ca=1, centre=ctr)
-        halo[begin:end] = sat_halos[i]
-        begin = end
+    halo[ncen:] = np.repeat(sat_halos,sgal)
+    indx = np.concatenate(([0],np.cumsum(sgal))) + ncen
+
+#    print "SMASHING THIS NOW"
+    def fill_array(i):
+        m,n,ctr = masses[i], sgal[i],centres[i]
+        pos[indx[i]:indx[i+1],:] = profile.populate(n, m, ba=1, ca=1, centre=ctr)
+
+    if HAVE_POOL:
+        mp.ProcessingPool(mp.cpu_count()).map(fill_array,range(len(masses)))
+    else:
+        for i in range(len(masses)):
+            fill_array(i)
 
     nhalos_with_gal = len(set(central_halos.tolist()+sat_halos.tolist()))
 
     print "Took ", time.time() - start, " seconds, or ", (time.time() - start)/nhalos_with_gal, " each halo."
     print "NhalosWithGal: ", nhalos_with_gal, ", Ncentrals: ", ncen,", NumGal: ", len(halo), ", MeanGal: ", float(
-        len(halo))/nhalos_with_gal, ", MostGal: ", sgal.max() + 1
+        len(halo))/nhalos_with_gal, ", MostGal: ", sgal.max() + 1 if len(sgal)>0 else 1
 
     if edges is None:
         pass

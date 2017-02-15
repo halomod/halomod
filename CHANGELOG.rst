@@ -7,6 +7,27 @@ Development Version
 
 Older Versions
 ~~~~~~~~~~~~~~
+v1.4.4
+------
+15th February, 2017
+
+Features
+++++++++
+* New power_hh method which calculates the properly-biased halo-halo power spectrum in a given mass range.
+
+Enhancements
+++++++++++++
+* Fortran routines have not been used for quite a few versions, but now dependence on having gfortran has been
+  removed by default. To install fortran routines, use "WITH_FORTRAN=True pip install halomod". There's no reason
+  you should do this though.
+* Updated decorators to connect with new hmf caching system
+* populate routine now supports multi-processing for several-times speedup.
+
+Bugfixes
+++++++++
+* fixed a bug in populate routine where if there were zero satellites it would raise an exception.
+
+
 v1.4.3
 ------
 23rd September, 2016

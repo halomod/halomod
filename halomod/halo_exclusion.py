@@ -192,7 +192,7 @@ class Sphere(Exclusion):
         """
         density = np.outer(np.ones_like(self.r),self.density*self.m)
         density[self.mask] = 0
-        return np.sqrt(intg.simps(density,dx=self.dlnx))
+        return intg.simps(density,dx=self.dlnx)
 
     @cached_property
     def mask(self):
@@ -221,7 +221,7 @@ class DblSphere(Sphere):
 
     @cached_property
     def density_mod(self):
-        out = np.zers_like(self.r)
+        out = np.zeros_like(self.r)
         for i,r in enumerate(self.r):
             integrand = np.outer(self.density*self.m,np.ones_like(self.density))
             integrand[self.mask] = 0
