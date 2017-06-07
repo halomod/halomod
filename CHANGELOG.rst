@@ -3,10 +3,20 @@ Releases
 
 Development Version
 ~~~~~~~~~~~~~~~~~~~
+Features
+++++++++
+* Added ability to change the underlying distribution of satellite and central counts.
 
 
 Older Versions
 ~~~~~~~~~~~~~~
+v1.4.5
+------
+Enhancements
+++++++++++++
+* Added option to HaloModel class to turn off forcing the turnover at large scales of the 1-halo term power spectrum.
+
+
 v1.4.4
 ------
 15th February, 2017

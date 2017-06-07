@@ -55,6 +55,7 @@ class HaloModel(MassFunction):
                  sd_bias_model="Tinker_SD05", sd_bias_params={},
                  exclusion_model="NgMatched", exclusion_params={},
                  hc_spectrum="nonlinear", ng=None, Mmin=0, Mmax=18,
+                 force_1halo_turnover=True,
                  **hmf_kwargs):
 
         super(HaloModel, self).__init__(Mmin=Mmin, Mmax=Mmax, **hmf_kwargs)
@@ -72,6 +73,7 @@ class HaloModel(MassFunction):
         self.rmax = rmax
         self.rnum = rnum
         self.hc_spectrum = hc_spectrum
+        self.force_1halo_turnover = force_1halo_turnover
         # A special argument, making it possible to define M_min by mean density
         self.ng = ng
 
@@ -206,6 +208,10 @@ class HaloModel(MassFunction):
         if not isinstance(val, basestring) and not issubclass_(val, bias.ScaleDepBias) and val is not None:
             raise ValueError("scale_dependenent_bias must be a subclass of bias.ScaleDepBias")
         return val
+
+    @parameter("switch")
+    def force_1halo_turnover(self,val):
+        return bool(val)
 
     # ===========================================================================
     # Basic Quantities
@@ -655,10 +661,11 @@ class HaloModel(MassFunction):
             # Basically, you need the 1-halo term to turn over at small k
             # Otherwise, it becomes larger than the 2-halo term
             # But this only occurs at like 10^-4 h/Mpc which is typically beyond range.
-            r = np.pi/self.k/10  # The 10 is a complete heuristic hack.
-            mmin = 4*np.pi*r ** 3*self.mean_density0*self.delta_halo/3
-            mask = np.outer(self.m[self._gm], np.ones_like(self.k)) < mmin
-            integ[mask.T] = 0
+            if self.force_1halo_turnover:
+                r = np.pi/self.k/10  # The 10 is a complete heuristic hack.
+                mmin = 4*np.pi*r ** 3*self.mean_density0*self.delta_halo/3
+                mask = np.outer(self.m[self._gm], np.ones_like(self.k)) < mmin
+                integ[mask.T] = 0
 
             p = intg.trapz(integ, dx=self.dlog10m*np.log(10))
 
@@ -688,10 +695,11 @@ class HaloModel(MassFunction):
         # Basically, you need the 1-halo term to turn over at small k
         # Otherwise, it becomes larger than the 2-halo term
         # But this only occurs at like 10^-4 h/Mpc which is typically beyond range.
-        r = np.pi/self.k/10  # The 10 is a complete heuristic hack.
-        mmin = 4*np.pi*r ** 3*self.mean_density0*self.delta_halo/3
-        mask = np.outer(self.m[self._gm], np.ones_like(self.k)) < mmin
-        integ[mask.T] = 0
+        if self.force_1halo_turnover:
+            r = np.pi/self.k/10  # The 10 is a complete heuristic hack.
+            mmin = 4*np.pi*r ** 3*self.mean_density0*self.delta_halo/3
+            mask = np.outer(self.m[self._gm], np.ones_like(self.k)) < mmin
+            integ[mask.T] = 0
 
         c = intg.trapz(integ, dx=self.dlog10m*np.log(10))
         return c/self.mean_gal_den ** 2

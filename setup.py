@@ -22,8 +22,10 @@ def find_version(*file_paths):
     raise RuntimeError("Unable to find version string.")
 
 if sys.argv[-1] == "publish":
-    os.system("python setup.py sdist upload")
-    os.system("python setup.py bdist_wheel upload")
+    os.system("rm dist/*")
+    os.system("python setup.py sdist")
+    os.system("python setup.py bdist_wheel")
+    os.system("twine upload dist/*")
     sys.exit()
 
 
@@ -44,13 +46,15 @@ if __name__ == "__main__":
     setup(
         name="halomod",
         version=find_version("halomod","__init__.py"),
-        install_requires=['hmf>=2.0.0',
+        install_requires=['hmf>=3.0.0',
                           'mpmath',
-                          'cached_property'],
+                          'cached_property',
+                          'numpy',
+                          'scipy'],
         scripts=['scripts/pophod',
                  'scripts/halomod-fit'],
         author="Steven Murray",
-        author_email="steven.murray@uwa.edu.au",
+        author_email="steven.murray@curtin.edu.au",
         description="A Halo Model calculator built on hmf",
         long_description=read('README.rst'),
         license='MIT',
