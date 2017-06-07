@@ -46,7 +46,7 @@ if __name__ == "__main__":
     setup(
         name="halomod",
         version=find_version("halomod","__init__.py"),
-        install_requires=['hmf>=3.0.0',
+        install_requires=['hmf>=2.0.0',
                           'mpmath',
                           'cached_property',
                           'numpy',

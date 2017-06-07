@@ -13,6 +13,9 @@ problems, don't hesitate to contact me (@steven-murray) and I'll walk you throug
 that I can help with. Thanks for your patience. Also, for the most up-to-date version,
 grab the ``develop`` branch of this repo.
 
+** Note that for version 1.5.0+, halomod requires hmf v2.1.0+, and the procedure for using ``camb`` is different. Please
+see the hmf docs for details.**
+
 To be more clear, there are several features which are still under development and so should
 either appear or be more robust soon, including:
 
@@ -27,7 +30,7 @@ Installation
 Almost all of the dependencies for ``halomod`` will be installed automatically. However, there
 are a few optional dependencies which can make things better if you decide to install them:
 
-* `pycamb`: for using CAMB to generate transfer functions See
+* `camb`: for using CAMB to generate transfer functions See
   `documentation <http://hmf.readthedocs.io/en/latest/>` of `hmf` for instructions.
 * `Numba`: to accelerate some of the integrations when halo exclusion is involved.
 
