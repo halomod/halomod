@@ -15,7 +15,7 @@ H0 = [50, 70]  # , 90]
 n = [0.8, 0.9, 1.0]
 
 r = np.exp(np.linspace(-4, 4, 100))
-print "r range", np.min(r), np.max(r)
+print("r range", np.min(r), np.max(r))
 HOD_camb = HOD(r=r, transfer_fit="CAMB", NonLinear=False, scale_dependent_bias=False, force_flat=True)
 HOD_EH = HOD(r=r, transfer_fit="EH", NonLinear=False, scale_dependent_bias=False, force_flat=True)
 camb_time = 0.0
@@ -35,5 +35,5 @@ for ob in omegab:
                 eh = HOD_EH.corr_gal
                 eh_time += time.time() - start
 
-                print "For ", ob, oc, h, nn
-                print camb[0] / eh[0], camb[50] / eh[50], camb[-1] / eh[-1], eh_time / camb_time
+                print("For ", ob, oc, h, nn)
+                print(camb[0] / eh[0], camb[50] / eh[50], camb[-1] / eh[-1], eh_time / camb_time)

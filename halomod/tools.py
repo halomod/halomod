@@ -219,16 +219,16 @@ def populate(centres, masses, halomodel=None, profile=None, hodmod=None, edges=N
         pos[indx[i]:indx[i+1],:] = profile.populate(n, m, ba=1, ca=1, centre=ctr)
 
     if HAVE_POOL:
-        mp.ProcessingPool(mp.cpu_count()).map(fill_array,range(len(masses)))
+        mp.ProcessingPool(mp.cpu_count()).map(fill_array,list(range(len(masses))))
     else:
         for i in range(len(masses)):
             fill_array(i)
 
     nhalos_with_gal = len(set(central_halos.tolist()+sat_halos.tolist()))
 
-    print "Took ", time.time() - start, " seconds, or ", (time.time() - start)/nhalos_with_gal, " each halo."
-    print "NhalosWithGal: ", nhalos_with_gal, ", Ncentrals: ", ncen,", NumGal: ", len(halo), ", MeanGal: ", float(
-        len(halo))/nhalos_with_gal, ", MostGal: ", sgal.max() + 1 if len(sgal)>0 else 1
+    print("Took ", time.time() - start, " seconds, or ", (time.time() - start)/nhalos_with_gal, " each halo.")
+    print("NhalosWithGal: ", nhalos_with_gal, ", Ncentrals: ", ncen,", NumGal: ", len(halo), ", MeanGal: ", float(
+        len(halo))/nhalos_with_gal, ", MostGal: ", sgal.max() + 1 if len(sgal)>0 else 1)
 
     if edges is None:
         pass

@@ -116,14 +116,14 @@ Dvir = 200
 MaxGatherRad = 10.0
 """ % (filename, typecode, filename, lgmax)
 
-        print >> f, ahf_config
+        print(ahf_config, file=f)
 
         gadget_config = """
 [GADGET]
 GADGET_LUNIT = 1
 GADGET_MUNIT = 1e10
 """
-        print >> f, gadget_config
+        print(gadget_config, file=f)
 
     if os.path.exists(groupfinder):
         # run it
@@ -187,7 +187,7 @@ def _import_ahf_haloes(filename, get_particles=True):
 
             nhalos = int(f.readline())
 
-            for h in xrange(nhalos):
+            for h in range(nhalos):
                 nparts = int(f.readline().split()[0])
 
                 ids.append((np.fromfile(f, dtype=int,
@@ -228,12 +228,12 @@ def _import_subfind_halos(subfile, idsfile, get_particles=True):
 
     properties = []
 
-    for h in xrange(nhalos):
+    for h in range(nhalos):
         properties.append({'npart':grouplen[h], '#ID':h})
 
     if get_particles:
         ids = []
-        for h in xrange(nhalos):
+        for h in range(nhalos):
             ids.append(part_ids[groupoffsets[h]:groupoffsets[h] + grouplen[h]])
         return properties, ids
 
@@ -363,8 +363,8 @@ class BaseHalo(object):
         if ba is not None and ca is not None:
             self.properties.update({"ba":ba, "ca":ca})
         elif get_inertia:
-            print pos.shape
-            print type(pos)
+            print(pos.shape)
+            print(type(pos))
             ba, ca, eigval, inertia_tensor = calc_ratios(self.pos, self.properties['mp'], tol=0.001)
             self.properties.update({"ba":ba, "ca":ca, "inertia_tensor":inertia_tensor})
 
@@ -484,7 +484,7 @@ def calc_ratios(pos, mass, tol=0.001):
 
 
     # Project positions and velocities onto new axes
-    print 'Required ', counter, ' iteration(s) to find ellipticity'
+    print('Required ', counter, ' iteration(s) to find ellipticity')
     return ba, ca, eigval, eigvec
 
 def concentration(pos, ba, ca, mass, r_vir, bins=25, min_bin=0.005):

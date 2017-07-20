@@ -1,15 +1,15 @@
 '''
 Contains WDM versions of all models and frameworks
 '''
-from concentration import CMRelation
-from halo_model import HaloModel
+from .concentration import CMRelation
+from .halo_model import HaloModel
 from hmf._cache import cached_quantity, parameter
 import numpy as np
 from scipy import integrate as intg
 from hmf.wdm import MassFunctionWDM
 from hmf._framework import get_model
 import sys
-from integrate_corr import ProjectedCF
+from .integrate_corr import ProjectedCF
 from copy import copy
 
 
@@ -64,7 +64,7 @@ class HaloModelWDM(HaloModel, MassFunctionWDM):
     @parameter("switch")
     def concentration_model(self, val):
         """A concentration-mass relation"""
-        if not isinstance(val, basestring) and not issubclass_(val, CMRelation):
+        if not isinstance(val, str) and not issubclass_(val, CMRelation):
             raise ValueError("concentration_model must be a subclass of concentration.CMRelation")
         return val
 

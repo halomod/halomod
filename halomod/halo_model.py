@@ -13,18 +13,18 @@ USEFORT = False
 from hmf import MassFunction
 from hmf._cache import cached_quantity, parameter
 # import hmf.tools as ht
-import tools
-import hod
-from concentration import CMRelation
-from halo_exclusion import Exclusion, NoExclusion
+from . import tools
+from . import hod
+from .concentration import CMRelation
+from .halo_exclusion import Exclusion, NoExclusion
 
 if USEFORT:
-    from fort.routines import hod_routines as fort
+    from .fort.routines import hod_routines as fort
 from copy import copy, deepcopy
 from numpy import issubclass_
 from hmf._framework import get_model, get_model_
-import profiles
-import bias
+from . import profiles
+from . import bias
 from hmf.filters import TopHat
 import warnings
 
@@ -127,7 +127,7 @@ class HaloModel(MassFunction):
     @parameter("model")
     def hod_model(self, val):
         """:class:`~hod.HOD` class"""
-        if not isinstance(val, basestring) and not issubclass_(val, hod.HOD):
+        if not isinstance(val, str) and not issubclass_(val, hod.HOD):
             raise ValueError("hod_model must be a subclass of hod.HOD")
         return val
 
@@ -150,17 +150,17 @@ class HaloModel(MassFunction):
     @parameter("model")
     def profile_model(self, val):
         """The halo density profile model"""
-        if not isinstance(val, basestring) and not issubclass_(val, profiles.Profile):
+        if not isinstance(val, str) and not issubclass_(val, profiles.Profile):
             raise ValueError("profile_model must be a subclass of profiles.Profile")
 
-        if isinstance(val, basestring):
+        if isinstance(val, str):
             return get_model_(val, "halomod.profiles")
         else:
             return val
 
     @parameter("switch")
     def bias_model(self, val):
-        if not isinstance(val, basestring) and not issubclass_(val, bias.Bias):
+        if not isinstance(val, str) and not issubclass_(val, bias.Bias):
             raise ValueError("bias_model must be a subclass of bias.Bias")
         return val
 
@@ -183,7 +183,7 @@ class HaloModel(MassFunction):
     @parameter("model")
     def concentration_model(self, val):
         """A concentration-mass relation"""
-        if not isinstance(val, basestring) and not issubclass_(val, CMRelation):
+        if not isinstance(val, str) and not issubclass_(val, CMRelation):
             raise ValueError("concentration_model must be a subclass of concentration.CMRelation")
         return val
 
@@ -205,7 +205,7 @@ class HaloModel(MassFunction):
 
     @parameter("switch")
     def sd_bias_model(self, val):
-        if not isinstance(val, basestring) and not issubclass_(val, bias.ScaleDepBias) and val is not None:
+        if not isinstance(val, str) and not issubclass_(val, bias.ScaleDepBias) and val is not None:
             raise ValueError("scale_dependenent_bias must be a subclass of bias.ScaleDepBias")
         return val
 
@@ -314,7 +314,7 @@ class HaloModel(MassFunction):
                                       delta_halo=self.delta_halo, z=self.z,
                                       **self.profile_params)
         else:
-            print self.profile_model
+            print(self.profile_model)
             return get_model(self.profile_model, "halomod.profiles",
                              cm_relation=self.cm,
                              mean_dens=self.mean_density0,

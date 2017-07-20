@@ -9,9 +9,9 @@ correlation function
 import numpy as np
 from scipy.interpolate import InterpolatedUnivariateSpline as _spline
 from scipy.integrate import simps
-from halo_model import HaloModel
+from .halo_model import HaloModel
 from hmf._cache import cached_quantity, parameter
-from halo_exclusion import dblsimps
+from .halo_exclusion import dblsimps
 from hmf.cosmo import Cosmology as csm
 import warnings
 
@@ -370,7 +370,7 @@ def _check_p(p,z):
     else:
         integ = simps(p(z),z)
     if not np.isclose(integ,1.0,rtol=0.01):
-        print "WARNING: Filter function p(x) did not integrate to 1 (%s). Tentatively re-normalising."%integ
+        print("WARNING: Filter function p(x) did not integrate to 1 (%s). Tentatively re-normalising."%integ)
         return (lambda z: p(z)/integ)
     else:
         return p
