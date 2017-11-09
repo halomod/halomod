@@ -34,6 +34,12 @@ def power_to_corr_ogata(power, k, r, N=640, h=0.005):
     allparts = sumparts*spl(np.log(np.divide.outer(x, r))).T
     return np.sum(allparts, axis=-1)/(2*np.pi**2*r**3)
 
+def corr_to_power_ogata(corr, r, k, N=640, h=0.005):
+    """
+    Use Ogata's method for Hankel Transforms in 3D for nu=0 (nu=1/2 for 2D)
+    to convert a given correlation function to a power spectrum
+    """
+    return 8*np.pi**3 * power_to_corr_ogata(corr,r,k,N,h)
 
 def power_to_corr_ogata_matrix(power, k, r, N=640, h=0.005):
     """
@@ -112,12 +118,12 @@ def exclusion_window(k, r):
     x = k*r
     return 3*(np.sin(x) - x*np.cos(x))/x**3
 
-# def fill_array(i,masses,sgal,centres,profile,ncen,indx,pos):
+# def fill_array(i,masses,sgal,centres,halo_profile,ncen,indx,pos):
 #     m,n,ctr = masses[i], sgal[i],centres[i]
 #
 # #        for i, (m, n, ctr) in enumerate(zip(masses, sgal, centres)):
 #         #end = begin + sgal[i]
-#     pos[ncen+indx[i]:ncen+indx[i+1]] = profile.populate(n, m, ba=1, ca=1, centre=ctr)
+#     pos[ncen+indx[i]:ncen+indx[i+1]] = halo_profile.populate(n, m, ba=1, ca=1, centre=ctr)
 
 def populate(centres, masses, halomodel=None, profile=None, hodmod=None, edges=None):
     """
@@ -133,10 +139,10 @@ def populate(centres, masses, halomodel=None, profile=None, hodmod=None, edges=N
 
     halomodel : type :class:`halomod.HaloModel`
         A HaloModel object pre-instantiated. One can either use this, or
-        *both* `profile` and `hodmod` arguments.
+        *both* `halo_profile` and `hodmod` arguments.
 
-    profile : type :class:`profile.Profile`
-        A density profile to use.
+    profile : type :class:`halo_profile.Profile`
+        A density halo_profile to use.
 
     hodmod : object of type :class:`hod.HOD`
         A HOD model to use to populate the dark matter.
@@ -158,13 +164,13 @@ def populate(centres, masses, halomodel=None, profile=None, hodmod=None, edges=N
         Number of central galaxies. The first H galaxies in pos/halo correspond to centrals.
     """
     if halomodel is not None:
-        profile = halomodel.profile
+        profile = halomodel.halo_profile
         hodmod = halomodel.hod
 
     masses = np.array(masses)
 
     # Define which halos have central galaxies.
-    cgal = np.random.binomial(1, hodmod.nc(masses))
+    cgal = np.random.binomial(1, hodmod.central_occupation(masses))
     cmask = cgal > 0
     central_halos = np.arange(len(masses))[cmask]
 
@@ -173,12 +179,12 @@ def populate(centres, masses, halomodel=None, profile=None, hodmod=None, edges=N
         centres = centres[cmask]
 
     # Calculate the number of satellite galaxies in halos
-    # Using _ns, rather than ns, gives the correct answer for both central condition and not.
+    # Using ns, rather than ns, gives the correct answer for both central condition and not.
     # Note that other parts of the algorithm also need to be changed if central condition is not true.
     # if hodmod._central:
-    #     sgal = poisson.rvs(hodmod._ns(masses[cmask]))
+    #     sgal = poisson.rvs(hodmod.ns(masses[cmask]))
     # else:
-    sgal = poisson.rvs(hodmod._ns(masses))
+    sgal = poisson.rvs(hodmod.ns(masses))
 
     # Get an array ready, hopefully speeds things up a bit
     ncen = np.sum(cgal)

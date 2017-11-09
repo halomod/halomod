@@ -41,6 +41,13 @@ class Bias(Component):
     def bias(self):
         return np.ones_like(self.nu)
 
+
+class UnityBias(Bias):
+    "A toy model which is exactly unity for all mass"
+    def bias(self):
+        return np.ones_like(self.nu)
+
+
 class Mo96(Bias):
     """
     Peak-background split bias correspdonding to PS HMF.
@@ -49,6 +56,7 @@ class Mo96(Bias):
     """
     def bias(self):
         return 1 + (self.nu -1)/self.delta_c
+
 
 class Jing98(Bias):
     """
