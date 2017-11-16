@@ -48,8 +48,8 @@ Features
   efficient caching etc.)
 * Extended components for halo model:
     * 10 halo bias models, plus scale-dependent bias from Tinker (2005).
-    * 3 basic concentration-mass-redshift relations, including the analytic Bullock (2001) model
-    * Several plug-and-play halo-exclusion models (including ng-matched from Tinker+2005).
+    * 3 basic halo_concentration-mass-redshift relations, including the analytic Bullock (2001) model
+    * Several plug-and-play halo-exclusion models (including tracer_density-matched from Tinker+2005).
     * 5 built-in HOD parameterisations
     * Many built-in halo profiles, including NFW, generalised NFW, Hernquist etc.
     * Support for WDM models.
@@ -69,7 +69,25 @@ To use interactively, in ``ipython`` do something like the following:
 >>> from halomod import HaloModel
 >>> hm = HaloModel() ## Construct the object
 >>> help(hm)         ## Lists many of the available quantities.
->>> galcorr = hm.corr_gg
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
 >>> bias = hm.bias
 >>> ...
 
@@ -82,7 +100,17 @@ To change the parameters (cosmological or otherwise), one should use the
 ``update()`` method, if a ``HaloModel()`` object already exists. For example
 
 >>> hm.update(rmin=0.1,rmax=1.0,rnum=100) #update scale vector
->>> corr_2h = hm.corr_gg_2h #The 2-halo term of the galaxy correlation function
+>>> corr_2h = hm.corr_2h_auto_tracer #The 2-halo term of the galaxy correlation function
+
+Since
+
+>>> hm.update(rmin=0.1,rmax=1.0,rnum=100) #update scale vector
+>>> corr_2h = hm.corr_2h_auto_tracer #The 2-halo term of the galaxy correlation function
+
+Since
+
+>>> hm.update(rmin=0.1,rmax=1.0,rnum=100) #update scale vector
+>>> corr_2h = hm.corr_2h_auto_tracer #The 2-halo term of the galaxy correlation function
 
 Since ``HaloModel`` is a sub-class of ``MassFunction``, all the quantities associated
 with the hmf are also included, so for example

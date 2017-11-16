@@ -51,7 +51,7 @@ Enhancements
 ++++++++++++
 * When matching mean galaxy density to given value, the first guess is now the DM Mmin, rather than arbitrary 8.
 * Better error message for NGException
-* mean_gal_den now returns the *calculated* mean density, rather than ng if it exists.
+* mean_tracer_den now returns the *calculated* mean density, rather than tracer_density if it exists.
 * If supplied redshift is outside redshift selection for AngularCF, warning is printed.
 * Mmin now set to 0 by default, to enable better matter-matter statistics.
 * Entirely revised system for HODs, especially concerning the "central condition":
@@ -74,7 +74,7 @@ v1.4.2
 
 Bugfixes
 ++++++++
-* Fixed setting of _gm (missing power of 10!)
+* Fixed setting of _tm (missing power of 10!)
 
 
 v1.4.1
@@ -83,7 +83,7 @@ v1.4.1
 
 Features
 ++++++++
-* Einasto profile added, with analytic h(c), and numerical u(K,c).
+* Einasto halo_profile added, with analytic h(c), and numerical u(K,c).
 * Concentration relations from Ludlow+2016 added -- both empirical and analytic model.
 
 Enhancements
@@ -97,7 +97,7 @@ Bugfixes
 * Fixed extra white-space bug in version number
 * Several fixes for WDM models to bring them into line with hmf v2+
 * Fixed issue with Mmin not affecting m on update.
-* Fixed bug when setting profile with a class rather than a string.
+* Fixed bug when setting halo_profile with a class rather than a string.
 * Fixed bug in Geach/Contreras HOD models where they were effectively receiving a sharp cut in m (thanks to @prollejazz)
 
 v1.4.0

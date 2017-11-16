@@ -489,15 +489,15 @@ def calc_ratios(pos, mass, tol=0.001):
 
 def concentration(pos, ba, ca, mass, r_vir, bins=25, min_bin=0.005):
     """
-    Calcualtes the concentration of a pre-centred halo
+    Calcualtes the halo_concentration of a pre-centred halo
     
-    We need the axis ratios to get a good fit for the concentration and the profile
+    We need the axis ratios to get a good fit for the halo_concentration and the halo_profile
     """
     start = np.log10(min_bin)
     end = 0
     bins = np.logspace(start, end, num=bins + 1)
 
-    # We use the ellipticity information to return an elliptic profile
+    # We use the ellipticity information to return an elliptic halo_profile
     r_eff = np.sqrt(pos[:, 0] ** 2 + pos[:, 1] ** 2 / ba ** 2 + pos[:, 2] ** 2 / ca ** 2)
 
     hgram, edges = np.histogram(r_eff, bins=bins)
