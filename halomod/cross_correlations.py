@@ -4,11 +4,15 @@ for HaloModel-derived quantities based on these cross-pairs.
 """
 
 from .halo_model import TracerHaloModel
-from hmf._framework import Component
+from hmf._framework import Component, Framework, get_model_
+from hmf._cache import parameter, cached_quantity, subframework
 from abc import ABCMeta, abstractmethod
 import numpy as np
 from scipy import integrate as intg
-import tools
+from halomod import tools
+
+
+from .halo_model import DMHaloModel
 
 class HODCross(Component):
     """
@@ -98,23 +102,80 @@ class HODCross(Component):
             m) * self.R_sc(m)
 
 
+class ConstantCorr(HODCross):
+    _defaults = {"R_ss":0.0, "R_cs":0.0, "R_sc":0.0}
 
-class CrossCorrelations(object):
-    def __init__(self, cross_hod, hod_model=None, hod_params=None, **halo_model_kwargs):
-        self.cross_hod = cross_hod
+    @abstractmethod
+    def R_ss(self, m):
+        return self.params['R_ss']
 
-        self.halo_models = (TracerHaloModel(hod_model = cross_hod.hods[0].__class__, hod_params=cross_hod.hods[0].params, **halo_model_kwargs),
-                            TracerHaloModel(hod_model = cross_hod.hods[1].__class__, hod_params=cross_hod.hods[1].params, **halo_model_kwargs))
+    @abstractmethod
+    def R_cs(self, m):
+        return self.params['R_cs']
+
+    @abstractmethod
+    def R_sc(self, m):
+        return self.params['R_sc']
+
+    @abstractmethod
+    def self_pairs(self, m):
+        "The expected number of cross-pairs at a separation of zero."
+        return 0
+
+class CrossCorrelations(Framework):
+    def __init__(self, cross_hod_model,
+                 cross_hod_params={},
+                 halo_model_1_params = {},
+                 halo_model_2_params = {}):
+
+        self.cross_hod_model = cross_hod_model
+        self.cross_hod_params = cross_hod_params
+
+        self._halo_model_1_params = halo_model_1_params
+        self._halo_model_2_params = halo_model_2_params
+
+    @parameter("model")
+    def cross_hod_model(self, val):
+        if not isinstance(val, str) and not np.issubclass_(val, HODCross):
+            raise ValueError("cross_hod_model must be a subclass of cross_correlations.HODCross")
+        elif isinstance(val, str):
+            return get_model_(val, "")
+        else:
+            return val
+
+    @parameter("param")
+    def cross_hod_params(self, val):
+        return val
+
+    @subframework
+    def halo_model_1(self):
+        return TracerHaloModel(**self._halo_model_1_params)
+
+    @subframework
+    def halo_model_2(self):
+        return TracerHaloModel(**self._halo_model_2_params)
 
     # ===========================================================================
     # Cross-correlations
     # ===========================================================================
+    @cached_quantity
+    def cross_hod(self):
+        return self.cross_hod_model([self.halo_model_1.hod, self.halo_model_2.hod], **self.cross_hod_params)
+
+    @cached_quantity
     def power_1h_cross(self):
         """
         Total 1-halo cross-power
         """
-        hm1, hm2 = self.halo_models
-        mask = np.logical_and(hm1._tm, hm2._tm)
+        hm1, hm2 = self.halo_model_1, self.halo_model_2
+        mask = np.logical_and(
+            np.logical_and(
+                np.logical_not(np.isnan(self.cross_hod.ss_cross_pairs(hm1.m))),
+                np.logical_not(np.isnan(self.cross_hod.sc_cross_pairs(hm1.m)))
+            ),
+            np.logical_not(np.isnan(self.cross_hod.cs_cross_pairs(hm1.m)))
+        )
+
 
         m = hm1.m[mask]
         u1 = hm1.tracer_profile_ukm[:, mask]
@@ -128,14 +189,16 @@ class CrossCorrelations(object):
 
         return p / (hm1.mean_tracer_den * hm2.mean_tracer_den)
 
+    @cached_quantity
     def corr_1h_cross(self):
         """The 1-halo term of the cross correlation"""
-        return tools.power_to_corr_ogata(self.power_1h_cross(),
-                                         self.halo_models[0].k, self.halo_models[0].r)
+        return tools.power_to_corr_ogata(self.power_1h_cross,
+                                         self.halo_model_1.k, self.halo_model_1.r)
 
+    @cached_quantity
     def power_2h_cross(self):
         "The 2-halo term of the cross-power spectrum"
-        hm1, hm2 = self.halo_models
+        hm1, hm2 = self.halo_model_1, self.halo_model_2
 
         u1 = hm1.tracer_profile_ukm[:, hm1._tm]
         u2 = hm2.tracer_profile_ukm[:, hm2._tm]
@@ -150,19 +213,20 @@ class CrossCorrelations(object):
 
         return b1 * b2 * hm1._power_halo_centres / (hm1.mean_tracer_den * hm2.mean_tracer_den)
 
+    @cached_quantity
     def corr_2h_cross(self):
         """The 2-halo term of the cross-correlation"""
 
-        return tools.power_to_corr_ogata(self.power_2h_cross(), self.halo_models[0].k, self.halo_models[0].r)
+        return tools.power_to_corr_ogata(self.power_2h_cross, self.halo_model_1.k, self.halo_model_1.r)
 
+    @cached_quantity
     def power_cross(self):
         """
         Total tracer auto power spectrum
         """
-        return self.power_1h_cross() + self.power_2h_cross()
+        return self.power_1h_cross + self.power_2h_cross
 
+    @cached_quantity
     def corr_cross(self):
         """The tracer auto correlation function"""
-        return self.corr_1h_cross() + self.corr_2h_cross() + 1
-
-#    def shotnoise_cross(self):
+        return self.corr_1h_cross + self.corr_2h_cross + 1
