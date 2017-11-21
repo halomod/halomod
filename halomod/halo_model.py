@@ -680,6 +680,13 @@ class TracerHaloModel(DMHaloModel):
         return intg.simps(integrand, self.m[self._tm])
 
     @cached_quantity
+    def mean_tracer_den_unit(self):
+        """
+        The mean density of the tracer, in the units defined in the HOD.
+        """
+        return self.mean_tracer_den * self.hod.unit_conversion(self.cosmo, self.z)
+
+    @cached_quantity
     def bias_effective(self):
         """
         The tracer occupation-weighted halo bias factor (Tinker 2005)

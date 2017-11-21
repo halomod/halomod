@@ -146,6 +146,10 @@ class HOD(Component):
         "The total weight of the occupation paired with itself"
         return self.ss_pairs(m) + self.cs_pairs(m)
 
+    def unit_conversion(self, cosmo, z):
+        "A factor (potentially with astropy units) to convert the total occupation to a desired unit."
+        return 1.0
+
     @property
     def mmin(self):
         "A function defining a reasonable minimum mass to set for this HOD to converge when integrated."
