@@ -585,14 +585,16 @@ class TracerHaloModel(DMHaloModel):
     # ===========================================================================
     # Basic Quantities
     # ===========================================================================
-    @cached_quantity
-    def mmin(self):
-        "This is the true minimum mass for this framework"
-        return min(self.Mmin, self.hod.mmin)
-
-    @cached_quantity
-    def m(self):
-        return 10 ** np.arange(self.mmin, self.Mmax, self.dlog10m)
+    # THE FOLLOWING IS LEFT IN AS A REMINDER NEVER TO DO IT
+    # CHANGING THE MINIMUM MASS DYNAMICALLY DESTROYS MANY THINGS, LIKE THE ABILITY TO CROSS-CORRELATE TWO CLASSES.
+    # @cached_quantity
+    # def mmin(self):
+    #     "This is the true minimum mass for this framework"
+    #     return min(self.Mmin, self.hod.mmin)
+    #
+    # @cached_quantity
+    # def m(self):
+    #     return 10 ** np.arange(self.mmin, self.Mmax, self.dlog10m)
 
     @cached_quantity
     def _tm(self):
@@ -602,6 +604,9 @@ class TracerHaloModel(DMHaloModel):
         """
         if self.hod.mmin is None:
             return self.m >= self.m.min()
+
+        if self.hod.mmin < self.Mmin:
+            raise ValueError("The HOD is defined to lower masses than currently calculated. Please set Mmin lower.")
 
         return self.m >= 10 ** self.hod.mmin
 
