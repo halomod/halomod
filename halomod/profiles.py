@@ -830,13 +830,13 @@ class CoredNFW(Profile):
     """
     A cored NFW Profile, as used in eg. Padmanabhan + Refrigier 2015
     """
-    def f(self, x):
+    def _f(self, x):
         return 1. / (x + 0.75) / (x + 1) ** 2
 
-    def h(self, c):
+    def _h(self, c):
         return -4 * (-(2 * c + 3) / (c + 1) + 2 * np.log(c + 1)) + 9 * np.log(c + 0.75) - 12 - 9 * np.log(0.75)
 
-    def p(self, K, c):
+    def _p(self, K, c):
         def antideriv(k, x):
             si1, ci1 = sici(k * (x + 1))
             si2, ci2 = sici(k * (x + 0.75))
