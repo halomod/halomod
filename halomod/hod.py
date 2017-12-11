@@ -134,7 +134,7 @@ class HOD(Component):
     def satellite_occupation(self,m):
         "The occupation function of the satellite (or profile-dependent) component"
         if self._central and not self.central_condition_inherent:
-            return self.central_occupation(m) * self._satellite_occupation(m)
+            return self.nc(m) * self._satellite_occupation(m)
         else:
             return self._satellite_occupation(m)
 
@@ -212,7 +212,7 @@ class HODPoisson(HOD):
 
     def cs_pairs(self,m):
         if self._central:
-            return self.satellite_occupation(m)
+            return self.satellite_occupation(m) * self._tracer_per_central(m)
         else:
             return self.central_occupation(m) * self.satellite_occupation(m)
 
