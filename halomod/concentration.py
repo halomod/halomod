@@ -60,6 +60,7 @@ class CMRelation(Component):
         self.delta_c=delta_c
         self.delta_halo = delta_halo
 
+        #TODO: mean_density0 should be removed, as it is in cosmo
         self.profile = profile
         self.cosmo = cosmo
         super(CMRelation, self).__init__(**model_parameters)

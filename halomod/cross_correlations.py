@@ -122,6 +122,7 @@ class ConstantCorr(HODCross):
         "The expected number of cross-pairs at a separation of zero."
         return 0
 
+
 class CrossCorrelations(Framework):
     def __init__(self, cross_hod_model,
                  cross_hod_params={},
@@ -176,14 +177,13 @@ class CrossCorrelations(Framework):
             np.logical_not(np.isnan(self.cross_hod.cs_cross_pairs(hm1.m)))
         )
 
-
         m = hm1.m[mask]
         u1 = hm1.tracer_profile_ukm[:, mask]
         u2 = hm2.tracer_profile_ukm[:, mask]
 
         integ = hm1.dndm[mask] * (u1 * u2 * self.cross_hod.ss_cross_pairs(m) +
                                   u1*self.cross_hod.sc_cross_pairs(m) +
-                                  u2* self.cross_hod.cs_cross_pairs(m))
+                                  u2*self.cross_hod.cs_cross_pairs(m))
 
         p = intg.simps(integ, m)
 
