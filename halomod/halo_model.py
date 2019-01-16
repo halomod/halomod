@@ -27,7 +27,9 @@ from . import profiles
 from . import bias
 from hmf.filters import TopHat
 import warnings
+from colossus.cosmology import cosmology
 
+from hmf.cosmology.cosmo import astropy_to_colossus
 
 class DMHaloModel(MassFunction):
     '''
@@ -44,11 +46,12 @@ class DMHaloModel(MassFunction):
     rlog = True
 
     def __init__(self, rmin=0.1, rmax=50.0, rnum=20,
-                 halo_profile_model='NFW', halo_profile_params={},
-                 halo_concentration_model='Duffy08', halo_concentration_params={},
-                 bias_model="Tinker10", bias_params={},
-                 sd_bias_model="Tinker_SD05", sd_bias_params={},
-                 exclusion_model="NgMatched", exclusion_params={},
+                 halo_profile_model='NFW', halo_profile_params=None,
+                 halo_concentration_model='Duffy08', halo_concentration_params=None,
+                 bias_model="Tinker10", bias_params=None,
+                 sd_bias_model="Tinker_SD05", sd_bias_params=None,
+                 exclusion_model="NgMatched", exclusion_params=None,
+                 colossus_params=None,
                  hc_spectrum="nonlinear", Mmin=0, Mmax=18,
                  force_1halo_turnover=True,
                  **hmf_kwargs):
@@ -56,18 +59,18 @@ class DMHaloModel(MassFunction):
         super(DMHaloModel, self).__init__(Mmin=Mmin, Mmax=Mmax, **hmf_kwargs)
 
         # Initially save parameters to the class.
-        self.halo_profile_model, self.halo_profile_params = halo_profile_model, halo_profile_params
-        self.halo_concentration_model, self.halo_concentration_params = halo_concentration_model, halo_concentration_params
-        self.bias_model, self.bias_params = bias_model, bias_params
-        self.sd_bias_model, self.sd_bias_params = sd_bias_model, sd_bias_params
-        self.exclusion_model, self.exclusion_params = exclusion_model, exclusion_params
+        self.halo_profile_model, self.halo_profile_params = halo_profile_model, halo_profile_params or {}
+        self.halo_concentration_model, self.halo_concentration_params = halo_concentration_model, halo_concentration_params or {}
+        self.bias_model, self.bias_params = bias_model, bias_params or {}
+        self.sd_bias_model, self.sd_bias_params = sd_bias_model, sd_bias_params or {}
+        self.exclusion_model, self.exclusion_params = exclusion_model, exclusion_params or {}
 
         self.rmin = rmin
         self.rmax = rmax
         self.rnum = rnum
         self.hc_spectrum = hc_spectrum
         self.force_1halo_turnover = force_1halo_turnover
-
+        self.colossus_params = colossus_params or {}
 
 
     # ===============================================================================
@@ -177,9 +180,27 @@ class DMHaloModel(MassFunction):
         else:
             return get_model_(val, "halomod.halo_exclusion")
 
+    @parameter("param")
+    def colossus_params(self, val):
+        """Options used in the colossus cosmology class which are not set/derived in the astropy cosmology"""
+        return val
+
     # ===========================================================================
     # Basic Quantities
     # ===========================================================================
+    @cached_quantity
+    def colossus_cosmo(self):
+        """
+        An instance of a COLOSSUS cosmology, which can be used to perform various
+        COLOSSUS operations.
+        """
+        return astropy_to_colossus(
+            self.cosmo.cosmo,
+            sigma8=self.sigma_8,
+            ns=self.n,
+            **self.colossus_params
+        )
+
     @cached_quantity
     def r(self):
         if type(self.rmin) == list or type(self.rmin) == np.ndarray:
