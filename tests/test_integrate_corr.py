@@ -3,17 +3,14 @@ Simple tests for the integration scheme for ProjectedCF (thus far). Doesn't work
 as yet, since it tries to import the libraries from *this* folder, rather than
 installation (which doesn't work because the fortran code isn't installed.)
 """
-import inspect
-import os
 
 # LOCATION = "/".join(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))).split("/")[:-1])
-import sys
+
 
 # sys.path.insert(0, LOCATION)
 import numpy as np
-from halomod import ProjectedCF
-from halomod.integrate_corr import projected_corr_gal
-from astropy.units import Mpc
+from src.halomod import ProjectedCF
+from src.halomod import projected_corr_gal
 from mpmath import gamma, hyp2f1
 
 hyp2f1A = np.frompyfunc(lambda a, b, c, z: float(hyp2f1(a, b, c, z)), 4, 1)

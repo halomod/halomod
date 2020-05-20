@@ -1,5 +1,5 @@
-import setuptools
-from numpy.distutils.core import setup, Extension
+from setuptools import setup, find_packages
+
 import os
 import sys
 import io
@@ -44,36 +44,11 @@ docs_req = [
     "nbsphinx",
 ]
 
-fort = Extension(
-    "halomod.fort.routines",
-    ["halomod/fort/routines.f90"],
-    extra_f90_compile_args=["-O3", "-Wall", "-Wtabs"],
-    f2py_options=[
-        "--quiet",
-        "only:",
-        "power_gal_2h",
-        "power_gal_1h_ss",
-        "corr_gal_1h_ss",
-        "corr_gal_1h_cs",
-        "power_to_corr",
-        "corr_gal_1h",
-        "get_subfind_centres",
-        ":",
-    ],
-)
-
-corr_2h = Extension(
-    "halomod.fort.twohalo",
-    ["halomod/fort/twohalo.f90"],
-    extra_f90_compile_args=["-Wall", "-Wtabs", "-fopenmp"],
-    f2py_options=["only:", "power_to_corr", "twohalo", "dblsimps", ":"],
-    libraries=["gomp"],
-)
-
 if __name__ == "__main__":
     setup(
         name="halomod",
-        version=find_version("halomod", "__init__.py"),
+        use_scm_version=True,
+        setup_requires=["setuptools_scm"],
         install_requires=[
             "hmf>=3.0.8",
             "mpmath",
@@ -95,9 +70,6 @@ if __name__ == "__main__":
         license="MIT",
         keywords="halo occupation distribution",
         url="https://github.com/steven-murray/halomod",
-        ext_modules=[fort, corr_2h] if os.getenv("WITH_FORTRAN", None) else [],
-        packages=["halomod", "halomod.fort"]
-        if os.getenv("WITH_FORTRAN", None)
-        else ["halomod"],
+        packages=find_packages("src"),
         package_data={"halomod": ["data/*"]},
     )

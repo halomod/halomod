@@ -37,7 +37,7 @@ c = np.logspace(0, 2, 1000)
 
 pk = _p(K, c)
 
-np.savez("../halomod/data/uKc_einasto.npz", pk=pk, K=K, c=c)
+np.savez("../src/halomod/data/uKc_einasto.npz", pk=pk, K=K, c=c)
 np.savetxt("c_einasto.dat", c)
 np.savetxt("K_einasto.dat", K)
 np.savetxt("pkc_einasto.dat", pk)

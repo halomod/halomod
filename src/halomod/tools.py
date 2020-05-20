@@ -125,14 +125,6 @@ def exclusion_window(k, r):
     return 3 * (np.sin(x) - x * np.cos(x)) / x ** 3
 
 
-# def fill_array(i,masses,sgal,centres,halo_profile,ncen,indx,pos):
-#     m,n,ctr = masses[i], sgal[i],centres[i]
-#
-# #        for i, (m, n, ctr) in enumerate(zip(masses, sgal, centres)):
-#         #end = begin + sgal[i]
-#     pos[ncen+indx[i]:ncen+indx[i+1]] = halo_profile.populate(n, m, ba=1, ca=1, centre=ctr)
-
-
 def populate(centres, masses, halomodel=None, profile=None, hodmod=None, edges=None):
     """
     Populate a series of DM halos with galaxies given a HOD model.

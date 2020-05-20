@@ -9,10 +9,7 @@ from hmf._cache import parameter, cached_quantity, subframework
 from abc import ABCMeta, abstractmethod
 import numpy as np
 from scipy import integrate as intg
-from halomod import tools
-
-
-from .halo_model import DMHaloModel
+from . import tools
 
 
 class HODCross(Component):

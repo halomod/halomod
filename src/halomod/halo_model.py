@@ -26,7 +26,7 @@ from .halo_exclusion import Exclusion, NoExclusion
 
 from copy import copy, deepcopy
 from numpy import issubclass_
-from hmf._framework import get_model, get_model_
+from hmf._framework import get_model_
 from . import profiles
 from . import bias
 from hmf.filters import TopHat

@@ -50,6 +50,492 @@ Usage
 or in a script.
 To use interactively, in ``ipython`` do something like the following:
 
+>>> from src.halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from src.halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from src.halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from src.halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from src.halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from src.halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from src.halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from src.halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from src.halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from src.halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from src.halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from src.halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from src.halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from src.halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from src.halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from src.halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from src.halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
+>>> from src.halomod import HaloModel
+>>> hm = HaloModel() ## Construct the object
+>>> help(hm)         ## Lists many of the available quantities.
+>>> galcorr = hm.corr_auto_tracer
+>>> bias = hm.bias
+>>> ...
+
+All parameters to
+
 >>> from halomod import HaloModel
 >>> hm = HaloModel() ## Construct the object
 >>> help(hm)         ## Lists many of the available quantities.
