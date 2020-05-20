@@ -71,5 +71,5 @@ if __name__ == "__main__":
         keywords="halo occupation distribution",
         url="https://github.com/steven-murray/halomod",
         packages=find_packages("src"),
-        package_data={"halomod": ["data/*"]},
+        # package_data={"halomod": ["data/*"]},
     )
