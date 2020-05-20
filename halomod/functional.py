@@ -1,4 +1,4 @@
-from halo_model import HaloModel
+from .halo_model import HaloModel
 from hmf.functional import get_hmf
 def get_halomodel(required_attrs, get_label=True, kls=HaloModel,
                   fast_kwargs={"transfer_fit":"BBKS",

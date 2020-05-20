@@ -38,7 +38,7 @@ def twohalo_wrapper(excl, sdb, m, bias, ntot, dndm, lnk, dmpower, u, r, dmcorr,
         Matter power spectrum
         
     u : (nk,nm)-array
-        The normalised fourier transform of the density profile as a function 
+        The normalised fourier transform of the density halo_profile as a function 
         of m and k.
         
     r : array

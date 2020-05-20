@@ -1,15 +1,15 @@
 '''
 Contains WDM versions of all models and frameworks
 '''
-from concentration import CMRelation
-from halo_model import HaloModel
+from .concentration import CMRelation
+from .halo_model import HaloModel
 from hmf._cache import cached_quantity, parameter
 import numpy as np
 from scipy import integrate as intg
 from hmf.wdm import MassFunctionWDM
 from hmf._framework import get_model
 import sys
-from integrate_corr import ProjectedCF
+from .integrate_corr import ProjectedCF
 from copy import copy
 
 
@@ -20,11 +20,11 @@ def CMRelationWDMRescaled(name, **kwargs):
     """
     Class factory for Rescaled CM relations.
     """
-    x = getattr(sys.modules["halomod.concentration"], name)
+    x = getattr(sys.modules["halomod.halo_concentration"], name)
 
     # class CMRelationWDMRescale(x):
     #     """
-    #     Base class for simply rescaled concentration-mass relations (cf. Schneider
+    #     Base class for simply rescaled halo_concentration-mass relations (cf. Schneider
     #     2013, Bose+15)
     #     """
     def __init__(self, m_hm, **kwargs):
@@ -32,7 +32,7 @@ def CMRelationWDMRescaled(name, **kwargs):
         self.m_hm = m_hm
 
     def cm(self, m, z=0):
-        cm = super(self.__class__, self).cm(m)
+        cm = super(self.__class__, self).halo_cm(m)
         g1 = self.params['g1']
         g2 = self.params['g2']
         b0 = self.params['beta0']
@@ -58,14 +58,14 @@ class HaloModelWDM(HaloModel, MassFunctionWDM):
     """
 
     def __init__(self, **kw):
-        kw.setdefault("concentration_model", "Ludlow2016")
+        kw.setdefault("halo_concentration_model", "Ludlow2016")
         super(HaloModelWDM, self).__init__(**kw)
 
     @parameter("switch")
     def concentration_model(self, val):
-        """A concentration-mass relation"""
-        if not isinstance(val, basestring) and not issubclass_(val, CMRelation):
-            raise ValueError("concentration_model must be a subclass of concentration.CMRelation")
+        """A halo_concentration-mass relation"""
+        if not isinstance(val, str) and not issubclass_(val, CMRelation):
+            raise ValueError("halo_concentration_model must be a subclass of halo_concentration.CMRelation")
         return val
 
     # @cached_quantity
@@ -122,7 +122,7 @@ class HaloModelWDM(HaloModel, MassFunctionWDM):
         elif self.concentration_model.endswith("WDM"):
             cm = CMRelationWDMRescaled(self.concentration_model[:-3], m_hm=self.wdm.m_hm, **kwargs)
         else:
-            cm = get_model(self.concentration_model, "halomod.concentration", **kwargs)
+            cm = get_model(self.concentration_model, "halomod.halo_concentration", **kwargs)
 
         return cm
 

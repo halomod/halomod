@@ -25,7 +25,7 @@ def rms_diff(vec1, vec2, tol):
     vec1 = vec1[mask]
     vec2 = vec2[mask]
     err = np.sqrt(np.mean(((vec1 - vec2) / vec2) ** 2))
-    print "RMS Error: ", err, "(> ", tol, ")"
+    print("RMS Error: ", err, "(> ", tol, ")")
     return err < tol
 
 def max_diff_rel(vec1, vec2, tol):
@@ -34,7 +34,7 @@ def max_diff_rel(vec1, vec2, tol):
     vec1 = vec1[mask]
     vec2 = vec2[mask]
     err = np.max(np.abs((vec1 - vec2) / vec2))
-    print "Max Diff: ", err, "(> ", tol, ")"
+    print("Max Diff: ", err, "(> ", tol, ")")
     return err < tol
 
 def max_diff(vec1, vec2, tol):
@@ -42,7 +42,7 @@ def max_diff(vec1, vec2, tol):
     vec1 = vec1[mask]
     vec2 = vec2[mask]
     err = np.max(np.abs((vec1 - vec2)))
-    print "Max Diff: ", err, "(> ", tol, ")"
+    print("Max Diff: ", err, "(> ", tol, ")")
     return err < tol
 
 
@@ -112,69 +112,69 @@ class TestKnown(object):
                              halo_profile="NFW")
 
     def check_profile(self, z, prop):
-        """Check profile-related quantities"""
+        """Check halo_profile-related quantities"""
         data = np.genfromtxt(LOCATION + "/data/" + prop + "z" + str(z))
         # if prop is "u":
-        #    assert max_diff_rel(self.hod.profile.u(1e-3 * 1.25 ** 19,
+        #    assert max_diff_rel(self.hod.halo_profile.u(1e-3 * 1.25 ** 19,
         #                                           self.hod.hmf.M), data, 0.01)
 
         self.hod.update(z=z)  #NOTE TO FUTURE SELF: need to put update here rather than in loop in test_profile or else it doesn't work!!!
         if prop is "rho":
             if PLOT:
                 plt.clf()
-                plt.plot(self.hod.hmf.M, self.hod.profile.rho(self.hod.r[0],
-                                                     self.hod.hmf.M,
-                                                     norm="m"), label="mine")
+                plt.plot(self.hod.hmf.M, self.hod.halo_profile.rho(self.hod.r[0],
+                                                                   self.hod.hmf.M,
+                                                                   norm="m"), label="mine")
                 plt.plot(data[:, 0] * self.hod.cosmo.h, data[:, 1] / self.hod.cosmo.h ** 3, label="charles")
                 plt.legend()
                 plt.xscale('log')
                 plt.yscale('log')
                 plt.savefig(join(pref, "rho" + prop + "z" + str(z) + ".pdf"))
-            assert max_diff_rel(self.hod.profile.rho(self.hod.r[0],
-                                                     self.hod.hmf.M,
-                                                     norm="m"),
+            assert max_diff_rel(self.hod.halo_profile.rho(self.hod.r[0],
+                                                          self.hod.hmf.M,
+                                                          norm="m"),
                                 data[:, 1] / self.hod.cosmo.h ** 3, 0.01)
         elif prop is "lam":
             if PLOT:
                 plt.clf()
-                plt.plot(self.hod.hmf.M, self.hod.profile.lam(self.hod.r[0],
-                                                     self.hod.hmf.M), label="mine")
+                plt.plot(self.hod.hmf.M, self.hod.halo_profile.lam(self.hod.r[0],
+                                                                   self.hod.hmf.M), label="mine")
                 plt.plot(data[:, 0] * self.hod.cosmo.h, data[:, 1] / self.hod.cosmo.h, label="charles")
                 plt.legend()
                 plt.xscale('log')
                 plt.yscale('log')
                 plt.savefig(join(pref, "lam" + prop + "z" + str(z) + ".pdf"))
-            assert max_diff_rel(self.hod.profile.lam(self.hod.r[0],
-                                                     self.hod.hmf.M),
+            assert max_diff_rel(self.hod.halo_profile.lam(self.hod.r[0],
+                                                          self.hod.hmf.M),
                                  data[:, 1] / self.hod.cosmo.h , 0.1)
 
         elif prop is "rhor":
             m = data[0, 2] * self.hod.cosmo.h
             if PLOT:
                 plt.clf()
-                plt.plot(self.hod.r, self.hod.profile.rho(self.hod.r,
-                                                          m, norm="m"), label="mine")
+                plt.plot(self.hod.r, self.hod.halo_profile.rho(self.hod.r,
+                                                               m, norm="m"), label="mine")
                 plt.plot(data[:, 0] * self.hod.cosmo.h, data[:, 1] / self.hod.cosmo.h ** 3, label="charles")
                 plt.legend()
                 plt.xscale('log')
                 plt.yscale('log')
                 plt.savefig(join(pref, "rhor" + prop + "z" + str(z) + ".pdf"))
-            assert max_diff_rel(self.hod.profile.rho(self.hod.r,
-                                                     m, norm="m"),
+            assert max_diff_rel(self.hod.halo_profile.rho(self.hod.r,
+                                                          m, norm="m"),
                                 data[:, 1] / self.hod.cosmo.h ** 3, 0.01)
         elif prop is "lamr":
             m = data[0, 2] * self.hod.cosmo.h
             if PLOT:
                 plt.clf()
-                plt.plot(self.hod.r, self.hod.profile.lam(self.hod.r,
-                                                          m), label="mine")
+                plt.plot(self.hod.r, self.hod.halo_profile.lam(self.hod.r,
+                                                               m), label="mine")
                 plt.plot(data[:, 0] * self.hod.cosmo.h, data[:, 1] / self.hod.cosmo.h, label="charles")
                 plt.legend()
                 plt.xscale('log')
                 plt.yscale('log')
                 plt.savefig(join(pref, "lamr" + prop + "z" + str(z) + ".pdf"))
-            assert max_diff_rel(self.hod.profile.lam(self.hod.r,
-                                                     m),
+            assert max_diff_rel(self.hod.halo_profile.lam(self.hod.r,
+                                                          m),
                                  data[:, 1] / self.hod.cosmo.h , 0.02)
 
         elif prop is "uk":
@@ -182,8 +182,8 @@ class TestKnown(object):
             if PLOT:
                 plt.clf()
                 plt.plot(np.exp(self.hod.transfer.lnk),
-                         self.hod.profile.u(np.exp(self.hod.transfer.lnk),
-                                            m , norm='m'),
+                         self.hod.halo_profile.u(np.exp(self.hod.transfer.lnk),
+                                                 m, norm='m'),
                          label="mine")
                 plt.plot(data[:, 0] / self.hod.cosmo.h, data[:, 1], label="charles")
                 plt.legend()
@@ -191,23 +191,23 @@ class TestKnown(object):
                 plt.yscale('log')
                 plt.savefig(join(pref, "uk" + prop + "z" + str(z) + ".pdf"))
 
-            assert max_diff_rel(self.hod.profile.u(np.exp(self.hod.transfer.lnk),
-                                                   m , norm='m'),
+            assert max_diff_rel(self.hod.halo_profile.u(np.exp(self.hod.transfer.lnk),
+                                                        m, norm='m'),
                                 data[:, 1], 0.01)
         elif prop is "um":
             if PLOT:
                 plt.clf()
                 plt.plot(self.hod.hmf.M,
-                         self.hod.profile.u(np.exp(self.hod.transfer.lnk[0]),
-                                            self.hod.hmf.M , norm='m'),
+                         self.hod.halo_profile.u(np.exp(self.hod.transfer.lnk[0]),
+                                                 self.hod.hmf.M, norm='m'),
                          label="mine")
                 plt.plot(data[:, 0] / self.hod.cosmo.h, data[:, 1], label="charles")
                 plt.legend()
                 plt.xscale('log')
                 plt.yscale('log')
                 plt.savefig(join(pref, "um" + prop + "z" + str(z) + ".pdf"))
-            assert max_diff_rel(self.hod.profile.u(np.exp(self.hod.transfer.lnk[0]),
-                                            self.hod.hmf.M , norm='m'),
+            assert max_diff_rel(self.hod.halo_profile.u(np.exp(self.hod.transfer.lnk[0]),
+                                                        self.hod.hmf.M, norm='m'),
                                 data[:, 1] , 0.01)
 
 
@@ -328,8 +328,8 @@ class TestKnown(object):
 
 if __name__ == "__main__":
     t = TestKnown()
-    print t.m
-    print t.r
+    print(t.m)
+    print(t.r)
 
     t.test_bias()
-    print "all done.."
+    print("all done..")

@@ -96,9 +96,9 @@ def main(argv=None):
         parser.add_argument("--filetype", nargs="*", default=["ascii"], choices=["ascii", "subfind"], help="the type of input file(s). Must be len(1) or len(infile)")
         parser.add_argument("--hodmod", default="zheng", help="the HOD model used")
         parser.add_argument("--delta_h", default=200.0, type=float, help="the average halo overdensity")
-        parser.add_argument("--profile", default="NFW", help="the halo profile to use")
-        parser.add_argument("--cm-relation", default="zehavi", help="the Concentration-Mass relation")
-        parser.add_argument("--no-truncate", action="store_true", help="don't truncate profile")
+        parser.add_argument("--halo_profile", default="NFW", help="the halo halo_profile to use")
+        parser.add_argument("--halo_cm-relation", default="zehavi", help="the Concentration-Mass relation")
+        parser.add_argument("--no-truncate", action="store_true", help="don't truncate halo_profile")
         parser.add_argument("--omegam", nargs="*", default=[0.3], type=float, help="the matter density")
         parser.add_argument("--redshift", nargs="*", default=[0.0], type=float, help="the redshift")
         parser.add_argument("--nthreads", type=int, help="number of threads to use. Default auto.")
@@ -209,7 +209,7 @@ def populate(i, ftypes, args, delta_h, posfiles, omegams, redshifts, hodmod, out
     centres /= (1 + redshifts[i])
 
     pos = tools.populate(centres, masses, delta_h[i], omegams[i],
-                         redshifts[i], args.profile, args.cm_relation,
+                         redshifts[i], args.halo_profile, args.cm_relation,
                          hodmod, not args.no_truncate)
 
     pos *= (1 + redshifts[i])

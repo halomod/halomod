@@ -116,14 +116,14 @@ Dvir = 200
 MaxGatherRad = 10.0
 """ % (filename, typecode, filename, lgmax)
 
-        print >> f, ahf_config
+        print(ahf_config, file=f)
 
         gadget_config = """
 [GADGET]
 GADGET_LUNIT = 1
 GADGET_MUNIT = 1e10
 """
-        print >> f, gadget_config
+        print(gadget_config, file=f)
 
     if os.path.exists(groupfinder):
         # run it
@@ -187,7 +187,7 @@ def _import_ahf_haloes(filename, get_particles=True):
 
             nhalos = int(f.readline())
 
-            for h in xrange(nhalos):
+            for h in range(nhalos):
                 nparts = int(f.readline().split()[0])
 
                 ids.append((np.fromfile(f, dtype=int,
@@ -228,12 +228,12 @@ def _import_subfind_halos(subfile, idsfile, get_particles=True):
 
     properties = []
 
-    for h in xrange(nhalos):
+    for h in range(nhalos):
         properties.append({'npart':grouplen[h], '#ID':h})
 
     if get_particles:
         ids = []
-        for h in xrange(nhalos):
+        for h in range(nhalos):
             ids.append(part_ids[groupoffsets[h]:groupoffsets[h] + grouplen[h]])
         return properties, ids
 
@@ -363,8 +363,8 @@ class BaseHalo(object):
         if ba is not None and ca is not None:
             self.properties.update({"ba":ba, "ca":ca})
         elif get_inertia:
-            print pos.shape
-            print type(pos)
+            print(pos.shape)
+            print(type(pos))
             ba, ca, eigval, inertia_tensor = calc_ratios(self.pos, self.properties['mp'], tol=0.001)
             self.properties.update({"ba":ba, "ca":ca, "inertia_tensor":inertia_tensor})
 
@@ -484,20 +484,20 @@ def calc_ratios(pos, mass, tol=0.001):
 
 
     # Project positions and velocities onto new axes
-    print 'Required ', counter, ' iteration(s) to find ellipticity'
+    print('Required ', counter, ' iteration(s) to find ellipticity')
     return ba, ca, eigval, eigvec
 
 def concentration(pos, ba, ca, mass, r_vir, bins=25, min_bin=0.005):
     """
-    Calcualtes the concentration of a pre-centred halo
+    Calcualtes the halo_concentration of a pre-centred halo
     
-    We need the axis ratios to get a good fit for the concentration and the profile
+    We need the axis ratios to get a good fit for the halo_concentration and the halo_profile
     """
     start = np.log10(min_bin)
     end = 0
     bins = np.logspace(start, end, num=bins + 1)
 
-    # We use the ellipticity information to return an elliptic profile
+    # We use the ellipticity information to return an elliptic halo_profile
     r_eff = np.sqrt(pos[:, 0] ** 2 + pos[:, 1] ** 2 / ba ** 2 + pos[:, 2] ** 2 / ca ** 2)
 
     hgram, edges = np.histogram(r_eff, bins=bins)

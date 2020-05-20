@@ -46,11 +46,14 @@ if __name__ == "__main__":
     setup(
         name="halomod",
         version=find_version("halomod","__init__.py"),
-        install_requires=['hmf>=2.0.0',
-                          'mpmath',
-                          'cached_property',
-                          'numpy',
-                          'scipy'],
+        install_requires=[
+            'hmf>=3.1.0',
+            'mpmath',
+            'cached_property',
+            'numpy',
+            'scipy',
+            'colossus'
+        ],
         scripts=['scripts/pophod',
                  'scripts/halomod-fit'],
         author="Steven Murray",

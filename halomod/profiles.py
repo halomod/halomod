@@ -9,6 +9,7 @@ from hmf._framework import Component
 from scipy.special import gammainc, gamma
 import os
 import warnings
+from scipy.special import sici
 
 def ginc(a,x):
     return gamma(a) * gammainc(a,x)
@@ -23,10 +24,10 @@ class Profile(Component):
     specific profiles shapes, f(x) must provide very minimal other information
     for a range of products to be available.
 
-    The "main" quantities available are the profile itself, its fourier pair,
-    and its convolution (this is not available for every profile). Furthermore,
-    quantities such as the concentration-mass relation are provided, along with
-    tools such as those to generate a mock halo of the given profile.
+    The "main" quantities available are the halo_profile itself, its fourier pair,
+    and its convolution (this is not available for every halo_profile). Furthermore,
+    quantities such as the halo_concentration-mass relation are provided, along with
+    tools such as those to generate a mock halo of the given halo_profile.
 
     Parameters
     ----------
@@ -37,7 +38,7 @@ class Profile(Component):
         Overdensity of the halo definition, with respect to MEAN BACKGROUND density.
 
     cm_relation : str {'zehavi','duffy'}
-        Identifies which concentration-mass relation to use
+        Identifies which halo_concentration-mass relation to use
 
     z : float, default 0.0
         The redshift of the halo
@@ -75,7 +76,7 @@ class Profile(Component):
             mass of the halo
 
         c : float, default None
-            concentration of the halo (if None, use cm_relation to get it).
+            halo_concentration of the halo (if None, use cm_relation to get it).
         """
         if c is None:
             c = self.cm_relation(m)
@@ -112,10 +113,10 @@ class Profile(Component):
         Parameters
         ----------
         c : float or array_like, optional
-            The concentration(s) of the halo(s). Used ONLY if m is not specified.
+            The halo_concentration(s) of the halo(s). Used ONLY if m is not specified.
 
         m : float or array_like, optional
-            The mass of the halo. Determines the concentration if provided.
+            The mass of the halo. Determines the halo_concentration if provided.
 
         .. note :: This function should be replaced with an analytic solution if
                 possible in derived classes.
@@ -132,7 +133,7 @@ class Profile(Component):
 
     def _p(self, K, c):
         """
-        The reduced dimensionless fourier-transform of the profile
+        The reduced dimensionless fourier-transform of the halo_profile
 
         This function should not need to be called by the user in general.
 
@@ -142,7 +143,7 @@ class Profile(Component):
             The unit-less wavenumber k*r_s
 
         c : float or array_like
-            The concentration
+            The halo_concentration
 
         .. note :: This should be replaced by an analytic function if possible
         """
@@ -191,12 +192,12 @@ class Profile(Component):
 
     def _rho_s(self, c, r_s=None, norm=None):
         """
-        The amplitude factor of the profile
+        The amplitude factor of the halo_profile
 
         Parameters
         ----------
         c : float or array of floats
-            The concentration parameter
+            The halo_concentration parameter
 
         norm : str or None, {None,"m","rho"}
             Normalisation for the amplitude. Can either be None (in which case
@@ -246,7 +247,7 @@ class Profile(Component):
 
     def u(self, k, m, norm="m", c=None, coord="k"):
         """
-        The (optionally normalised) Fourier-transform of the density profile
+        The (optionally normalised) Fourier-transform of the density halo_profile
 
         Parameters
         ----------
@@ -280,7 +281,7 @@ class Profile(Component):
 
     def lam(self, r, m, norm="m", c=None, coord='r'):
         """
-        The density profile convolved with itself.
+        The density halo_profile convolved with itself.
 
         Parameters
         ----------
@@ -308,7 +309,7 @@ class Profile(Component):
             else:
                 raise ValueError("norm must be None or 'm'")
         else:
-            raise AttributeError("this profile has no self-convolution defined.")
+            raise AttributeError("this halo_profile has no self-convolution defined.")
         return self._reduce(lam)
 
     def cdf(self, r, c=None, m=None, coord='r'):
@@ -321,10 +322,10 @@ class Profile(Component):
             The radial location -- units defined by :attr:`coord`
 
         c : float or array_like, optional
-            The concentration. Only used if m not provided
+            The halo_concentration. Only used if m not provided
 
         m : float or array_like, optional
-            The mass of the halo. Defines the concentration if provided.
+            The mass of the halo. Defines the halo_concentration if provided.
 
         coord : str, {``"x"``, ``"r"``, ``"s"``}
             What the radial coordinate represents. ``r`` represents physical
@@ -337,19 +338,19 @@ class Profile(Component):
 
     def cm_relation(self, m):
         """
-        The concentration-mass relation
+        The halo_concentration-mass relation
         """
         return self._cm_relation.cm(m, self.z)
 
     def _get_r_variables(self, r, m, c=None, coord="r"):
         """
-        From a raw array in r, mass, returns concentration,
+        From a raw array in r, mass, returns halo_concentration,
         scale radius and x=r*c/rvir.
 
         Returns
         -------
         c : same shape as m
-            concentration
+            halo_concentration
 
         r_s : same shape as m
             Scale radius
@@ -372,13 +373,13 @@ class Profile(Component):
 
     def _get_k_variables(self, k, m, c=None, coord="k"):
         """
-        From a raw array in k, mass, returns concentration,
+        From a raw array in k, mass, returns halo_concentration,
         kappa.
 
         Returns
         -------
         c : same shape as m
-            concentration
+            halo_concentration
 
         K : 1d or 2d array
             Dimensionless scale parameter, shape (r,[m]).
@@ -409,7 +410,7 @@ class Profile(Component):
 
     def populate(self,N,m, c=None, ba=1,ca=1,centre = np.zeros(3)):
         """
-        Populate a halo with the current profile of mass ``m`` with ``N`` tracers.
+        Populate a halo with the current halo_profile of mass ``m`` with ``N`` tracers.
 
         Parameters
         ----------
@@ -449,7 +450,7 @@ class Profile(Component):
 
 class ProfileInf(Profile):
     """
-    An extended profile (not truncated at x=c)
+    An extended halo_profile (not truncated at x=c)
     """
     def rho(self, r, m, norm=None, c=None, coord="r"):
         """
@@ -482,7 +483,7 @@ class ProfileInf(Profile):
 
     def u(self, k, m, norm=None, c=None, coord="k"):
         """
-        The fourier-transform of the density profile
+        The fourier-transform of the density halo_profile
 
         Parameters
         ----------
@@ -516,7 +517,7 @@ class ProfileInf(Profile):
 
     def _p(self, K):
         """
-        The dimensionless fourier-transform of the profile
+        The dimensionless fourier-transform of the halo_profile
 
         This should be replaced by an analytic function if possible
         """
@@ -552,7 +553,7 @@ class ProfileInf(Profile):
                 res[i] += this_iter
                 j += 1
             if diff > allowed_diff:
-                raise Exception("profile has no analytic transform and converges too slow numerically")
+                raise Exception("halo_profile has no analytic transform and converges too slow numerically")
 
         if len(K.shape) == 2:
                 fit = spline(kk, res[i], k=3)
@@ -562,7 +563,7 @@ class ProfileInf(Profile):
 
     def lam(self, r, m, norm=None, c=None, coord='r'):
         """
-        The density profile convolved with itself.
+        The density halo_profile convolved with itself.
 
         Parameters
         ----------
@@ -590,7 +591,7 @@ class ProfileInf(Profile):
             else:
                 raise ValueError("norm must be None or 'm'")
         else:
-            raise AttributeError("this profile has no self-convolution defined.")
+            raise AttributeError("this halo_profile has no self-convolution defined.")
         return self._make_scalar(lam)
 
 
@@ -775,9 +776,9 @@ class GeneralizedNFWInf(GeneralizedNFW, ProfileInf):
 
 class Einasto(Profile):
     """
-    An Einasto profile.
+    An Einasto halo_profile.
 
-    This profile has no analytic Fourier Transform. The numerical FT has been pre-computed and is by default
+    This halo_profile has no analytic Fourier Transform. The numerical FT has been pre-computed and is by default
     used to interpolate to the correct solution. If the full numerical calculation is preferred, set the
     model parameter ``use_interp`` to `False`. The interpolation speeds up the calculation by at least 10 times.
     """
@@ -823,3 +824,25 @@ class Einasto(Profile):
             return np.exp(self._reduce(spl.ev(np.log(K.flatten()),np.log(cc)).reshape(K.shape)))
         else: #Numerical version.
             return super(Einasto,self)._p(K,c)
+
+
+class CoredNFW(Profile):
+    """
+    A cored NFW Profile, as used in eg. Padmanabhan + Refrigier 2015
+    """
+    def _f(self, x):
+        return 1. / (x + 0.75) / (x + 1) ** 2
+
+    def _h(self, c):
+        return -4 * (-(2 * c + 3) / (c + 1) + 2 * np.log(c + 1)) + 9 * np.log(c + 0.75) - 12 - 9 * np.log(0.75)
+
+    def _p(self, K, c):
+        def antideriv(k, x):
+            si1, ci1 = sici(k * (x + 1))
+            si2, ci2 = sici(k * (x + 0.75))
+
+            return (1. / k) * (12 * (np.cos(k) * si1 - np.sin(k) * ci1) +
+                               4 * k * (np.cos(k) * ci1 + np.sin(k) * si1) - 4 * np.sin(k * x) / (x + 1) +
+                               -12 * (np.cos(0.75 * k) * si2 - np.sin(0.75 * k) * ci2))
+
+        return antideriv(K, c) - antideriv(K, 0)
