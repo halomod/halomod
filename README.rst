@@ -34,7 +34,7 @@ Features
     * 10 halo bias models, plus scale-dependent bias from Tinker (2005).
     * 3 basic halo_concentration-mass-redshift relations, including the analytic Bullock (2001) model
     * Several plug-and-play halo-exclusion models (including tracer_density-matched from Tinker+2005).
-    * 5 built-in HOD parameterisations
+    * 5 built-in HOD parametrisations
     * Many built-in halo profiles, including NFW, generalised NFW, Hernquist etc.
     * Support for WDM models.
 * All basic quantities such as 3D correlations and power spectra, and projected 2PCF.
