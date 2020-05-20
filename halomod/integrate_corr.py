@@ -1,11 +1,11 @@
-'''
+"""
 Created on 10/03/2015
 
 @author: Steven
 
 Module for routines and _frameworks that intelligently integrate the real-space
 correlation function
-'''
+"""
 import numpy as np
 from scipy.interpolate import InterpolatedUnivariateSpline as _spline
 from scipy.integrate import simps
@@ -15,11 +15,20 @@ from .halo_exclusion import dblsimps
 from hmf.cosmo import Cosmology as csm
 import warnings
 
+
 class ProjectedCF(HaloModel):
-    def __init__(self, rp_min=0.01, rp_max=50.0, rp_num=30, rp_log=True, proj_limit=None, **kwargs):
+    def __init__(
+        self,
+        rp_min=0.01,
+        rp_max=50.0,
+        rp_num=30,
+        rp_log=True,
+        proj_limit=None,
+        **kwargs
+    ):
         # Set default rnum
         if "rnum" not in kwargs:
-            kwargs['rnum'] = 5*rp_num
+            kwargs["rnum"] = 5 * rp_num
 
         super(ProjectedCF, self).__init__(**kwargs)
 
@@ -51,14 +60,15 @@ class ProjectedCF(HaloModel):
     def proj_limit(self, val):
         return val
 
-
     @cached_quantity
     def rp(self):
         if type(self.rp_min) == list or type(self.rp_min) == np.ndarray:
             rp = np.array(self.rp_min)
         else:
             if self.rp_log:
-                rp = np.logspace(np.log10(self.rp_min), np.log10(self.rp_max), self.rp_num)
+                rp = np.logspace(
+                    np.log10(self.rp_min), np.log10(self.rp_max), self.rp_num
+                )
             else:
                 rp = np.linspace(self.rp_min, self.rp_max, self.rp_num)
 
@@ -86,6 +96,7 @@ class ProjectedCF(HaloModel):
         To integrate perform a substitution y = x - r_p.
         """
         return projected_corr_gal(self.r, self.corr_gg, self.rlim, self.rp)
+
 
 def projected_corr_gal(r, xir, rlim, rp_out=None):
     """
@@ -128,7 +139,7 @@ def projected_corr_gal(r, xir, rlim, rp_out=None):
         ylim = rlim - rp
 
         # Set the y vector for this rp
-        y = np.logspace(np.log(min_y), np.log(ylim), 1000, base=np.e) 
+        y = np.logspace(np.log(min_y), np.log(ylim), 1000, base=np.e)
 
         # Integrate
         integ_corr = fit(y + rp)
@@ -137,23 +148,36 @@ def projected_corr_gal(r, xir, rlim, rp_out=None):
 
     return p
 
+
 def _get_theta(a):
-    theta = 2 ** (1 + 2 * a) * (7 - 2 * a ** 3 + 3 * np.sqrt(5 - 8 * a + 4 * a ** 2) + a ** 2 * (9 + np.sqrt(5 - 8 * a + 4 * a ** 2)) -
-                       a * (13 + 3 * np.sqrt(5 - 8 * a + 4 * a ** 2))) * ((1 + np.sqrt(5 - 8 * a + 4 * a ** 2)) / (a - 1)) ** (-2 * a)
+    theta = (
+        2 ** (1 + 2 * a)
+        * (
+            7
+            - 2 * a ** 3
+            + 3 * np.sqrt(5 - 8 * a + 4 * a ** 2)
+            + a ** 2 * (9 + np.sqrt(5 - 8 * a + 4 * a ** 2))
+            - a * (13 + 3 * np.sqrt(5 - 8 * a + 4 * a ** 2))
+        )
+        * ((1 + np.sqrt(5 - 8 * a + 4 * a ** 2)) / (a - 1)) ** (-2 * a)
+    )
     theta /= (a - 1) ** 2 * (-1 + 2 * a + np.sqrt(5 - 8 * a + 4 * a ** 2))
     return theta
 
 
-def flat_z_dist(zmin,zmax):
+def flat_z_dist(zmin, zmax):
     def ret(z):
         z = np.atleast_1d(z)
-        return np.where(np.logical_and(z>=zmin,z<=zmax),1./(zmax-zmin),0)
+        return np.where(np.logical_and(z >= zmin, z <= zmax), 1.0 / (zmax - zmin), 0)
+
     return ret
 
-def dxdz(z,cosmo=csm().cosmo):
+
+def dxdz(z, cosmo=csm().cosmo):
     "Derivative of comoving distance with redshift [Mpc/h]"
     dh = cosmo.hubble_distance * cosmo.h
-    return dh.value/cosmo.efunc(z)
+    return dh.value / cosmo.efunc(z)
+
 
 class AngularCF(HaloModel):
     """
@@ -205,18 +229,34 @@ class AngularCF(HaloModel):
         Any keyword arguments passed down to :class:`halomod.HaloModel`.
     """
 
-    def __init__(self, p1=None, p2=None,
-                 theta_min=1e-3 * np.pi/180.0, theta_max=np.pi/180.0, theta_num=30, theta_log=True,
-                 zmin=0.2,zmax=0.4,znum=100,
-                 logu_min=-4,logu_max=2.3,unum=100,check_p_norm=True, p_of_z=True,
-                 **kwargs):
+    def __init__(
+        self,
+        p1=None,
+        p2=None,
+        theta_min=1e-3 * np.pi / 180.0,
+        theta_max=np.pi / 180.0,
+        theta_num=30,
+        theta_log=True,
+        zmin=0.2,
+        zmax=0.4,
+        znum=100,
+        logu_min=-4,
+        logu_max=2.3,
+        unum=100,
+        check_p_norm=True,
+        p_of_z=True,
+        **kwargs
+    ):
         super(AngularCF, self).__init__(**kwargs)
 
-        if self.z < zmin or self.z>zmax:
-            warnings.warn("Your specified redshift (z=%s) is not within your selection function, z=(%s,%s)"%(self.z,zmin,zmax))
+        if self.z < zmin or self.z > zmax:
+            warnings.warn(
+                "Your specified redshift (z=%s) is not within your selection function, z=(%s,%s)"
+                % (self.z, zmin, zmax)
+            )
 
         if p1 is None:
-            p1 = flat_z_dist(zmin,zmax)
+            p1 = flat_z_dist(zmin, zmax)
 
         self.p1 = p1
         self.p2 = p2
@@ -238,13 +278,12 @@ class AngularCF(HaloModel):
     def p1(self, val):
         return val
 
-
     @parameter("param")
     def p2(self, val):
         return val
 
     @parameter("model")
-    def p_of_z(self,val):
+    def p_of_z(self, val):
         return val
 
     @parameter("res")
@@ -300,12 +339,12 @@ class AngularCF(HaloModel):
         """
         Redshift distribution grid.
         """
-        return np.linspace(self.zmin,self.zmax,self.znum)
+        return np.linspace(self.zmin, self.zmax, self.znum)
 
     @cached_quantity
     def uvec(self):
         "Radial separation grid [Mpc/h]"
-        return np.logspace(self.logu_min,self.logu_max,self.unum)
+        return np.logspace(self.logu_min, self.logu_max, self.unum)
 
     @cached_quantity
     def xvec(self):
@@ -319,15 +358,21 @@ class AngularCF(HaloModel):
             raise ValueError("theta_min must be less than theta_max")
 
         if self.theta_log:
-            return np.logspace(np.log10(self.theta_min), np.log10(self.theta_max), self.theta_num)
+            return np.logspace(
+                np.log10(self.theta_min), np.log10(self.theta_max), self.theta_num
+            )
         else:
             return np.linspace(self.theta_min, self.theta_max, self.theta_num)
 
     @cached_quantity
     def r(self):
         "Physical separation grid [Mpc/h]"
-        rmin = np.sqrt((10 ** self.logu_min) ** 2 + self.theta.min() ** 2 * self.xvec.min() ** 2)
-        rmax = np.sqrt((10 ** self.logu_max) ** 2 + self.theta.max() ** 2 * self.xvec.max() ** 2)
+        rmin = np.sqrt(
+            (10 ** self.logu_min) ** 2 + self.theta.min() ** 2 * self.xvec.min() ** 2
+        )
+        rmax = np.sqrt(
+            (10 ** self.logu_max) ** 2 + self.theta.max() ** 2 * self.xvec.max() ** 2
+        )
         return np.logspace(np.log10(rmin), np.log10(rmax), self.rnum)
 
     @cached_quantity
@@ -337,15 +382,26 @@ class AngularCF(HaloModel):
 
         From Blake+08, Eq. 33
         """
+
         def xi(r):
-            s = _spline(self.r,self.corr_gg)
+            s = _spline(self.r, self.corr_gg)
             return s(r)
 
-        return angular_corr_gal(self.theta, xi, self.p1,
-                                self.zmin, self.zmax, self.logu_min, self.logu_max,
-                                znum=self.znum, unum=self.unum, p2=self.p2,
-                                check_p_norm=self.check_p_norm, cosmo=self.cosmo,
-                                p_of_z = self.p_of_z)
+        return angular_corr_gal(
+            self.theta,
+            xi,
+            self.p1,
+            self.zmin,
+            self.zmax,
+            self.logu_min,
+            self.logu_max,
+            znum=self.znum,
+            unum=self.unum,
+            p2=self.p2,
+            check_p_norm=self.check_p_norm,
+            cosmo=self.cosmo,
+            p_of_z=self.p_of_z,
+        )
 
     @cached_quantity
     def angular_corr_matter(self):
@@ -354,31 +410,59 @@ class AngularCF(HaloModel):
 
         From Blake+08, Eq. 33
         """
+
         def xi(r):
-            s = _spline(self.r,self.corr_mm)
+            s = _spline(self.r, self.corr_mm)
             return s(r)
 
-        return angular_corr_gal(self.theta, xi, self.p1,
-                                self.zmin, self.zmax, self.logu_min, self.logu_max,
-                                znum=self.znum, unum=self.unum, p2=self.p2,
-                                check_p_norm=self.check_p_norm, cosmo=self.cosmo,
-                                p_of_z = self.p_of_z)
+        return angular_corr_gal(
+            self.theta,
+            xi,
+            self.p1,
+            self.zmin,
+            self.zmax,
+            self.logu_min,
+            self.logu_max,
+            znum=self.znum,
+            unum=self.unum,
+            p2=self.p2,
+            check_p_norm=self.check_p_norm,
+            cosmo=self.cosmo,
+            p_of_z=self.p_of_z,
+        )
 
-def _check_p(p,z):
-    if hasattr(p,"integral"):
-        integ = p.integral(z.min(),z.max())
+
+def _check_p(p, z):
+    if hasattr(p, "integral"):
+        integ = p.integral(z.min(), z.max())
     else:
-        integ = simps(p(z),z)
-    if not np.isclose(integ,1.0,rtol=0.01):
-        print("WARNING: Filter function p(x) did not integrate to 1 (%s). Tentatively re-normalising."%integ)
-        return (lambda z: p(z)/integ)
+        integ = simps(p(z), z)
+    if not np.isclose(integ, 1.0, rtol=0.01):
+        print(
+            "WARNING: Filter function p(x) did not integrate to 1 (%s). Tentatively re-normalising."
+            % integ
+        )
+        return lambda z: p(z) / integ
     else:
         return p
 
-def angular_corr_gal(theta, xi, p1, zmin, zmax, logu_min, logu_max,
-                     znum=100, unum=100, p2=None, check_p_norm=True, cosmo=None,
-                     p_of_z=True,
-                     **xi_kw):
+
+def angular_corr_gal(
+    theta,
+    xi,
+    p1,
+    zmin,
+    zmax,
+    logu_min,
+    logu_max,
+    znum=100,
+    unum=100,
+    p2=None,
+    check_p_norm=True,
+    cosmo=None,
+    p_of_z=True,
+    **xi_kw
+):
     """
     Calculate the angular correlation function w(theta).
 
@@ -439,31 +523,32 @@ def angular_corr_gal(theta, xi, p1, zmin, zmax, logu_min, logu_max,
 
     # Arrays
     u = np.logspace(logu_min, logu_max, unum)
-    dlnu = np.log(u[1]/u[0])
+    dlnu = np.log(u[1] / u[0])
 
     if p_of_z:
-        z = np.linspace(zmin,zmax,znum)
+        z = np.linspace(zmin, zmax, znum)
         diff = z[1] - z[0]
-        x = (cosmo.comoving_distance(z)*cosmo.h).value
+        x = (cosmo.comoving_distance(z) * cosmo.h).value
 
     else:
-        xmin = (cosmo.comoving_distance(zmin)*cosmo.h).value
-        xmax = (cosmo.comoving_distance(zmax)*cosmo.h).value
-        x = np.linspace(xmin,xmax,znum)
+        xmin = (cosmo.comoving_distance(zmin) * cosmo.h).value
+        xmax = (cosmo.comoving_distance(zmax) * cosmo.h).value
+        x = np.linspace(xmin, xmax, znum)
         diff = x[1] - x[0]
 
     if check_p_norm:
-        p1 = _check_p(p1,z if p_of_z else x)
+        p1 = _check_p(p1, z if p_of_z else x)
 
     if p2 is None:
         p2 = p1
     elif check_p_norm:
-        p2 = _check_p(p2,z if p_of_z else x)
+        p2 = _check_p(p2, z if p_of_z else x)
 
+    p_integ = p1(z) * p2(z) / dxdz(z, cosmo) if p_of_z else p1(x) * p2(x)
+    R = np.sqrt(np.add.outer(np.outer(theta ** 2, x ** 2), u ** 2)).flatten()
 
-    p_integ = p1(z)*p2(z) /dxdz(z,cosmo) if p_of_z else p1(x)*p2(x)
-    R = np.sqrt(np.add.outer(np.outer(theta**2 ,x**2),u**2)).flatten()
+    integrand = np.einsum(
+        "kij,i,j->kij", xi(R, **xi_kw).reshape((len(theta), len(x), len(u))), p_integ, u
+    )
 
-    integrand = np.einsum("kij,i,j->kij", xi(R,**xi_kw).reshape((len(theta),len(x), len(u))), p_integ, u)
-
-    return 2*dblsimps(integrand,diff,dlnu)
+    return 2 * dblsimps(integrand, diff, dlnu)

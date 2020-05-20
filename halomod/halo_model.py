@@ -14,19 +14,15 @@ import scipy.integrate as intg
 import numpy as np
 from scipy.optimize import minimize
 
-
-USEFORT = False
-
 from hmf import MassFunction
 from hmf._cache import cached_quantity, parameter
+
 # import hmf.tools as ht
 from . import tools
 from . import hod
 from .concentration import CMRelation
 from .halo_exclusion import Exclusion, NoExclusion
 
-if USEFORT:
-    from .fort.routines import hod_routines as fort
 
 from copy import copy, deepcopy
 from numpy import issubclass_
@@ -40,28 +36,42 @@ from hmf.cosmology.cosmo import astropy_to_colossus
 
 from colossus.halo import concentration
 
+
 class DMHaloModel(MassFunction):
     """
     Dark-matter-only halo model class.
 
     This Framework is subclassed from hmf's ``MassFunction`` class, and operates in a similar manner.
-    """
 
     **kwargs: anything that can be used in the MassFunction class
 
-    '''
+    """
+
     rlog = True
 
-    def __init__(self, rmin=0.1, rmax=50.0, rnum=20,
-                 halo_profile_model='NFW', halo_profile_params=None,
-                 halo_concentration_model='Duffy08', halo_concentration_params=None,
-                 bias_model="Tinker10", bias_params=None,
-                 sd_bias_model="Tinker_SD05", sd_bias_params=None,
-                 exclusion_model="NgMatched", exclusion_params=None,
-                 colossus_params=None,
-                 hc_spectrum="nonlinear", Mmin=0, Mmax=18,
-                 force_1halo_turnover=True,
-                 **hmf_kwargs):
+    def __init__(
+        self,
+        rmin=0.1,
+        rmax=50.0,
+        rnum=20,
+        rlog=False,
+        halo_profile_model="NFW",
+        halo_profile_params=None,
+        halo_concentration_model="Duffy08",
+        halo_concentration_params=None,
+        bias_model="Tinker10",
+        bias_params=None,
+        sd_bias_model="Tinker_SD05",
+        sd_bias_params=None,
+        exclusion_model="NgMatched",
+        exclusion_params=None,
+        colossus_params=None,
+        hc_spectrum="nonlinear",
+        Mmin=0,
+        Mmax=18,
+        force_1halo_turnover=True,
+        **hmf_kwargs,
+    ):
         """
         Initializer for the class.
 
@@ -111,20 +121,28 @@ class DMHaloModel(MassFunction):
         super(DMHaloModel, self).__init__(Mmin=Mmin, Mmax=Mmax, **hmf_kwargs)
 
         # Initially save parameters to the class.
-        self.halo_profile_model, self.halo_profile_params = halo_profile_model, halo_profile_params or {}
-        self.halo_concentration_model, self.halo_concentration_params = halo_concentration_model, halo_concentration_params or {}
+        self.halo_profile_model, self.halo_profile_params = (
+            halo_profile_model,
+            halo_profile_params or {},
+        )
+        self.halo_concentration_model, self.halo_concentration_params = (
+            halo_concentration_model,
+            halo_concentration_params or {},
+        )
         self.bias_model, self.bias_params = bias_model, bias_params or {}
         self.sd_bias_model, self.sd_bias_params = sd_bias_model, sd_bias_params or {}
-        self.exclusion_model, self.exclusion_params = exclusion_model, exclusion_params or {}
+        self.exclusion_model, self.exclusion_params = (
+            exclusion_model,
+            exclusion_params or {},
+        )
 
         self.rmin = rmin
         self.rmax = rmax
         self.rnum = rnum
-        self.rlog = rlow
+        self.rlog = rlog
         self.hc_spectrum = hc_spectrum
         self.force_1halo_turnover = force_1halo_turnover
         self.colossus_params = colossus_params or {}
-
 
     # ===============================================================================
     # Parameters
@@ -144,15 +162,19 @@ class DMHaloModel(MassFunction):
 
     @parameter("switch")
     def hc_spectrum(self, val):
-        if val not in ['linear', 'nonlinear', 'filtered-lin', 'filtered-nl']:
-            raise ValueError("hc_spectrum must be one of linear, nonlinear, filtered-lin and filtered-nl")
+        if val not in ["linear", "nonlinear", "filtered-lin", "filtered-nl"]:
+            raise ValueError(
+                "hc_spectrum must be one of linear, nonlinear, filtered-lin and filtered-nl"
+            )
         return val
 
     @parameter("model")
     def halo_profile_model(self, val):
         """The halo density halo_profile model"""
         if not isinstance(val, str) and not issubclass_(val, profiles.Profile):
-            raise ValueError("halo_profile_model must be a subclass of profiles.Profile")
+            raise ValueError(
+                "halo_profile_model must be a subclass of profiles.Profile"
+            )
         elif isinstance(val, str):
             return get_model_(val, "halomod.profiles")
         else:
@@ -167,7 +189,9 @@ class DMHaloModel(MassFunction):
     def halo_concentration_model(self, val):
         """A halo_concentration-mass relation"""
         if not isinstance(val, str) and not issubclass_(val, CMRelation):
-            raise ValueError("halo_concentration_model must be a subclass of halo_concentration.CMRelation")
+            raise ValueError(
+                "halo_concentration_model must be a subclass of halo_concentration.CMRelation"
+            )
         elif isinstance(val, str):
             return get_model_(val, "halomod.concentration")
         else:
@@ -195,12 +219,20 @@ class DMHaloModel(MassFunction):
 
     @parameter("switch")
     def sd_bias_model(self, val):
-        if not isinstance(val, str) and not issubclass_(val, bias.ScaleDepBias) and val is not None:
-            raise ValueError("scale_dependenent_bias must be a subclass of bias.ScaleDepBias")
+        if (
+            not isinstance(val, str)
+            and not issubclass_(val, bias.ScaleDepBias)
+            and val is not None
+        ):
+            raise ValueError(
+                "scale_dependenent_bias must be a subclass of bias.ScaleDepBias"
+            )
         elif isinstance(val, str):
             model = get_model_(val, "halomod.bias")
             if not issubclass_(model, bias.ScaleDepBias):
-                raise ValueError("scale_dependenent_bias must be a subclass of bias.ScaleDepBias")
+                raise ValueError(
+                    "scale_dependenent_bias must be a subclass of bias.ScaleDepBias"
+                )
             return model
         else:
             return val
@@ -244,10 +276,7 @@ class DMHaloModel(MassFunction):
         COLOSSUS operations.
         """
         return astropy_to_colossus(
-            self.cosmo.cosmo,
-            sigma8=self.sigma_8,
-            ns=self.n,
-            **self.colossus_params
+            self.cosmo.cosmo, sigma8=self.sigma_8, ns=self.n, **self.colossus_params
         )
 
     @cached_quantity
@@ -268,11 +297,18 @@ class DMHaloModel(MassFunction):
     @cached_quantity
     def bias(self):
         """The halo bias as a function of halo mass."""
-        return self.bias_model(nu=self.nu, delta_c=self.delta_c,
-                               m=self.m, mstar=self.mass_nonlinear,
-                               delta_halo=self.delta_halo, n=self.n, Om0=self.cosmo.Om0,
-                               h=self.cosmo.h, sigma_8=self.sigma_8,
-                               **self.bias_params).bias()
+        return self.bias_model(
+            nu=self.nu,
+            delta_c=self.delta_c,
+            m=self.m,
+            mstar=self.mass_nonlinear,
+            delta_halo=self.delta_halo,
+            n=self.n,
+            Om0=self.cosmo.Om0,
+            h=self.cosmo.h,
+            sigma_8=self.sigma_8,
+            **self.bias_params,
+        ).bias()
 
     # @cached_quantity
     # def halo_cm(self):
@@ -298,20 +334,25 @@ class DMHaloModel(MassFunction):
         the ``conversion_profile`` parameter, and defaults to NFW.
         """
         return concentration.concentration(
-            m=self.m, mdef=self.mdef_model, z=self.z,
+            m=self.m,
+            mdef=self.mdef_model,
+            z=self.z,
             model=self.halo_concentration_model,
             range_return=False,
             range_warning=True,
-            **self.halo_concentration_params
+            **self.halo_concentration_params,
         )
 
     @cached_quantity
     def halo_profile(self):
         """A class containing the elements necessary to calculate halo halo_profile quantities"""
-        return self.halo_profile_model(cm_relation=self.halo_cm,
-                                       mean_dens=self.mean_density0,
-                                       delta_halo=self.delta_halo, z=self.z,
-                                       **self.halo_profile_params)
+        return self.halo_profile_model(
+            cm_relation=self.halo_cm,
+            mean_dens=self.mean_density0,
+            delta_halo=self.delta_halo,
+            z=self.z,
+            **self.halo_profile_params,
+        )
 
     @cached_quantity
     def sd_bias(self):
@@ -413,13 +454,17 @@ class DMHaloModel(MassFunction):
             b1 = spl(mmin)
         else:
             mask = np.logical_and(self.m >= 10 ** mmin, self.m <= 10 ** mmax)
-            b1 = intg.simps(self.bias[mask] * self.dndm[mask], self.m[mask]) / intg.simps(self.dndm[mask], self.m[mask])
+            b1 = intg.simps(
+                self.bias[mask] * self.dndm[mask], self.m[mask]
+            ) / intg.simps(self.dndm[mask], self.m[mask])
 
         if mmin2 == mmax2:
             b2 = spl(mmin2)
         else:
             mask = np.logical_and(self.m >= 10 ** mmin2, self.m <= 10 ** mmax2)
-            b2 = intg.simps(self.bias[mask] * self.dndm[mask], self.m[mask]) / intg.simps(self.dndm[mask], self.m[mask])
+            b2 = intg.simps(
+                self.bias[mask] * self.dndm[mask], self.m[mask]
+            ) / intg.simps(self.dndm[mask], self.m[mask])
 
         return b1 * b2 * self._power_halo_centres
 
@@ -452,7 +497,10 @@ class DMHaloModel(MassFunction):
         u = self.halo_profile_ukm
         integrand = self.dndm * self.m ** 3 * u ** 2
 
-        return intg.trapz(integrand, dx=np.log(10) * self.dlog10m) / self.mean_density0 ** 2
+        return (
+            intg.trapz(integrand, dx=np.log(10) * self.dlog10m)
+            / self.mean_density0 ** 2
+        )
 
     @cached_quantity
     def corr_1h_auto_matter(self):
@@ -463,7 +511,11 @@ class DMHaloModel(MassFunction):
             lam = self.halo_profile_lam
             integrand = self.dndm * self.m ** 3 * lam
 
-            return intg.trapz(integrand, dx=np.log(10) * self.dlog10m) / self.mean_density0 ** 2 - 1
+            return (
+                intg.trapz(integrand, dx=np.log(10) * self.dlog10m)
+                / self.mean_density0 ** 2
+                - 1
+            )
         else:
             return tools.power_to_corr_ogata(self.power_1h_auto_matter, self.k, self.r)
 
@@ -516,7 +568,9 @@ class DMHaloModel(MassFunction):
         if self.exclusion_model is NoExclusion:
             return tools.power_to_corr_ogata(self.power_2h_auto_matter, self.k, self.r)
         else:
-            return tools.power_to_corr_ogata_matrix(self.power_2h_auto_matter, self.k, self.r)
+            return tools.power_to_corr_ogata_matrix(
+                self.power_2h_auto_matter, self.k, self.r
+            )
 
     @cached_quantity
     def corr_auto_matter(self):
@@ -541,13 +595,19 @@ class TracerHaloModel(DMHaloModel):
     these are set to be the same as the DM models. This may be useful if eg. galaxies are not expected to trace
     the underlying dark matter density within a halo.
     """
-    def __init__(self,
-                 hod_model="Zehavi05", hod_params={},
-                 tracer_profile_model=None, tracer_profile_params=None,
-                 tracer_concentration_model=None, tracer_concentration_params=None,
-                 tracer_density=None,
-                 force_1halo_turnover=True,
-                 **halomodel_kwargs):
+
+    def __init__(
+        self,
+        hod_model="Zehavi05",
+        hod_params={},
+        tracer_profile_model=None,
+        tracer_profile_params=None,
+        tracer_concentration_model=None,
+        tracer_concentration_params=None,
+        tracer_density=None,
+        force_1halo_turnover=True,
+        **halomodel_kwargs,
+    ):
         """
         Initialiser for the class.
 
@@ -584,8 +644,14 @@ class TracerHaloModel(DMHaloModel):
         # Initially save parameters to the class.
         self.hod_params = hod_params
         self.hod_model = hod_model
-        self.tracer_profile_model, self.tracer_profile_params = tracer_profile_model, tracer_profile_params
-        self.tracer_concentration_model, self.tracer_concentration_params = tracer_concentration_model, tracer_concentration_params
+        self.tracer_profile_model, self.tracer_profile_params = (
+            tracer_profile_model,
+            tracer_profile_params,
+        )
+        self.tracer_concentration_model, self.tracer_concentration_params = (
+            tracer_concentration_model,
+            tracer_concentration_params,
+        )
 
         self.force_1halo_turnover = force_1halo_turnover
         # A special argument, making it possible to define M_min by mean density
@@ -601,7 +667,7 @@ class TracerHaloModel(DMHaloModel):
         Updates any parameter passed
         """
         if "tracer_density" in kwargs:
-            self.tracer_density = kwargs.pop('tracer_density')
+            self.tracer_density = kwargs.pop("tracer_density")
         elif "hod_params" in kwargs:
             if "M_min" in kwargs["hod_params"]:
                 self.tracer_density = None
@@ -646,7 +712,9 @@ class TracerHaloModel(DMHaloModel):
         if val is None:
             return val
         if not isinstance(val, str) and not issubclass_(val, profiles.Profile):
-            raise ValueError("halo_profile_model must be a subclass of profiles.Profile")
+            raise ValueError(
+                "halo_profile_model must be a subclass of profiles.Profile"
+            )
         if isinstance(val, str):
             return get_model_(val, "halomod.profiles")
         else:
@@ -658,7 +726,9 @@ class TracerHaloModel(DMHaloModel):
         if val is None:
             return val
         if not isinstance(val, str) and not issubclass_(val, CMRelation):
-            raise ValueError("halo_concentration_model must be a subclass of concentration.CMRelation")
+            raise ValueError(
+                "halo_concentration_model must be a subclass of concentration.CMRelation"
+            )
         elif isinstance(val, str):
             return get_model_(val, "halomod.concentration")
         else:
@@ -696,7 +766,9 @@ class TracerHaloModel(DMHaloModel):
             return self.m >= self.m.min()
 
         if self.hod.mmin < self.Mmin:
-            raise ValueError("The HOD is defined to lower masses than currently calculated. Please set Mmin lower.")
+            raise ValueError(
+                "The HOD is defined to lower masses than currently calculated. Please set Mmin lower."
+            )
 
         return self.m >= 10 ** self.hod.mmin
 
@@ -708,13 +780,24 @@ class TracerHaloModel(DMHaloModel):
 
         this_filter = copy(self.filter)
         this_filter.power = self._power0
-        this_profile = self.profile_model(None, self.mean_density0, self.delta_halo, self.z,
-                                          **self.tracer_profile_params)
+        this_profile = self.profile_model(
+            None,
+            self.mean_density0,
+            self.delta_halo,
+            self.z,
+            **self.tracer_profile_params,
+        )
 
-        return self.tracer_concentration_model(filter0=this_filter, mean_density0=self.mean_density0,
-                                               growth=self.growth, delta_c=self.delta_c, profile=this_profile,
-                                               cosmo=self.cosmo, delta_halo=self.delta_halo,
-                                               **self.tracer_concentration_params)
+        return self.tracer_concentration_model(
+            filter0=this_filter,
+            mean_density0=self.mean_density0,
+            growth=self.growth,
+            delta_c=self.delta_c,
+            profile=this_profile,
+            cosmo=self.cosmo,
+            delta_halo=self.delta_halo,
+            **self.tracer_concentration_params,
+        )
 
     @cached_quantity
     def tracer_concentration(self):
@@ -729,10 +812,13 @@ class TracerHaloModel(DMHaloModel):
         if self.tracer_profile_model is None:
             return self.halo_profile
 
-        return self.profile_model(cm_relation=self.tracer_cm,
-                                  mean_dens=self.mean_density0,
-                                  delta_halo=self.delta_halo, z=self.z,
-                                  **self.tracer_profile_params)
+        return self.profile_model(
+            cm_relation=self.tracer_cm,
+            mean_dens=self.mean_density0,
+            delta_halo=self.delta_halo,
+            z=self.z,
+            **self.tracer_profile_params,
+        )
 
     @cached_quantity
     def hod(self):
@@ -774,7 +860,12 @@ class TracerHaloModel(DMHaloModel):
         The tracer occupation-weighted halo bias factor (Tinker 2005)
         """
         # Integrand is just the density of galaxies at mass m by bias
-        integrand = self.m[self._tm] * self.dndm[self._tm] * self.total_occupation[self._tm] * self.bias[self._tm]
+        integrand = (
+            self.m[self._tm]
+            * self.dndm[self._tm]
+            * self.total_occupation[self._tm]
+            * self.bias[self._tm]
+        )
         b = intg.trapz(integrand, dx=np.log(self.m[1] / self.m[0]))
         return b / self.mean_tracer_den
 
@@ -784,7 +875,11 @@ class TracerHaloModel(DMHaloModel):
         Average host-halo mass (in log10 units)
         """
         # Integrand is just the density of galaxies at mass m by m
-        integrand = self.m[self._tm] ** 2 * self.dndm[self._tm] * self.total_occupation[self._tm]
+        integrand = (
+            self.m[self._tm] ** 2
+            * self.dndm[self._tm]
+            * self.total_occupation[self._tm]
+        )
 
         m = intg.trapz(integrand, dx=np.log(self.m[1] / self.m[0]))
         return np.log10((m / self.mean_tracer_den))
@@ -794,7 +889,11 @@ class TracerHaloModel(DMHaloModel):
         "The total fraction of tracers that are satellites (if this quantity exists for this kind of tracer)"
         if hasattr(self.hod, "satellite_occupation"):
             # Integrand is just the density of satellite galaxies at mass m
-            integrand = self.m[self._tm] * self.dndm[self._tm] * self.hod.satellite_occupation(self.m[self._tm])
+            integrand = (
+                self.m[self._tm]
+                * self.dndm[self._tm]
+                * self.hod.satellite_occupation(self.m[self._tm])
+            )
             s = intg.trapz(integrand, dx=np.log(self.m[1] / self.m[0]))
             return s / self.mean_tracer_den
         else:
@@ -842,7 +941,12 @@ class TracerHaloModel(DMHaloModel):
             raise AttributeError("The HOD being used has no satellite occupation")
 
         u = self.tracer_profile_ukm[:, self._tm]
-        integ = u ** 2 * self.dndm[self._tm] * self.m[self._tm] * self.hod.ss_pairs(self.m[self._tm])
+        integ = (
+            u ** 2
+            * self.dndm[self._tm]
+            * self.m[self._tm]
+            * self.hod.ss_pairs(self.m[self._tm])
+        )
 
         if self.force_1halo_turnover:
             r = np.pi / self.k / 10  # The 10 is a complete heuristic hack.
@@ -864,14 +968,20 @@ class TracerHaloModel(DMHaloModel):
 
         if self.tracer_profile.has_lam:
             lam = self.tracer_profile.lam(self.r, self.m[self._tm], norm="m")
-            integ = self.m[self._tm] * self.dndm[self._tm] * self.hod.ss_pairs(self.m[self._tm]) * lam
+            integ = (
+                self.m[self._tm]
+                * self.dndm[self._tm]
+                * self.hod.ss_pairs(self.m[self._tm])
+                * lam
+            )
 
             c = intg.trapz(integ, dx=self.dlog10m * np.log(10))
 
             return c / self.mean_tracer_den ** 2 - 1
         else:
-            return tools.power_to_corr_ogata(self.power_1h_ss_auto_tracer,
-                                             self.k, self.r)
+            return tools.power_to_corr_ogata(
+                self.power_1h_ss_auto_tracer, self.k, self.r
+            )
 
     @cached_quantity
     def power_1h_cs_auto_tracer(self):
@@ -880,7 +990,13 @@ class TracerHaloModel(DMHaloModel):
             raise AttributeError("The HOD being used has no satellite occupation")
 
         u = self.tracer_profile_ukm[:, self._tm]
-        integ = self.dndm[self._tm] * 2 * self.hod.cs_pairs(self.m[self._tm]) * u * self.m[self._tm]
+        integ = (
+            self.dndm[self._tm]
+            * 2
+            * self.hod.cs_pairs(self.m[self._tm])
+            * u
+            * self.m[self._tm]
+        )
 
         if self.force_1halo_turnover:
             r = np.pi / self.k / 10  # The 10 is a complete heuristic hack.
@@ -898,7 +1014,13 @@ class TracerHaloModel(DMHaloModel):
             raise AttributeError("The HOD being used has no satellite occupation")
 
         rho = self.tracer_profile_rho[:, self._tm]
-        integ = self.dndm[self._tm] * 2 * self.hod.cs_pairs(self.m)[self._tm] * rho * self.m[self._tm]
+        integ = (
+            self.dndm[self._tm]
+            * 2
+            * self.hod.cs_pairs(self.m)[self._tm]
+            * rho
+            * self.m[self._tm]
+        )
         c = intg.trapz(integ, dx=self.dlog10m * np.log(10))
 
         return c / self.mean_tracer_den ** 2 - 1
@@ -912,7 +1034,12 @@ class TracerHaloModel(DMHaloModel):
             return self.power_1h_cs_auto_tracer + self.power_1h_ss_auto_tracer
         except AttributeError:
             u = self.tracer_profile_ukm[:, self._tm]
-            integ = u ** 2 * self.dndm[self._tm] * self.m[self._tm] * self.total_occupation[self._tm] ** 2
+            integ = (
+                u ** 2
+                * self.dndm[self._tm]
+                * self.m[self._tm]
+                * self.total_occupation[self._tm] ** 2
+            )
 
             if self.force_1halo_turnover:
                 r = np.pi / self.k / 10  # The 10 is a complete heuristic hack.
@@ -931,8 +1058,14 @@ class TracerHaloModel(DMHaloModel):
             if hasattr(self.hod, "ss_pairs"):
                 rho = self.tracer_profile_rho[:, self._tm]
                 lam = self.tracer_profile_lam[:, self._tm]
-                integ = self.m[self._tm] * self.dndm[self._tm] * (self.hod.ss_pairs(self.m[self._tm]) * lam +
-                                                                  2 * self.hod.cs_pairs(self.m[self._tm]) * rho)
+                integ = (
+                    self.m[self._tm]
+                    * self.dndm[self._tm]
+                    * (
+                        self.hod.ss_pairs(self.m[self._tm]) * lam
+                        + 2 * self.hod.cs_pairs(self.m[self._tm]) * rho
+                    )
+                )
                 if self.hod._central:
                     integ *= self.n_cen[self._tm]
 
@@ -941,15 +1074,20 @@ class TracerHaloModel(DMHaloModel):
                 return c / self.mean_tracer_den ** 2 - 1
             else:
                 lam = self.tracer_profile_lam[:, self._tm]
-                integ = self.m[self._tm] * self.dndm[self._tm] * (self.total_occupation[self._tm] ** 2 * lam)
+                integ = (
+                    self.m[self._tm]
+                    * self.dndm[self._tm]
+                    * (self.total_occupation[self._tm] ** 2 * lam)
+                )
                 c = intg.trapz(integ, dx=self.dlog10m * np.log(10))
                 return c / self.mean_tracer_den ** 2 - 1
         else:
             try:
                 return self.corr_1h_cs_auto_tracer + self.corr_1h_ss_auto_tracer + 1
             except AttributeError:
-                return tools.power_to_corr_ogata(self.power_1h_auto_tracer,
-                                                 self.k, self.r)
+                return tools.power_to_corr_ogata(
+                    self.power_1h_auto_tracer, self.k, self.r
+                )
 
     @cached_quantity
     def _power_2h_auto_tracer(self):
@@ -959,11 +1097,19 @@ class TracerHaloModel(DMHaloModel):
             bias = np.outer(self.sd_bias.bias_scale(), self.bias)[:, self._tm]
         else:
             bias = self.bias[self._tm]
-        inst = self.exclusion_model(m=self.m[self._tm], density=self.total_occupation[self._tm] * self.dndm[self._tm],
-                                    I=self.total_occupation[self._tm] * self.dndm[self._tm] * u / self.mean_tracer_den,
-                                    bias=bias, r=self.r, delta_halo=self.delta_halo,
-                                    mean_density=self.mean_density0,
-                                    **self.exclusion_params)
+        inst = self.exclusion_model(
+            m=self.m[self._tm],
+            density=self.total_occupation[self._tm] * self.dndm[self._tm],
+            I=self.total_occupation[self._tm]
+            * self.dndm[self._tm]
+            * u
+            / self.mean_tracer_den,
+            bias=bias,
+            r=self.r,
+            delta_halo=self.delta_halo,
+            mean_density=self.mean_density0,
+            **self.exclusion_params,
+        )
 
         if hasattr(inst, "density_mod"):
             self.__density_mod = inst.density_mod
@@ -981,13 +1127,21 @@ class TracerHaloModel(DMHaloModel):
 
         # Otherwise, first calculate the correlation function.
         if self.r.min() > 0.3 / self.k.max():
-            warnings.warn("Smallest r not small enough for highest k, setting to %s" % (0.1 / self.k.max()))
+            warnings.warn(
+                "Smallest r not small enough for highest k, setting to %s"
+                % (0.1 / self.k.max())
+            )
             self.update(rmin=0.3 / self.k.max())
         if self.r.max() < 15.0 / self.k.min():
-            warnings.warn("Largest r not large enough for lowest k, setting to %s" % (10 / self.k.min()))
-            self.update(rmax=15. / self.k.min())
+            warnings.warn(
+                "Largest r not large enough for lowest k, setting to %s"
+                % (10 / self.k.min())
+            )
+            self.update(rmax=15.0 / self.k.min())
         if np.log(self.r[1] / self.r[0]) > 0.1:
-            warnings.warn("Probably not enough r steps. Check convergence at higher number.")
+            warnings.warn(
+                "Probably not enough r steps. Check convergence at higher number."
+            )
 
         return tools.corr_to_power_ogata(self.corr_2h_auto_tracer, self.r, self.k)
 
@@ -998,7 +1152,9 @@ class TracerHaloModel(DMHaloModel):
         if self.exclusion_model is NoExclusion and self.sd_bias_model is None:
             corr = tools.power_to_corr_ogata(self._power_2h_auto_tracer, self.k, self.r)
         else:
-            corr = tools.power_to_corr_ogata_matrix(self._power_2h_auto_tracer, self.k, self.r)
+            corr = tools.power_to_corr_ogata_matrix(
+                self._power_2h_auto_tracer, self.k, self.r
+            )
 
         # modify by the new density. This step is *extremely* sensitive to the exact value of __density_mod at large
         # scales, where the ratio *should* be exactly 1.
@@ -1034,7 +1190,9 @@ class TracerHaloModel(DMHaloModel):
         m = self.m[self._tm]
 
         integ = self.dndm[self._tm] * (
-                    uh * ut * m * self.total_occupation[self._tm] + uh * self.hod.satellite_occupation(m))
+            uh * ut * m * self.total_occupation[self._tm]
+            + uh * self.hod.satellite_occupation(m)
+        )
         p = intg.simps(integ, m)
 
         return p / (self.mean_tracer_den * self.mean_density)
@@ -1042,8 +1200,9 @@ class TracerHaloModel(DMHaloModel):
     @cached_quantity
     def corr_1h_cross_tracer_matter(self):
         """The 1-halo term of the cross correlation"""
-        return tools.power_to_corr_ogata(self.power_1h_cross_tracer_matter,
-                                         self.k, self.r)
+        return tools.power_to_corr_ogata(
+            self.power_1h_cross_tracer_matter, self.k, self.r
+        )
 
     @cached_quantity
     def power_2h_cross_tracer_matter(self):
@@ -1057,10 +1216,18 @@ class TracerHaloModel(DMHaloModel):
         bias = self.bias
 
         # Do this the simple way for now
-        bt = intg.simps(self.dndm[self._tm] * bias[self._tm] * self.total_occupation[self._tm] * ut, self.m[self._tm])
+        bt = intg.simps(
+            self.dndm[self._tm] * bias[self._tm] * self.total_occupation[self._tm] * ut,
+            self.m[self._tm],
+        )
         bm = intg.simps(self.dndm * bias * self.m * um, self.m)
 
-        return bt * bm * self._power_halo_centres / (self.mean_tracer_den * self.mean_density)
+        return (
+            bt
+            * bm
+            * self._power_halo_centres
+            / (self.mean_tracer_den * self.mean_density)
+        )
 
         # inst = self.exclusion_model(m=self.m[self._tm],
         #                             density=self.total_occupation[self._tm] * self.dndm[self._tm],
@@ -1080,7 +1247,9 @@ class TracerHaloModel(DMHaloModel):
     @cached_quantity
     def corr_2h_cross_tracer_matter(self):
         """The 2-halo term of the cross-correlation"""
-        return tools.power_to_corr_ogata(self.power_2h_cross_tracer_matter, self.k, self.r)
+        return tools.power_to_corr_ogata(
+            self.power_2h_cross_tracer_matter, self.k, self.r
+        )
 
     @cached_quantity
     def power_cross_tracer_matter(self):
@@ -1107,18 +1276,21 @@ class TracerHaloModel(DMHaloModel):
 
         integrand = c.m[c._tm] * c.dndm[c._tm] * c.total_occupation[c._tm]
 
+        density_message = (
+            f"Maximum mean galaxy density exceeded. User input required density of {ng}, "
+            "but maximum density (with HOD M_min == DM Mmin) is {}. "
+            f"Consider decreasing Mmin,or checking tracer_density."
+        )
         if self.hod.sharp_cut:
             integral = intg.cumtrapz(integrand[::-1], dx=np.log(c.m[1] / c.m[0]))
 
             if integral[-1] < ng:
-                raise NGException("Maximum mean galaxy density exceeded. User input required density of %, " +
-                                  "but maximum density (with HOD M_min == DM Mmin) is %s. Consider decreasing Mmin,"
-                                  "or checking tracer_density." % (ng, integral[-1]))
+                raise NGException(density_message.format(integral[-1]))
 
             ind = np.where(integral > ng)[0][0]
 
-            m = c.m[c._tm][::-1][1:][max(ind - 4, 0):min(ind + 4, len(c.m))]
-            integral = integral[max(ind - 4, 0):min(ind + 4, len(c.m))]
+            m = c.m[c._tm][::-1][1:][max(ind - 4, 0) : min(ind + 4, len(c.m))]
+            integral = integral[max(ind - 4, 0) : min(ind + 4, len(c.m))]
 
             spline_int = spline(np.log(integral), np.log(m), k=3)
             mmin = spline_int(np.log(ng)) / np.log(10)
@@ -1126,18 +1298,17 @@ class TracerHaloModel(DMHaloModel):
             # Anything else requires us to do some optimization unfortunately.
             integral = intg.simps(integrand, dx=np.log(c.m[1] / c.m[0]))
             if integral < ng:
-                raise NGException("Maximum mean galaxy density exceeded. User input required density of %, " +
-                                  "but maximum density (with HOD M_min == DM Mmin) is %s. Consider decreasing Mmin,"
-                                  "or checking tracer_density." % (ng, integral))
+                raise NGException(density_message.format(integral))
 
             def model(mmin):
                 c.update(hod_params={"M_min": mmin})
-                integrand = c.m[c._tm] * c.dndm[c._tm] * c.ean_occupation[c._tm]
+                integrand = c.m[c._tm] * c.dndm[c._tm] * c.mean_occupation[c._tm]
                 integral = intg.simps(integrand, dx=np.log(c.m[1] / c.m[0]))
                 return abs(integral - ng)
 
-            res = minimize(model, 12.0, tol=1e-3,
-                           method="Nelder-Mead", options={"maxiter": 200})
+            res = minimize(
+                model, 12.0, tol=1e-3, method="Nelder-Mead", options={"maxiter": 200}
+            )
             mmin = res.x[0]
 
         return mmin

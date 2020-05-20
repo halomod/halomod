@@ -44,18 +44,18 @@ class CLIError(Exception):
 def main(argv=None):
     '''
     Populate a dark-matter simulation with galaxies based on a given HOD.
-    
+
     The script will take input files in a number of formats. Currently these
     include:
-        
+
         1. SubFind format: a fofcat file and a pos file.
         2. ASCII format: 4 columns: x,y,z,mass
-        
+
     If other formats are in demand, they will be implemented. Otherwise, first
     convert any required files to one of these formats.
-    
+
     To use the ASCII format, just pass a single filename. To use the SubFind
-    format, pass a filename to the --posfile argument as well (having passed 
+    format, pass a filename to the --posfile argument as well (having passed
     the fofcat file as the infile).
     '''
 
@@ -70,16 +70,16 @@ def main(argv=None):
     program_version_message = '%%(prog)s %s (%s)' % (program_version, program_build_date)
     program_shortdesc = __import__('__main__').__doc__.split("\n")[1]
     program_license = '''%s
-    
+
      Created by Steven Murray on 21-01-2014.
      Copyright 2014 organization_name. All rights reserved.
-    
+
      Licensed under the Apache License 2.0
      http://www.apache.org/licenses/LICENSE-2.0
-    
+
      Distributed on an "AS IS" basis without warranties
      or conditions of any kind, either express or implied.
-    
+
     USAGE
     ''' % (program_shortdesc)
 
@@ -315,4 +315,3 @@ if __name__ == "__main__":
         statsfile.close()
         sys.exit(0)
     sys.exit(main())
-

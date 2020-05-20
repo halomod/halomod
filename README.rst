@@ -30,9 +30,9 @@ Installation
 Almost all of the dependencies for ``halomod`` will be installed automatically. However, there
 are a few optional dependencies which can make things better if you decide to install them:
 
-* `camb`: for using CAMB to generate transfer functions See
-  `documentation <http://hmf.readthedocs.io/en/latest/>` of `hmf` for instructions.
-* `Numba`: to accelerate some of the integrations when halo exclusion is involved.
+* ``camb``: for using CAMB to generate transfer functions See
+  `documentation <http://hmf.readthedocs.io/en/latest/>`_ of ``hmf`` for instructions.
+* ``numba``: to accelerate some of the integrations when halo exclusion is involved.
 
 Also, at this point, you'll need a fortran compiler. We plan on removing this as a necessity in
 future versions (but you will still need it if you want to use CAMB, of course).
@@ -44,7 +44,7 @@ For the development version (at this stage, it may be actually be better to get 
 
 Features
 --------
-* All the features of `hmf` (several transfer function models, 15+ HMF fitting functions,
+* All the features of ``hmf`` (several transfer function models, 15+ HMF fitting functions,
   efficient caching etc.)
 * Extended components for halo model:
     * 10 halo bias models, plus scale-dependent bias from Tinker (2005).
@@ -96,7 +96,7 @@ quite a few that *can* be specified however. Check the docstring to see the
 details. Furthermore, as ``halomod`` extends the functionality of ``hmf``, almost all
 parameters accepted by ``hmf.MassFunction()`` can be used (check its docstring).
 
-To change the parameters (cosmological or otherwise), one should use the 
+To change the parameters (cosmological or otherwise), one should use the
 ``update()`` method, if a ``HaloModel()`` object already exists. For example
 
 >>> hm.update(rmin=0.1,rmax=1.0,rnum=100) #update scale vector
@@ -146,5 +146,3 @@ Some parts of the code have been adapted from, influenced by or tested against:
 * HMcode (https://github.com/alexander-mead/HMcode/)
 
 Along with these, several other private codes have been compared to.
-
-
