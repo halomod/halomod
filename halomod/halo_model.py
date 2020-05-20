@@ -27,9 +27,10 @@ from . import profiles
 from . import bias
 from hmf.filters import TopHat
 import warnings
-from colossus.cosmology import cosmology
 
 from hmf.cosmology.cosmo import astropy_to_colossus
+
+from colossus.halo import concentration
 
 class DMHaloModel(MassFunction):
     '''
@@ -227,24 +228,36 @@ class DMHaloModel(MassFunction):
                                h=self.cosmo.h, sigma_8=self.sigma_8,
                                **self.bias_params).bias()
 
-    @cached_quantity
-    def halo_cm(self):
-        """A class containing the elements necessary to calculate the halo halo_concentration-mass relation"""
-        this_filter = copy(self.filter)
-        this_filter.power = self._power0
-        this_profile = self.halo_profile_model(None, self.mean_density0, self.delta_halo, self.z, **self.halo_profile_params)
-
-        return self.halo_concentration_model(filter0=this_filter, mean_density0=self.mean_density0,
-                                             growth=self.growth, delta_c=self.delta_c, profile=this_profile,
-                                             cosmo=self.cosmo, delta_halo=self.delta_halo,
-                                             **self.halo_concentration_params)
+    # @cached_quantity
+    # def halo_cm(self):
+    #     """A class containing the elements necessary to calculate the halo concentration-mass relation"""
+    #     this_filter = copy(self.filter)
+    #     this_filter.power = self._power0
+    #     this_profile = self.halo_profile_model(None, self.mean_density0, self.delta_halo, self.z, **self.halo_profile_params)
+    #
+    #     return self.halo_concentration_model(filter0=this_filter, mean_density0=self.mean_density0,
+    #                                          growth=self.growth, delta_c=self.delta_c, profile=this_profile,
+    #                                          cosmo=self.cosmo, delta_halo=self.delta_halo,
+    #                                          **self.halo_concentration_params)
 
     @cached_quantity
     def halo_concentration(self):
         """
         The halo concentrations corresponding to :meth:`m`.
+
+        Note that if the mass definition does not align with the mass
+        definition of the concentration model, a conversion is required.
+        Currently, COLOSSUS only supports conversions with the NFW or
+        dk14 profiles. The profile used for conversion can be set with
+        the ``conversion_profile`` parameter, and defaults to NFW.
         """
-        return self.halo_cm.cm(self.m, self.z)
+        return concentration.concentration(
+            m=self.m, mdef=self.mdef_model, z=self.z,
+            model=self.halo_concentration_model,
+            range_return=False,
+            range_warning=True,
+            **self.halo_concentration_params
+        )
 
     @cached_quantity
     def halo_profile(self):
