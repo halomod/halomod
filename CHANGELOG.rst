@@ -1,15 +1,28 @@
 Releases
 ========
 
-Development Version
-~~~~~~~~~~~~~~~~~~~
+2.0.0dev
+--------
+
 Features
 ++++++++
+
 * Added ability to change the underlying distribution of satellite and central counts.
+* Python 3!
+* New UnityBias component
+* Ability to do cross-correlations between one tracer and another
+* Delineation between DM and halos in power spectra
+* Much more documentation
+* Addition of CoredNFW profile
+* Added ``mean_tracer_den_unit`` -- the mean density of whatever tracer you use.
+* Now uses COLOSSUS components natively to do some of the grunt work.
+
+Changes
++++++++
+
+* Removed dynamic ``mmin``.
 
 
-Older Versions
-~~~~~~~~~~~~~~
 v1.4.5
 ------
 Enhancements
