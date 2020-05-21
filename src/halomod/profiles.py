@@ -4,7 +4,7 @@ import scipy.integrate as intg
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 from scipy.interpolate import RectBivariateSpline
 import mpmath
-from hmf._framework import Component
+from hmf import Component
 from scipy.special import gammainc, gamma
 import os
 import warnings

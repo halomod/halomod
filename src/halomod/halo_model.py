@@ -14,8 +14,7 @@ import scipy.integrate as intg
 import numpy as np
 from scipy.optimize import minimize
 
-from hmf import MassFunction
-from hmf._cache import cached_quantity, parameter
+from hmf import MassFunction, cached_quantity, parameter
 
 # import hmf.tools as ht
 from . import tools
@@ -26,7 +25,7 @@ from .halo_exclusion import Exclusion, NoExclusion
 
 from copy import copy, deepcopy
 from numpy import issubclass_
-from hmf._framework import get_model_
+from hmf._internals._framework import get_model_
 from . import profiles
 from . import bias
 from hmf.filters import TopHat

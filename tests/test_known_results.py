@@ -3,11 +3,10 @@ Test the halo_model results against known 'correct' results for regression
 testing.
 """
 
-from hod import HaloModel
+from halomod import HaloModel
 import numpy as np
 import inspect
 import os
-import sys
 
 PLOT = True
 if PLOT:

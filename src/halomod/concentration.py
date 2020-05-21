@@ -6,7 +6,7 @@ Created on 08/12/2014
 import warnings
 
 import numpy as np
-from hmf._framework import Component
+from hmf import Component
 from scipy import special as sp
 from scipy.interpolate import interp1d
 from scipy.optimize import minimize

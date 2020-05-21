@@ -3,11 +3,11 @@ Contains WDM versions of all models and frameworks
 """
 from .concentration import CMRelation
 from .halo_model import HaloModel
-from hmf._cache import cached_quantity, parameter
+from hmf import cached_quantity, parameter
 import numpy as np
 from scipy import integrate as intg
 from hmf.wdm import MassFunctionWDM
-from hmf._framework import get_model
+from hmf._internals._framework import get_model
 import sys
 from .integrate_corr import ProjectedCF
 from copy import copy

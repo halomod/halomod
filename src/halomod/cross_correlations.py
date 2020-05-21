@@ -4,8 +4,9 @@ for HaloModel-derived quantities based on these cross-pairs.
 """
 
 from .halo_model import TracerHaloModel
-from hmf._framework import Component, Framework, get_model_
-from hmf._cache import parameter, cached_quantity, subframework
+from hmf import Component, Framework
+from hmf._internals._framework import get_model_
+from hmf._internals._cache import parameter, cached_quantity, subframework
 from abc import ABCMeta, abstractmethod
 import numpy as np
 from scipy import integrate as intg

@@ -10,9 +10,9 @@ import numpy as np
 from scipy.interpolate import InterpolatedUnivariateSpline as _spline
 from scipy.integrate import simps
 from .halo_model import HaloModel
-from hmf._cache import cached_quantity, parameter
+from hmf import cached_quantity, parameter
 from .halo_exclusion import dblsimps
-from hmf.cosmo import Cosmology as csm
+from hmf import Cosmology as csm
 import warnings
 
 

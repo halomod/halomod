@@ -9,8 +9,8 @@ installation (which doesn't work because the fortran code isn't installed.)
 
 # sys.path.insert(0, LOCATION)
 import numpy as np
-from src.halomod import ProjectedCF
-from src.halomod import projected_corr_gal
+from halomod import ProjectedCF
+from halomod import projected_corr_gal
 from mpmath import gamma, hyp2f1
 
 hyp2f1A = np.frompyfunc(lambda a, b, c, z: float(hyp2f1(a, b, c, z)), 4, 1)

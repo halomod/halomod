@@ -51,7 +51,7 @@ decomposition. So here are the assumptions:
 
 import numpy as np
 import scipy.special as sp
-from hmf._framework import Component
+from hmf import Component
 from abc import ABCMeta, abstractmethod
 
 

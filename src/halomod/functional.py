@@ -1,5 +1,5 @@
 from .halo_model import HaloModel
-from hmf.functional import get_hmf
+from hmf import get_hmf
 
 
 def get_halomodel(

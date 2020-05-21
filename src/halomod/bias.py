@@ -1,9 +1,7 @@
-"""
-Module for defining halo bias models.
-"""
+"""Module for defining halo bias models."""
 
 import numpy as np
-from hmf._framework import Component
+from hmf import Component
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 
 
