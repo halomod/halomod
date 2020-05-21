@@ -28,7 +28,7 @@ from numpy import issubclass_
 from hmf._internals._framework import get_model_
 from . import profiles
 from . import bias
-from hmf.filters import TopHat
+from hmf.density_field.filters import TopHat
 import warnings
 
 from hmf.cosmology.cosmo import astropy_to_colossus
