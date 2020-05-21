@@ -1,8 +1,6 @@
 """
 Module defining halo model components for halo exclusion.
 """
-
-# Imports
 import numpy as np
 from hmf._framework import Component
 from cached_property import cached_property
