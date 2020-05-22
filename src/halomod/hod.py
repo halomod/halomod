@@ -51,7 +51,7 @@ decomposition. So here are the assumptions:
 
 import numpy as np
 import scipy.special as sp
-from hmf._framework import Component
+from hmf import Component
 from abc import ABCMeta, abstractmethod
 
 
@@ -76,6 +76,7 @@ class HOD(Component):
     See the derived classes in this module for examples of how to define derived
     classes of :class:`HOD`.
     """
+
     __metaclass__ = ABCMeta
 
     _defaults = {"M_min": 11.0}
@@ -108,12 +109,12 @@ class HOD(Component):
         pass
 
     @abstractmethod
-    def ss_pairs(self,m):
+    def ss_pairs(self, m):
         "The average amount of the tracer coupled with itself in haloes of mass m, <T_s T_s>"
         pass
 
     @abstractmethod
-    def cs_pairs(self,m):
+    def cs_pairs(self, m):
         "The average amount of the tracer coupled with itself in haloes of mass m, <T_s T_c>"
         pass
 
@@ -131,7 +132,7 @@ class HOD(Component):
         "The occupation function of the central component"
         return self._central_occupation(m)
 
-    def satellite_occupation(self,m):
+    def satellite_occupation(self, m):
         "The occupation function of the satellite (or profile-dependent) component"
         if self._central and not self.central_condition_inherent:
             return self.nc(m) * self._satellite_occupation(m)
@@ -142,7 +143,7 @@ class HOD(Component):
         "The total (average) occupation of the halo"
         return self.central_occupation(m) + self.satellite_occupation(m)
 
-    def total_pair_function(self,m):
+    def total_pair_function(self, m):
         "The total weight of the occupation paired with itself"
         return self.ss_pairs(m) + self.cs_pairs(m)
 
@@ -153,13 +154,14 @@ class HOD(Component):
     @property
     def mmin(self):
         "A function defining a reasonable minimum mass to set for this HOD to converge when integrated."
-        return self.params['M_min']
+        return self.params["M_min"]
 
 
 class HODNoCentral(HOD):
     """
     Base class for all HODs which have no concept of a central/satellite split.
     """
+
     def __init__(self, **model_parameters):
         super(HODNoCentral, self).__init__(**model_parameters)
         self._central = False
@@ -167,7 +169,7 @@ class HODNoCentral(HOD):
     def nc(self, m):
         return 0
 
-    def cs_pairs(self,m):
+    def cs_pairs(self, m):
         return 0
 
     def _central_occupation(self, m):
@@ -179,11 +181,12 @@ class HODNoCentral(HOD):
 
 class HODBulk(HODNoCentral):
     "Base class for HODs that have no discrete tracers, just a bulk assignment of tracer to the halo"
-    def ns(self,m):
+
+    def ns(self, m):
         return 0
 
-    def ss_pairs(self,m):
-        return self.satellite_occupation(m)**2
+    def ss_pairs(self, m):
+        return self.satellite_occupation(m) ** 2
 
 
 class HODPoisson(HOD):
@@ -196,7 +199,7 @@ class HODPoisson(HOD):
     """
 
     def nc(self, m):
-        return self.central_occupation(m) /  self._tracer_per_central(m)
+        return self.central_occupation(m) / self._tracer_per_central(m)
 
     def ns(self, m):
         return self.satellite_occupation(m) / self._tracer_per_satellite(m)
@@ -204,13 +207,13 @@ class HODPoisson(HOD):
     def _tracer_per_central(self, m):
         return 1
 
-    def _tracer_per_satellite(self,m):
+    def _tracer_per_satellite(self, m):
         return self._tracer_per_central(m)
 
-    def ss_pairs(self,m):
-        return self.satellite_occupation(m)**2
+    def ss_pairs(self, m):
+        return self.satellite_occupation(m) ** 2
 
-    def cs_pairs(self,m):
+    def cs_pairs(self, m):
         if self._central:
             return self.satellite_occupation(m) * self._tracer_per_central(m)
         else:
@@ -218,7 +221,7 @@ class HODPoisson(HOD):
 
     def sigma_central(self, m):
         co = self.central_occupation(m)
-        return np.sqrt(co*(1-co))
+        return np.sqrt(co * (1 - co))
 
     def sigma_satellite(self, m):
         return np.sqrt(self.satellite_occupation(m))
@@ -239,9 +242,8 @@ class Zehavi05(HODPoisson):
     alpha : float, default = 1.049
         Index of power law for satellite galaxies
     """
-    _defaults = {"M_min":11.6222,
-                 "M_1":12.851,
-                 "alpha":1.049}
+
+    _defaults = {"M_min": 11.6222, "M_1": 12.851, "alpha": 1.049}
     sharp_cut = True
 
     def _central_occupation(self, M):
@@ -268,31 +270,31 @@ class Zheng05(HODPoisson):
     ----------
     M_min : float, default = 11.6222
         Minimum mass of halo that supports a central galaxy
-
     M_1 : float, default = 12.851
         Mass of a halo which on average contains 1 satellite
-
     alpha : float, default = 1.049
         Index of power law for satellite galaxies
-
     sig_logm : float, default = 0.26
         Width of smoothed cutoff
-
     M_0 : float, default = 11.5047
         Minimum mass of halo containing satellites
     """
-    _defaults = {"M_min":11.6222,
-                 "M_1":12.851,
-                 "alpha":1.049,
-                 "M_0":11.5047,
-                 "sig_logm":0.26
-                 }
+
+    _defaults = {
+        "M_min": 11.6222,
+        "M_1": 12.851,
+        "alpha": 1.049,
+        "M_0": 11.5047,
+        "sig_logm": 0.26,
+    }
 
     def _central_occupation(self, M):
         """
         Number of central galaxies at mass M
         """
-        nc = 0.5 * (1 + sp.erf((np.log10(M) - self.params["M_min"]) / self.params["sig_logm"]))
+        nc = 0.5 * (
+            1 + sp.erf((np.log10(M) - self.params["M_min"]) / self.params["sig_logm"])
+        )
         return nc
 
     def _satellite_occupation(self, M):
@@ -300,7 +302,10 @@ class Zheng05(HODPoisson):
         Number of satellite galaxies at mass M
         """
         ns = np.zeros_like(M)
-        ns[M > 10 ** self.params["M_0"]] = ((M[M > 10 ** self.params["M_0"]] - 10 ** self.params["M_0"]) / 10 ** self.params["M_1"]) ** self.params["alpha"]
+        ns[M > 10 ** self.params["M_0"]] = (
+            (M[M > 10 ** self.params["M_0"]] - 10 ** self.params["M_0"])
+            / 10 ** self.params["M_1"]
+        ) ** self.params["alpha"]
         return ns
 
     @property
@@ -344,29 +349,48 @@ class Contreras13(HODPoisson):
     x : float, default = 1
         x
     """
-    _defaults = {"M_min":11.6222,
-                 "M_1":12.851,
-                 "alpha":1.049,
-                 "M_0":11.5047,
-                 "sig_logm":0.26,
-                 "fca":0.5,
-                 "fcb":0,
-                 "fs":1,
-                 "delta":1,
-                 "x":1
-                 }
+
+    _defaults = {
+        "M_min": 11.6222,
+        "M_1": 12.851,
+        "alpha": 1.049,
+        "M_0": 11.5047,
+        "sig_logm": 0.26,
+        "fca": 0.5,
+        "fcb": 0,
+        "fs": 1,
+        "delta": 1,
+        "x": 1,
+    }
 
     def _central_occupation(self, M):
         """
         Number of central galaxies at mass M
         """
-        return self.params["fcb"] * (1 - self.params["fca"]) * np.exp(-np.log10(M / 10 ** self.params["M_min"]) ** 2 / (2 * (self.params["x"] * self.params["sig_logm"]) ** 2)) + self.params["fca"] * (1 + sp.erf(np.log10(M / 10 ** self.params["M_min"]) / self.params["x"] / self.params["sig_logm"]))
+        return self.params["fcb"] * (1 - self.params["fca"]) * np.exp(
+            -np.log10(M / 10 ** self.params["M_min"]) ** 2
+            / (2 * (self.params["x"] * self.params["sig_logm"]) ** 2)
+        ) + self.params["fca"] * (
+            1
+            + sp.erf(
+                np.log10(M / 10 ** self.params["M_min"])
+                / self.params["x"]
+                / self.params["sig_logm"]
+            )
+        )
 
     def _satellite_occupation(self, M):
         """
         Number of satellite galaxies at mass M
         """
-        return self.params["fs"] * (1 + sp.erf(np.log10(M / 10 ** self.params["M_1"]) / self.params["delta"])) * (M / 10 ** self.params["M_1"]) ** self.params["alpha"]
+        return (
+            self.params["fs"]
+            * (
+                1
+                + sp.erf(np.log10(M / 10 ** self.params["M_1"]) / self.params["delta"])
+            )
+            * (M / 10 ** self.params["M_1"]) ** self.params["alpha"]
+        )
 
 
 class Geach12(Contreras13):
@@ -374,6 +398,7 @@ class Geach12(Contreras13):
     8-parameter model of Geach et. al. (2012). This is identical to `Contreras13`,
     but with `x==1`.
     """
+
     pass
 
 
@@ -381,32 +406,41 @@ class Tinker05(Zehavi05):
     """
     3-parameter model of Tinker et. al. (2005).
     """
-    _defaults = {"M_min":11.6222,
-                 "M_1":12.851,
-                 "M_cut":12.0}
+
+    _defaults = {"M_min": 11.6222, "M_1": 12.851, "M_cut": 12.0}
     central_condition_inherent = True
 
     def _satellite_occupation(self, M):
         out = self.central_occupation(M)
-        return out*np.exp(-10**self.params["M_cut"]/(M-10**self.params["M_min"]))*(M/10**self.params["M_1"])
+        return (
+            out
+            * np.exp(-(10 ** self.params["M_cut"]) / (M - 10 ** self.params["M_min"]))
+            * (M / 10 ** self.params["M_1"])
+        )
 
 
 class Zehavi05_WithMax(Zehavi05):
     """
     A version of the Zehavi05 model in which a maximum halo mass for occupancy also exists.
     """
-    _defaults = {"alpha":0, # power-law slope
-                 "M_1":11,  # mass at which mean occupation is A
-                 "M_min":11, # Truncation mass
-                 "M_max":18, # Truncation mass
-                }
+
+    _defaults = {
+        "alpha": 0,  # power-law slope
+        "M_1": 11,  # mass at which mean occupation is A
+        "M_min": 11,  # Truncation mass
+        "M_max": 18,  # Truncation mass
+    }
 
     def _central_occupation(self, M):
         """
         Number of central galaxies at mass M
         """
         n_c = np.zeros_like(M)
-        n_c[np.logical_and(M >= 10 ** self.params["M_min"],M <= 10 ** self.params["M_max"])] = 1
+        n_c[
+            np.logical_and(
+                M >= 10 ** self.params["M_min"], M <= 10 ** self.params["M_max"]
+            )
+        ] = 1
 
         return n_c
 
@@ -422,60 +456,70 @@ class Zehavi05_Marked(Zehavi05_WithMax):
     Exactly the Zehavi05 model, except with a possibility that the quantity is not number counts but some other
     quantity. NOTE: this should not give different results to Zehavi05 for any normalised statistic.
     """
-    _defaults = {"M_min":11.6222,
-                 "M_1":12.851,
-                 "logA":0.0,
-                 "alpha":1.049,
-                 "M_max":18.0
-                 }
+
+    _defaults = {
+        "M_min": 11.6222,
+        "M_1": 12.851,
+        "logA": 0.0,
+        "alpha": 1.049,
+        "M_max": 18.0,
+    }
 
     def sigma_central(self, m):
         co = super(Zehavi05_Marked, self)._central_occupation(m)
-        return np.sqrt(self._tracer_per_central(m) * co * (1-co))
+        return np.sqrt(self._tracer_per_central(m) * co * (1 - co))
 
     def _tracer_per_central(self, m):
-        return 10 ** self.params['logA']
+        return 10 ** self.params["logA"]
 
     def _central_occupation(self, M):
-        return super(Zehavi05_Marked, self)._central_occupation(M) * self._tracer_per_central(M)
+        return super(Zehavi05_Marked, self)._central_occupation(
+            M
+        ) * self._tracer_per_central(M)
 
     def _satellite_occupation(self, M):
-        return super(Zehavi05_Marked, self)._satellite_occupation(M) * self._tracer_per_satellite(M)
+        return super(Zehavi05_Marked, self)._satellite_occupation(
+            M
+        ) * self._tracer_per_satellite(M)
 
 
 class ContinuousPowerLaw(HODBulk):
     """
     A continuous HOD which is tuned to match the Zehavi05 total occupation except for normalisation.
     """
-    _defaults = {"alpha":0,  # power-law slope
-                 "M_1":11,   # mass at which HI mass is A
-                 "logA":9,   # gives HI mass at M_1
-                 "M_min":11, # Truncation mass
-                 "M_max":18,  # Truncation mass
-                 "sigma_A":0 # The (constant) standard deviation of the tracer
-                }
+
+    _defaults = {
+        "alpha": 0,  # power-law slope
+        "M_1": 11,  # mass at which HI mass is A
+        "logA": 9,  # gives HI mass at M_1
+        "M_min": 11,  # Truncation mass
+        "M_max": 18,  # Truncation mass
+        "sigma_A": 0,  # The (constant) standard deviation of the tracer
+    }
     sharp_cut = True
 
     def _satellite_occupation(self, m):
-        alpha = self.params['alpha']
-        M_1 = 10 ** self.params['M_1']
-        A = 10 ** self.params['logA']
-        M_min = 10 ** self.params['M_min']
-        M_max = 10 ** self.params['M_max']
+        alpha = self.params["alpha"]
+        M_1 = 10 ** self.params["M_1"]
+        A = 10 ** self.params["logA"]
+        M_min = 10 ** self.params["M_min"]
+        M_max = 10 ** self.params["M_max"]
 
-        out = np.where(np.logical_and(m >= M_min, m <= M_max), A * ((m / M_1) ** alpha + 1.), 0)
+        out = np.where(
+            np.logical_and(m >= M_min, m <= M_max), A * ((m / M_1) ** alpha + 1.0), 0
+        )
         return out
 
     def sigma_satellite(self, m):
-        return np.ones_like(m) * self.params['sigma_A']
+        return np.ones_like(m) * self.params["sigma_A"]
 
 
 class Constant(HODBulk):
     "A toy model HOD in which every halo has the same amount of the tracer on average"
-    _defaults = {"logA": 0, "M_min":11.0, "sigma_A": 0}
+    _defaults = {"logA": 0, "M_min": 11.0, "sigma_A": 0}
 
     def _satellite_occupation(self, m):
-        return np.where(m > 10**self.params["M_min"], 10 ** self.params['logA'], 0)
+        return np.where(m > 10 ** self.params["M_min"], 10 ** self.params["logA"], 0)
 
     def sigma_satellite(self, m):
-        return np.ones_like(m) * self.params['sigma_A']
+        return np.ones_like(m) * self.params["sigma_A"]
