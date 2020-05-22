@@ -22,4 +22,4 @@ from . import tools
 from . import wdm
 
 from .halo_model import HaloModel
-from .integrate_corr import ProjectedCF, AngularCF
+from .integrate_corr import ProjectedCF, AngularCF, projected_corr_gal

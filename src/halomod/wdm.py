@@ -6,7 +6,7 @@ from .halo_model import HaloModel
 from hmf import cached_quantity, parameter
 import numpy as np
 from scipy import integrate as intg
-from hmf.wdm import MassFunctionWDM
+from hmf.alternatives.wdm import MassFunctionWDM
 from hmf._internals._framework import get_model
 import sys
 from .integrate_corr import ProjectedCF

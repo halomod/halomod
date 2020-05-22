@@ -270,16 +270,12 @@ class Zheng05(HODPoisson):
     ----------
     M_min : float, default = 11.6222
         Minimum mass of halo that supports a central galaxy
-
     M_1 : float, default = 12.851
         Mass of a halo which on average contains 1 satellite
-
     alpha : float, default = 1.049
         Index of power law for satellite galaxies
-
     sig_logm : float, default = 0.26
         Width of smoothed cutoff
-
     M_0 : float, default = 11.5047
         Minimum mass of halo containing satellites
     """

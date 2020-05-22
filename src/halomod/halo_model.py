@@ -257,12 +257,12 @@ class DMHaloModel(MassFunction):
 
     @parameter("param")
     def colossus_params(self, val):
-        """Options used in the colossus cosmology class which are not set/derived in the astropy cosmology"""
+        """Options for colossus cosmology not set/derived in the astropy cosmology."""
         return val
 
     @parameter("param")
     def exclusion_params(self, val):
-        """Dictionary of parameters for the Exclusion model"""
+        """Dictionary of parameters for the Exclusion model."""
         return val
 
     # ===========================================================================
@@ -283,7 +283,7 @@ class DMHaloModel(MassFunction):
         """
         Scales at which correlation functions are computed [Mpc/h]
         """
-        if type(self.rmin) == list or type(self.rmin) == np.ndarray:
+        if hasattr(self.rmin, "__len__"):
             r = np.array(self.rmin)
         else:
             if self.rlog:
@@ -301,7 +301,7 @@ class DMHaloModel(MassFunction):
             delta_c=self.delta_c,
             m=self.m,
             mstar=self.mass_nonlinear,
-            delta_halo=self.delta_halo,
+            delta_halo=self.mdef.halo_overdensity_mean,
             n=self.n,
             Om0=self.cosmo.Om0,
             h=self.cosmo.h,
@@ -309,17 +309,31 @@ class DMHaloModel(MassFunction):
             **self.bias_params,
         ).bias()
 
-    # @cached_quantity
-    # def halo_cm(self):
-    #     """A class containing the elements necessary to calculate the halo concentration-mass relation"""
-    #     this_filter = copy(self.filter)
-    #     this_filter.power = self._power0
-    #     this_profile = self.halo_profile_model(None, self.mean_density0, self.delta_halo, self.z, **self.halo_profile_params)
-    #
-    #     return self.halo_concentration_model(filter0=this_filter, mean_density0=self.mean_density0,
-    #                                          growth=self.growth, delta_c=self.delta_c, profile=this_profile,
-    #                                          cosmo=self.cosmo, delta_halo=self.delta_halo,
-    #                                          **self.halo_concentration_params)
+    @cached_quantity
+    def halo_cm(self):
+        """The concentration-mass relation."""
+        warnings.warn("this will be removed soon!")
+        # TODO: remove this function in favour of COLOSSUS below
+        this_filter = copy(self.filter)
+        this_filter.power = self._power0
+        this_profile = self.halo_profile_model(
+            None,
+            self.mean_density0,
+            self.mdef.halo_overdensity_mean,
+            self.z,
+            **self.halo_profile_params,
+        )
+
+        return self.halo_concentration_model(
+            filter0=this_filter,
+            mean_density0=self.mean_density0,
+            growth=self.growth,
+            delta_c=self.delta_c,
+            profile=this_profile,
+            cosmo=self.cosmo,
+            delta_halo=self.mdef.halo_overdensity_mean,
+            **self.halo_concentration_params,
+        )
 
     @cached_quantity
     def halo_concentration(self):
@@ -348,7 +362,7 @@ class DMHaloModel(MassFunction):
         return self.halo_profile_model(
             cm_relation=self.halo_cm,
             mean_dens=self.mean_density0,
-            delta_halo=self.delta_halo,
+            delta_halo=self.mdef.halo_overdensity_mean,
             z=self.z,
             **self.halo_profile_params,
         )
@@ -584,14 +598,15 @@ class DMHaloModel(MassFunction):
 
 class TracerHaloModel(DMHaloModel):
     """
-    Using a halo occupation distribution (HOD), describes spatial statistics of a tracer population (eg. galaxies).
+    Describe spatial statistics of a tracer population (eg. galaxies) using a HOD.
 
-    All of the quantities in :class:`~DMHaloModel` are available here, with the addition of several more explicitly
-    for the tracer population, including cross-correlations.
+    All of the quantities in :class:`~DMHaloModel` are available here, with the addition
+    of several more explicitly for the tracer population, including cross-correlations.
 
-    Note that the flexibility of prescribing different models for the tracer population than the underlying DM
-    halo population is afforded for such components as the profile and conentration-mass relation. By default,
-    these are set to be the same as the DM models. This may be useful if eg. galaxies are not expected to trace
+    Note that the flexibility of prescribing different models for the tracer population
+    than the underlying DM halo population is afforded for such components as the
+    profile and concentration-mass relation. By default,these are set to be the same as
+    the DM models. This may be useful if eg. galaxies are not expected to trace
     the underlying dark matter density within a halo.
     """
 
@@ -610,8 +625,9 @@ class TracerHaloModel(DMHaloModel):
         """
         Initialiser for the class.
 
-        Note that all `*_model` parameters can be a string or a class of the type described below. If a string,
-        it should be the name of a class that must exist in the relevant module within `halomod`.
+        Note that all `*_model` parameters can be a string or a class of the type
+        described below. If a string, it should be the name of a class that must exist
+        in the relevant module within `halomod`.
 
         Parameters
         ----------
@@ -620,7 +636,8 @@ class TracerHaloModel(DMHaloModel):
         hod_params : dict, optional
             Parameters for the HOD model.
         tracer_profile_model : str or :class:`~profiles.Profile` subclass, optional
-            A density profile model for the abundance of the tracer within haloes of a given mass.
+            A density profile model for the abundance of the tracer within haloes of a
+            given mass.
         tracer_profile_params : dict, optional
             Parameters for the tracer density profile model.
         tracer_concentration_model : str or :class:`~concentration.CMRelation` subclass, optional
@@ -628,11 +645,12 @@ class TracerHaloModel(DMHaloModel):
         tracer_concentration_params : dict, optional
             Parmaeters for the tracer CM relation.
         tracer_density: float, optional
-            Total density of the tracer, in the units specified by the HOD model. This can be used to set the minimum
-            halo mass of the HOD.
+            Total density of the tracer, in the units specified by the HOD model. This
+            can be used to set the minimum halo mass of the HOD.
         force_1halo_turnover : bool, optional
-            Whether to force the 1-halo term to turnover on large scales. THis induces a heuristic modification
-            which ensures that the 1-halo term does not grow larger than the two-halo term on very large scales.
+            Whether to force the 1-halo term to turnover on large scales. THis induces a
+            heuristic modification which ensures that the 1-halo term does not grow
+            larger than the two-halo term on very large scales.
 
         Other Parameters
         ----------------
@@ -745,7 +763,8 @@ class TracerHaloModel(DMHaloModel):
     # Basic Quantities
     # ===========================================================================
     # THE FOLLOWING IS LEFT IN AS A REMINDER NEVER TO DO IT
-    # CHANGING THE MINIMUM MASS DYNAMICALLY DESTROYS MANY THINGS, LIKE THE ABILITY TO CROSS-CORRELATE TWO CLASSES.
+    # CHANGING THE MINIMUM MASS DYNAMICALLY DESTROYS MANY THINGS, LIKE THE ABILITY TO
+    # CROSS-CORRELATE TWO CLASSES.
     # @cached_quantity
     # def mmin(self):
     #     "This is the true minimum mass for this framework"
@@ -765,15 +784,16 @@ class TracerHaloModel(DMHaloModel):
             return self.m >= self.m.min()
 
         if self.hod.mmin < self.Mmin:
-            raise ValueError(
-                "The HOD is defined to lower masses than currently calculated. Please set Mmin lower."
+            warnings.warn(
+                "The HOD is defined to lower masses than currently calculated. "
+                "Please set Mmin lower."
             )
 
         return self.m >= 10 ** self.hod.mmin
 
     @cached_quantity
     def tracer_cm(self):
-        """A class containing the elements necessary to calculate the concentration-mass relation for the tracer population"""
+        """Concentration-mass relation model instance."""
         if self.tracer_concentration_model is None:
             return self.halo_concentration_model
 
@@ -807,7 +827,7 @@ class TracerHaloModel(DMHaloModel):
 
     @cached_quantity
     def tracer_profile(self):
-        """A class containing the elements necessary to calculate quantities of the tracer profile"""
+        """Object to calculate quantities of the tracer profile."""
         if self.tracer_profile_model is None:
             return self.halo_profile
 
@@ -829,8 +849,16 @@ class TracerHaloModel(DMHaloModel):
     # ===========================================================================
     @cached_quantity
     def total_occupation(self):
-        "The mean occupation of the tracer as a function of halo mass"
+        """The mean occupation of the tracer as a function of halo mass"""
         return self.hod.total_occupation(self.m)
+
+    @cached_quantity
+    def satellite_occupation(self):
+        return self.hod.satellite_occupation(self.m)
+
+    @cached_quantity
+    def central_occupation(self):
+        return self.hod.central_occupation(self.m)
 
     # ===========================================================================
     # Derived HOD Quantities
@@ -840,8 +868,9 @@ class TracerHaloModel(DMHaloModel):
         """
         The mean density of the tracer.
 
-        This is always the *integrated* density. If `tracer_density` is supplied to the constructor,
-        that value can be found as :meth:`.tracer_density`. It should be very close to this value.
+        This is always the *integrated* density. If `tracer_density` is supplied to the
+        constructor, that value can be found as :meth:`.tracer_density`. It should be
+        very close to this value.
         """
         integrand = self.dndm[self._tm] * self.total_occupation[self._tm]
         return intg.simps(integrand, self.m[self._tm])
@@ -885,7 +914,10 @@ class TracerHaloModel(DMHaloModel):
 
     @cached_quantity
     def satellite_fraction(self):
-        "The total fraction of tracers that are satellites (if this quantity exists for this kind of tracer)"
+        """The total fraction of tracers that are satellites.
+
+        Note: this may not exist for every kind of tracer.
+        """
         if hasattr(self.hod, "satellite_occupation"):
             # Integrand is just the density of satellite galaxies at mass m
             integrand = (
@@ -900,14 +932,15 @@ class TracerHaloModel(DMHaloModel):
 
     @cached_quantity
     def central_fraction(self):
-        "The total fraction of tracers that are centrals (if this quantity exists for this kind of tracer)"
+        """The total fraction of tracers that are centrals.
+
+        Note: This may not exist for every kind of tracer.
+        """
         return 1 - self.satellite_fraction
 
     @cached_quantity
     def tracer_density_m(self):
-        """
-        The total tracer density in halos of mass m
-        """
+        """The total tracer density in halos of mass m."""
         return self.dndm * self.total_occupation
 
     # ===========================================================================
@@ -915,17 +948,17 @@ class TracerHaloModel(DMHaloModel):
     # ===========================================================================
     @cached_quantity
     def tracer_profile_ukm(self):
-        "The mass-normalised fourier density profile of the tracer, with shape (len(k), len(m))"
+        """The mass-normalised fourier density profile of the tracer, shape (len(k), len(m))."""
         return self.tracer_profile.u(self.k, self.m)
 
     @cached_quantity
     def tracer_profile_rho(self):
-        "The mass-normalised density profile of the tracer, with shape (len(r), len(m))"
+        """The mass-normalised density profile of the tracer, with shape (len(r), len(m))."""
         return self.tracer_profile.rho(self.r, self.m, norm="m")
 
     @cached_quantity
     def tracer_profile_lam(self):
-        "The mass-normalised profile self-convolution of the tracer, with shape (len(r), len(m))"
+        """The mass-normalised profile self-convolution of the tracer, shape (len(r), len(m))."""
         return self.tracer_profile.lam(self.r, self.m)
 
     # ===========================================================================
@@ -933,8 +966,9 @@ class TracerHaloModel(DMHaloModel):
     # ===========================================================================
     @cached_quantity
     def power_1h_ss_auto_tracer(self):
-        """
-        The satellite-satellite part of the 1-halo term of the tracer auto-power spectrum (if this exists)
+        """The satellite-satellite part of the 1-halo term of the tracer auto-power spectrum.
+
+        Note: May not exist for every kind of tracer.
         """
         if not hasattr(self.hod, "ss_pairs"):
             raise AttributeError("The HOD being used has no satellite occupation")
@@ -960,7 +994,9 @@ class TracerHaloModel(DMHaloModel):
     @cached_quantity
     def corr_1h_ss_auto_tracer(self):
         """
-        The satellite-satellite part of the 1-halo term of the tracer auto-correlation function (if this exists)
+        The satellite-satellite part of the 1-halo term of the tracer auto-correlation function.
+
+        Note: May not exist for every kind of tracer.
         """
         if not hasattr(self.hod, "ss_pairs"):
             raise AttributeError("The HOD being used has no satellite occupation")
@@ -984,7 +1020,10 @@ class TracerHaloModel(DMHaloModel):
 
     @cached_quantity
     def power_1h_cs_auto_tracer(self):
-        """The cen-sat part of the 1-halo term of the tracer auto-power spectrum (if this exists)"""
+        """The cen-sat part of the 1-halo term of the tracer auto-power spectrum.
+
+        Note: May not exist for every kind of tracer.
+        """
         if not hasattr(self.hod, "cs_pairs"):
             raise AttributeError("The HOD being used has no satellite occupation")
 
@@ -1008,7 +1047,10 @@ class TracerHaloModel(DMHaloModel):
 
     @cached_quantity
     def corr_1h_cs_auto_tracer(self):
-        """The cen-sat part of the 1-halo term of the tracer auto-correlation function (if this exists)"""
+        """The cen-sat part of the 1-halo term of the tracer auto-correlation function.
+
+        Note: May not exist for every kind of tracer.
+        """
         if not hasattr(self.hod, "cs_pairs"):
             raise AttributeError("The HOD being used has no satellite occupation")
 
@@ -1052,7 +1094,7 @@ class TracerHaloModel(DMHaloModel):
 
     @cached_quantity
     def corr_1h_auto_tracer(self):
-        """The 1-halo term of the galaxy correlations"""
+        """The 1-halo term of the galaxy correlations."""
         if self.tracer_profile.has_lam:
             if hasattr(self.hod, "ss_pairs"):
                 rho = self.tracer_profile_rho[:, self._tm]
@@ -1090,7 +1132,7 @@ class TracerHaloModel(DMHaloModel):
 
     @cached_quantity
     def _power_2h_auto_tracer(self):
-        "The 2-halo term of the tracer auto-power spectrum"
+        """The 2-halo term of the tracer auto-power spectrum."""
         u = self.tracer_profile_ukm[:, self._tm]
         if self.sd_bias_model is not None:
             bias = np.outer(self.sd_bias.bias_scale(), self.bias)[:, self._tm]
@@ -1099,13 +1141,13 @@ class TracerHaloModel(DMHaloModel):
         inst = self.exclusion_model(
             m=self.m[self._tm],
             density=self.total_occupation[self._tm] * self.dndm[self._tm],
-            I=self.total_occupation[self._tm]
+            Ifunc=self.total_occupation[self._tm]
             * self.dndm[self._tm]
             * u
             / self.mean_tracer_den,
             bias=bias,
             r=self.r,
-            delta_halo=self.delta_halo,
+            delta_halo=self.mdef.halo_overdensity_mean,
             mean_density=self.mean_density0,
             **self.exclusion_params,
         )
@@ -1119,7 +1161,7 @@ class TracerHaloModel(DMHaloModel):
 
     @cached_quantity
     def power_2h_auto_tracer(self):
-        """The 2-halo term of the tracer auto-power spectrum"""
+        """The 2-halo term of the tracer auto-power spectrum."""
         # If there's nothing modifying the scale-dependence, just return the original power.
         if self.exclusion_model is NoExclusion and self.sd_bias_model is None:
             return self._power_2h_auto_tracer
@@ -1146,7 +1188,7 @@ class TracerHaloModel(DMHaloModel):
 
     @cached_quantity
     def corr_2h_auto_tracer(self):
-        """The 2-halo term of the tracer auto-correlation"""
+        """The 2-halo term of the tracer auto-correlation."""
 
         if self.exclusion_model is NoExclusion and self.sd_bias_model is None:
             corr = tools.power_to_corr_ogata(self._power_2h_auto_tracer, self.k, self.r)
@@ -1155,7 +1197,8 @@ class TracerHaloModel(DMHaloModel):
                 self._power_2h_auto_tracer, self.k, self.r
             )
 
-        # modify by the new density. This step is *extremely* sensitive to the exact value of __density_mod at large
+        # modify by the new density. This step is *extremely* sensitive to the exact
+        # value of __density_mod at large
         # scales, where the ratio *should* be exactly 1.
         if self.r[-1] > 2 * self.halo_profile._mvir_to_rvir(self.m[-1]):
             try:
