@@ -8,3 +8,5 @@ org.eclipse.core.resources.prefs
 examples/results
 *.DS_store
 .idea/*
+docs/_build
+docs/_autosummary
