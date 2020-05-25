@@ -349,7 +349,7 @@ class Seljak04(Bias):
 
 class Seljak04Cosmo(Seljak04):
     r"""
-    Empirical bias relation from Seljak & Warren (2004), without cosmological dependence.
+    Empirical bias relation from Seljak & Warren (2004), with cosmological dependence.
 
     See documentation for :class:`Bias` for information on input parameters. This
     model has no free parameters.
@@ -403,7 +403,7 @@ class Seljak04Cosmo(Seljak04):
 
 class Tinker05(SMT01):
     r"""
-    Empirical bias from Tinker (2005).
+    Empirical bias from Tinker et al (2005).
 
     See documentation for :class:`Bias` for information on input parameters. This
     model has no free parameters.
@@ -424,7 +424,7 @@ class Tinker05(SMT01):
 
 class Mandelbaum05(ST99):
     r"""
-    Empirical bias of Mandelbaum 2005.
+    Empirical bias of Mandelbaum (2005).
 
     See documentation for :class:`Bias` for information on input parameters. This
     model has no free parameters.
@@ -447,7 +447,7 @@ class Mandelbaum05(ST99):
 
 class Pillepich10(Bias):
     r"""
-    Empirical bias of Pillepich et. al. (2010).
+    Empirical bias of Pillepich et al (2010).
 
     See documentation for :class:`Bias` for information on input parameters. This
     model has no free parameters.
@@ -513,7 +513,7 @@ class Manera10(ST99):
 
 class Tinker10(Bias):
     r"""
-    Empirical bias of Tinker et al. (2010)
+    Empirical bias of Tinker et al (2010).
 
     See documentation for :class:`Bias` for information on input parameters. This
     model has no free parameters.
@@ -578,7 +578,7 @@ class Tinker10(Bias):
 
 class Tinker10PBsplit(Bias):
     r"""
-    Empirical bias of Tinker et al. (2010)
+    Empirical bias of Tinker et al (2010).
 
     See documentation for :class:`Bias` for information on input parameters. This
     model has no free parameters.
