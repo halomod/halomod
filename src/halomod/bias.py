@@ -88,6 +88,7 @@ class Bias(Component):
 
     """
 
+    _models = {}
     _defaults = {}
 
     def __init__(
@@ -101,6 +102,7 @@ class Bias(Component):
         Om0: Optional[float] = 0.3,
         sigma_8: Optional[float] = 0.8,
         h: Optional[float] = 0.7,
+        z: float = 0.0,
         **model_parameters
     ):
         self.nu = nu
@@ -109,8 +111,7 @@ class Bias(Component):
         self.delta_halo = delta_halo
         self.m = m
         self.mstar = mstar
-
-        self.n = n
+        self.z = z
         self.h = h
         self.Om0 = Om0
         self.sigma_8 = sigma_8
@@ -136,6 +137,10 @@ class Bias(Component):
         >>> plt.plot(peak_height, bias.bias())
         """
         return np.ones_like(self.nu)
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        cls._models[cls.__name__] = cls
 
 
 class UnityBias(Bias):
@@ -201,10 +206,14 @@ class Jing98(Bias):
            of Dark Matter Halos", http://adsabs.harvard.edu/abs/1998ApJ...503L...9J, 1998.
     """
 
-    _defaults = {"a": 0.5, "b": 0.06, "c": 0.02}
+    _defaults = {"a": 0.5, "b": 0.06, "c": 0.02, "use_nu": False}
 
     def bias(self):
-        nu = (self.m / self.mstar) ** (self.n + 3) / 6
+        if self.params["use_nu"]:
+            nu = np.sqrt(self.nu)
+        else:
+            nu = (self.m / self.mstar) ** (self.n + 3) / 6
+
         a = self.params["a"]
         b = self.params["b"]
         c = self.params["c"]

@@ -10,3 +10,6 @@ examples/results
 .idea/*
 docs/_build
 docs/_autosummary
+docs/_build/*
+docs/_autosummary/*
+.coverage
