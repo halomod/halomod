@@ -47,6 +47,7 @@ from hmf import Component
 from scipy import special as sp
 from scipy.interpolate import interp1d
 from scipy.optimize import minimize
+from astropy.cosmology import Planck15
 
 from colossus.halo import concentration
 from hmf.cosmology.cosmo import astropy_to_colossus

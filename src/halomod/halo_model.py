@@ -14,7 +14,7 @@ import scipy.integrate as intg
 import numpy as np
 from scipy.optimize import minimize
 
-from hmf import MassFunction, cached_quantity, parameter
+from hmf import MassFunction, cached_quantity, parameter, Cosmology
 
 # import hmf.tools as ht
 from . import tools
@@ -148,7 +148,7 @@ class DMHaloModel(MassFunction):
     # ===============================================================================
     @parameter("switch")
     def bias_model(self, val):
-        if not isinstance(val, str) and not issubclass_(val, bias.Bias):
+        if not (isinstance(val, str) or issubclass_(val, bias.Bias)):
             raise ValueError("bias_model must be a subclass of bias.Bias")
         elif isinstance(val, str):
             return get_model_(val, "halomod.bias")
@@ -170,7 +170,7 @@ class DMHaloModel(MassFunction):
     @parameter("model")
     def halo_profile_model(self, val):
         """The halo density halo_profile model"""
-        if not isinstance(val, str) and not issubclass_(val, profiles.Profile):
+        if not (isinstance(val, str) or issubclass_(val, profiles.Profile)):
             raise ValueError(
                 "halo_profile_model must be a subclass of profiles.Profile"
             )
@@ -187,7 +187,7 @@ class DMHaloModel(MassFunction):
     @parameter("model")
     def halo_concentration_model(self, val):
         """A halo_concentration-mass relation"""
-        if not isinstance(val, str) and not issubclass_(val, CMRelation):
+        if not (isinstance(val, str) or issubclass_(val, CMRelation)):
             raise ValueError(
                 "halo_concentration_model must be a subclass of halo_concentration.CMRelation"
             )
@@ -310,7 +310,7 @@ class DMHaloModel(MassFunction):
         ).bias()
 
     @cached_quantity
-    def halo_cm(self):
+    def halo_concentration(self):
         """The concentration-mass relation."""
         warnings.warn("this will be removed soon!")
         # TODO: remove this function in favour of COLOSSUS below
@@ -326,33 +326,11 @@ class DMHaloModel(MassFunction):
 
         return self.halo_concentration_model(
             filter0=this_filter,
-            mean_density0=self.mean_density0,
             growth=self.growth,
             delta_c=self.delta_c,
             profile=this_profile,
-            cosmo=self.cosmo,
-            delta_halo=self.mdef.halo_overdensity_mean,
-            **self.halo_concentration_params,
-        )
-
-    @cached_quantity
-    def halo_concentration(self):
-        """
-        The halo concentrations corresponding to :meth:`m`.
-
-        Note that if the mass definition does not align with the mass
-        definition of the concentration model, a conversion is required.
-        Currently, COLOSSUS only supports conversions with the NFW or
-        dk14 profiles. The profile used for conversion can be set with
-        the ``conversion_profile`` parameter, and defaults to NFW.
-        """
-        return concentration.concentration(
-            m=self.m,
-            mdef=self.mdef_model,
-            z=self.z,
-            model=self.halo_concentration_model,
-            range_return=False,
-            range_warning=True,
+            cosmo=Cosmology(cosmo_model=self.cosmo),
+            mdef=self.mdef,
             **self.halo_concentration_params,
         )
 
@@ -360,7 +338,7 @@ class DMHaloModel(MassFunction):
     def halo_profile(self):
         """A class containing the elements necessary to calculate halo halo_profile quantities"""
         return self.halo_profile_model(
-            cm_relation=self.halo_cm,
+            cm_relation=self.halo_concentration,
             mean_dens=self.mean_density0,
             delta_halo=self.mdef.halo_overdensity_mean,
             z=self.z,
