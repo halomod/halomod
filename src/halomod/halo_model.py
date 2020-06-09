@@ -1093,7 +1093,7 @@ class TracerHaloModel(DMHaloModel):
         if self.sd_bias_model is not None:
             bias = np.outer(self.sd_bias.bias_scale(), self.bias.bias())[:, self._tm]
         else:
-            bias = self.bias[self._tm]
+            bias = self.bias.bias()[self._tm]
         inst = self.exclusion_model(
             m=self.m[self._tm],
             density=self.total_occupation[self._tm] * self.dndm[self._tm],
