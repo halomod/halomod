@@ -574,10 +574,10 @@ class NFW(Profile):
         if np.all(x > 2 * c):
             return result  # Stays as zero
 
-        if len(x.shape) == 2:
+        if x.ndim == 2:
             c = np.outer(np.ones(x.shape[0]), c)
 
-        if len(x.shape) == 1 and not hasattr(c, "__len__"):
+        if x.ndim == 1:
             c = np.ones(x.shape[0]) * c
 
         # Get low values
@@ -585,7 +585,7 @@ class NFW(Profile):
             mask = x <= c
             x_lo = x[mask]
             # c_lo = c[mask]
-            a_lo = 1.0 / c
+            a_lo = 1.0 / c[mask]
 
             f2_lo = (
                 -4 * (1 + a_lo) + 2 * a_lo * x_lo * (1 + 2 * a_lo) + (a_lo * x_lo) ** 2
@@ -600,7 +600,7 @@ class NFW(Profile):
         if np.any(np.logical_and(x < 2 * c, x > c)):
             mask = np.logical_and(x > c, x <= 2 * c)
             x_hi = x[mask]
-            a_hi = 1.0 / c
+            a_hi = 1.0 / c[mask]
 
             f2_hi = np.log((1 + a_hi) / (a_hi + a_hi * x_hi - 1)) / (
                 x_hi * (2 + x_hi) ** 2

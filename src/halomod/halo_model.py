@@ -33,8 +33,6 @@ import warnings
 
 from hmf.cosmology.cosmo import astropy_to_colossus
 
-from colossus.halo import concentration
-
 
 class DMHaloModel(MassFunction):
     """
@@ -60,7 +58,7 @@ class DMHaloModel(MassFunction):
         halo_concentration_params=None,
         bias_model="Tinker10",
         bias_params=None,
-        sd_bias_model="Tinker_SD05",
+        sd_bias_model="TinkerSD05",
         sd_bias_params=None,
         exclusion_model="NgMatched",
         exclusion_params=None,
@@ -84,7 +82,6 @@ class DMHaloModel(MassFunction):
             this is used to specify the entire array of scales and `rmax`, `rnum` and `rlog` are ignored.
         rmax : float, optional
             Maximum length scale over which to calculate correlations, in Mpc/h
-
         rnum : int, optional
             The number of bins for correlation functions.
         rlog : bool, optional
@@ -307,21 +304,15 @@ class DMHaloModel(MassFunction):
             h=self.cosmo.h,
             sigma_8=self.sigma_8,
             **self.bias_params,
-        ).bias()
+        )
 
     @cached_quantity
     def halo_concentration(self):
         """The concentration-mass relation."""
-        warnings.warn("this will be removed soon!")
-        # TODO: remove this function in favour of COLOSSUS below
         this_filter = copy(self.filter)
         this_filter.power = self._power0
         this_profile = self.halo_profile_model(
-            None,
-            self.mean_density0,
-            self.mdef.halo_overdensity_mean,
-            self.z,
-            **self.halo_profile_params,
+            cm_relation=None, mdef=self.mdef, z=self.z, **self.halo_profile_params,
         )
 
         return self.halo_concentration_model(
@@ -339,8 +330,7 @@ class DMHaloModel(MassFunction):
         """A class containing the elements necessary to calculate halo halo_profile quantities"""
         return self.halo_profile_model(
             cm_relation=self.halo_concentration,
-            mean_dens=self.mean_density0,
-            delta_halo=self.mdef.halo_overdensity_mean,
+            mdef=self.mdef,
             z=self.z,
             **self.halo_profile_params,
         )
@@ -389,20 +379,20 @@ class DMHaloModel(MassFunction):
 
     @cached_quantity
     def corr_linear_mm(self):
-        "The linear auto-correlation function of dark matter"
+        """The linear auto-correlation function of dark matter."""
         return tools.power_to_corr_ogata(self.power, self.k, self.r)
 
     @cached_quantity
     def corr_halofit_mm(self):
-        "The nonlinear (directly from halofit) auto-correlation function of dark matter"
+        """The nonlinear (from halofit) auto-correlation function of dark matter."""
         return tools.power_to_corr_ogata(self.nonlinear_power, self.k, self.r)
 
     @cached_quantity
     def _corr_mm_base(self):
-        "The matter correlation function used throughout the calculations"
+        """The matter correlation function used throughout the calculations."""
         if self.hc_spectrum == "linear":
             return self.corr_linear_mm
-        elif self.hc_spectrum == "nonlinear" or self.hc_spectrum == "filtered-nl":
+        elif self.hc_spectrum in ["nonlinear", "filtered-nl"]:
             return self.corr_halofit_mm
 
     def power_hh(self, mmin=None, mmax=None, mmin2=None, mmax2=None):
@@ -417,15 +407,12 @@ class DMHaloModel(MassFunction):
         mmin : real, default :attr:`.Mmin`
             The minimum halo mass of the range (for the first of the halo pairs).
             Note: masses here are log10 masses.
-
         mmax : real, default :attr:`.Mmax`
             The maximum halo mass of the range (for the first of the halo pairs).
             If a single halo mass is desired, set mmax==mmin.
-
         mmin2 : real, default `None`
             The minimum halo mass of the range (for the second of the halo pairs).
             By default, takes the same value as `mmin`.
-
         mmax : real, default `None`
             The maximum halo mass of the range (for the second of the halo pairs).
             By default, takes the same value as `mmax`.
@@ -464,17 +451,17 @@ class DMHaloModel(MassFunction):
     # ===========================================================================
     @cached_quantity
     def halo_profile_ukm(self):
-        "Mass-normalised fourier halo profile, with shape (len(k), len(m))"
+        """Mass-normalised fourier halo profile, with shape (len(k), len(m))."""
         return self.halo_profile.u(self.k, self.m)
 
     @cached_quantity
     def halo_profile_rho(self):
-        "Mass-normalised halo density profile, with shape (len(r), len(m))"
+        """Mass-normalised halo density profile, with shape (len(r), len(m))."""
         return self.halo_profile.rho(self.r, self.m, norm="m")
 
     @cached_quantity
     def halo_profile_lam(self):
-        "Mass-normalised halo profile self-convolution, with shape (len(r), len(m))"
+        """Mass-normalised halo profile self-convolution, with shape (len(r), len(m))."""
         return self.halo_profile.lam(self.r, self.m)
 
     # ===========================================================================
@@ -482,9 +469,7 @@ class DMHaloModel(MassFunction):
     # ===========================================================================
     @cached_quantity
     def power_1h_auto_matter(self):
-        """
-        The halo model-derived nonlinear 1-halo dark matter auto-power spectrum
-        """
+        """The halo model-derived nonlinear 1-halo dark matter auto-power spectrum."""
         u = self.halo_profile_ukm
         integrand = self.dndm * self.m ** 3 * u ** 2
 
@@ -495,9 +480,7 @@ class DMHaloModel(MassFunction):
 
     @cached_quantity
     def corr_1h_auto_matter(self):
-        """
-        The halo model-derived nonlinear 1-halo dark matter auto-correlation function
-        """
+        """The halo model-derived nonlinear 1-halo dark matter auto-correlation function."""
         if self.halo_profile.has_lam:
             lam = self.halo_profile_lam
             integrand = self.dndm * self.m ** 3 * lam
@@ -512,7 +495,7 @@ class DMHaloModel(MassFunction):
 
     @cached_quantity
     def power_2h_auto_matter(self):
-        "The halo model-derived nonlinear 2-halo dark matter auto-power spectrum"
+        """The halo model-derived nonlinear 2-halo dark matter auto-power spectrum."""
         # TODO: check what to do here.
         # Basically, HMcode assumes that the large-scale power is equivalent
         # to the linear power, with no biasing. I think this *has* to be true
@@ -555,22 +538,25 @@ class DMHaloModel(MassFunction):
 
     @cached_quantity
     def corr_2h_auto_matter(self):
-        "The halo-model-derived nonlinear 2-halo dark matter auto-correlation function"
-        if self.exclusion_model is NoExclusion:
-            return tools.power_to_corr_ogata(self.power_2h_auto_matter, self.k, self.r)
-        else:
-            return tools.power_to_corr_ogata_matrix(
-                self.power_2h_auto_matter, self.k, self.r
-            )
+        """The halo-model-derived nonlinear 2-halo dark matter auto-correlation function."""
+        return tools.power_to_corr_ogata(self.power_2h_auto_matter, self.k, self.r)
+
+        # The following is required if power_2h_auto_matter uses more complicated biasing.
+        # if self.exclusion_model is NoExclusion:
+        #     return tools.power_to_corr_ogata(self.power_2h_auto_matter, self.k, self.r)
+        # else:
+        #     return tools.power_to_corr_ogata_matrix(
+        #         self.power_2h_auto_matter, self.k, self.r
+        #     )
 
     @cached_quantity
     def corr_auto_matter(self):
-        """The halo-model-derived nonlinear dark matter auto-correlation function"""
+        """The halo-model-derived nonlinear dark matter auto-correlation function."""
         return self.corr_1h_auto_matter + self.corr_2h_auto_matter + 1
 
     @cached_quantity
     def power_auto_matter(self):
-        """The halo-model-derived nonlinear dark power auto-power spectrum"""
+        """The halo-model-derived nonlinear dark power auto-power spectrum."""
         return self.power_1h_auto_matter + self.power_2h_auto_matter
 
 
@@ -586,6 +572,37 @@ class TracerHaloModel(DMHaloModel):
     profile and concentration-mass relation. By default,these are set to be the same as
     the DM models. This may be useful if eg. galaxies are not expected to trace
     the underlying dark matter density within a halo.
+
+    Note that all `*_model` parameters can be a string or a class of the type
+    described below. If a string, it should be the name of a class that must exist
+    in the relevant module within ``halomod``.
+
+    Parameters
+    ----------
+    hod_model : str or :class:`~hod.HOD` subclass, optional
+        A model for the halo occupation distribution.
+    hod_params : dict, optional
+        Parameters for the HOD model.
+    tracer_profile_model : str or :class:`~profiles.Profile` subclass, optional
+        A density profile model for the abundance of the tracer within haloes of a
+        given mass.
+    tracer_profile_params : dict, optional
+        Parameters for the tracer density profile model.
+    tracer_concentration_model : str or :class:`~concentration.CMRelation` subclass, optional
+        A concentration-mass relation supporting the tracer profile.
+    tracer_concentration_params : dict, optional
+        Parameters for the tracer CM relation.
+    tracer_density: float, optional
+        Total density of the tracer, in the units specified by the HOD model. This
+        can be used to set the minimum halo mass of the HOD.
+    force_1halo_turnover : bool, optional
+        Whether to force the 1-halo term to turnover on large scales. THis induces a
+        heuristic modification which ensures that the 1-halo term does not grow
+        larger than the two-halo term on very large scales.
+
+    Other Parameters
+    ----------------
+    All other parameters are passed to :class:`~DMHaloModel`.
     """
 
     def __init__(
@@ -600,40 +617,6 @@ class TracerHaloModel(DMHaloModel):
         force_1halo_turnover=True,
         **halomodel_kwargs,
     ):
-        """
-        Initialiser for the class.
-
-        Note that all `*_model` parameters can be a string or a class of the type
-        described below. If a string, it should be the name of a class that must exist
-        in the relevant module within `halomod`.
-
-        Parameters
-        ----------
-        hod_model : str or :class:`~hod.HOD` subclass, optional
-            A model for the halo occupation distribution.
-        hod_params : dict, optional
-            Parameters for the HOD model.
-        tracer_profile_model : str or :class:`~profiles.Profile` subclass, optional
-            A density profile model for the abundance of the tracer within haloes of a
-            given mass.
-        tracer_profile_params : dict, optional
-            Parameters for the tracer density profile model.
-        tracer_concentration_model : str or :class:`~concentration.CMRelation` subclass, optional
-            A concentration-mass relation supporting the tracer profile.
-        tracer_concentration_params : dict, optional
-            Parmaeters for the tracer CM relation.
-        tracer_density: float, optional
-            Total density of the tracer, in the units specified by the HOD model. This
-            can be used to set the minimum halo mass of the HOD.
-        force_1halo_turnover : bool, optional
-            Whether to force the 1-halo term to turnover on large scales. THis induces a
-            heuristic modification which ensures that the 1-halo term does not grow
-            larger than the two-halo term on very large scales.
-
-        Other Parameters
-        ----------------
-        All other parameters are passed to :class:`~DMHaloModel`.
-        """
         super(TracerHaloModel, self).__init__(**halomodel_kwargs)
 
         # Initially save parameters to the class.
@@ -658,9 +641,7 @@ class TracerHaloModel(DMHaloModel):
             self.hod_params = {"M_min": mmin}
 
     def update(self, **kwargs):
-        """
-        Updates any parameter passed
-        """
+        """Updates any parameter passed."""
         if "tracer_density" in kwargs:
             self.tracer_density = kwargs.pop("tracer_density")
         elif "hod_params" in kwargs:
@@ -678,18 +659,18 @@ class TracerHaloModel(DMHaloModel):
     # ===============================================================================
     @parameter("param")
     def tracer_density(self, val):
-        """Mean density of the tracer, ONLY if passed directly"""
+        """Mean density of the tracer, ONLY if passed directly."""
         return val
 
     @parameter("param")
     def hod_params(self, val):
-        """Dictionary of parameters for the HOD model"""
+        """Dictionary of parameters for the HOD model."""
         return val
 
     @parameter("model")
     def hod_model(self, val):
         """:class:`~hod.HOD` class"""
-        if not isinstance(val, str) and not issubclass_(val, hod.HOD):
+        if not (isinstance(val, str) or issubclass_(val, hod.HOD)):
             raise ValueError("hod_model must be a subclass of hod.HOD")
         elif isinstance(val, str):
             return get_model_(val, "halomod.hod")
@@ -706,7 +687,7 @@ class TracerHaloModel(DMHaloModel):
         """The halo density halo_profile model"""
         if val is None:
             return val
-        if not isinstance(val, str) and not issubclass_(val, profiles.Profile):
+        if not (isinstance(val, str) or issubclass_(val, profiles.Profile)):
             raise ValueError(
                 "halo_profile_model must be a subclass of profiles.Profile"
             )
@@ -720,7 +701,7 @@ class TracerHaloModel(DMHaloModel):
         """A halo_concentration-mass relation"""
         if val is None:
             return val
-        if not isinstance(val, str) and not issubclass_(val, CMRelation):
+        if not (isinstance(val, str) or issubclass_(val, CMRelation)):
             raise ValueError(
                 "halo_concentration_model must be a subclass of concentration.CMRelation"
             )
@@ -755,8 +736,8 @@ class TracerHaloModel(DMHaloModel):
     @cached_quantity
     def _tm(self):
         """
-        A tracer mask -- i.e. a mask on mass which restricts the range to those where the tracer exists
-        for the given HOD.
+        A tracer mask -- i.e. a mask on mass which restricts the range to those where
+        the tracer exists for the given HOD.
         """
         if self.hod.mmin is None:
             return self.m >= self.m.min()
@@ -1074,9 +1055,9 @@ class TracerHaloModel(DMHaloModel):
     def corr_1h_auto_tracer(self):
         """The 1-halo term of the galaxy correlations."""
         if self.tracer_profile.has_lam:
+            lam = self.tracer_profile_lam[:, self._tm]
             if hasattr(self.hod, "ss_pairs"):
                 rho = self.tracer_profile_rho[:, self._tm]
-                lam = self.tracer_profile_lam[:, self._tm]
                 integ = (
                     self.m[self._tm]
                     * self.dndm[self._tm]
@@ -1088,18 +1069,15 @@ class TracerHaloModel(DMHaloModel):
                 if self.hod._central:
                     integ *= self.n_cen[self._tm]
 
-                c = intg.trapz(integ, dx=self.dlog10m * np.log(10))
-
-                return c / self.mean_tracer_den ** 2 - 1
             else:
-                lam = self.tracer_profile_lam[:, self._tm]
                 integ = (
                     self.m[self._tm]
                     * self.dndm[self._tm]
                     * (self.total_occupation[self._tm] ** 2 * lam)
                 )
-                c = intg.trapz(integ, dx=self.dlog10m * np.log(10))
-                return c / self.mean_tracer_den ** 2 - 1
+            c = intg.trapz(integ, dx=self.dlog10m * np.log(10))
+
+            return c / self.mean_tracer_den ** 2 - 1
         else:
             try:
                 return self.corr_1h_cs_auto_tracer + self.corr_1h_ss_auto_tracer + 1
@@ -1113,7 +1091,7 @@ class TracerHaloModel(DMHaloModel):
         """The 2-halo term of the tracer auto-power spectrum."""
         u = self.tracer_profile_ukm[:, self._tm]
         if self.sd_bias_model is not None:
-            bias = np.outer(self.sd_bias.bias_scale(), self.bias)[:, self._tm]
+            bias = np.outer(self.sd_bias.bias_scale(), self.bias.bias())[:, self._tm]
         else:
             bias = self.bias[self._tm]
         inst = self.exclusion_model(
@@ -1178,7 +1156,7 @@ class TracerHaloModel(DMHaloModel):
         # modify by the new density. This step is *extremely* sensitive to the exact
         # value of __density_mod at large
         # scales, where the ratio *should* be exactly 1.
-        if self.r[-1] > 2 * self.halo_profile._mvir_to_rvir(self.m[-1]):
+        if self.r[-1] > 2 * self.halo_profile._halo_mass_to_radius(self.m[-1]):
             try:
                 self.__density_mod *= self.mean_tracer_den / self.__density_mod[-1]
             except TypeError:
@@ -1226,14 +1204,14 @@ class TracerHaloModel(DMHaloModel):
 
     @cached_quantity
     def power_2h_cross_tracer_matter(self):
-        "The 2-halo term of the cross-power spectrum"
+        """The 2-halo term of the cross-power spectrum."""
         ut = self.tracer_profile_ukm[:, self._tm]
         um = self.halo_profile_ukm
 
         # if self.sd_bias_model is not None:
         #     bias = np.outer(self.sd_bias.bias_scale(), self.bias)[:, self._tm]
         # else:
-        bias = self.bias
+        bias = self.bias.bias()
 
         # Do this the simple way for now
         bt = intg.simps(
