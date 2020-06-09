@@ -112,11 +112,8 @@ class CMRelation(Component):
         self.delta_c = delta_c
 
         self.mdef = self.native_mdefs[0] if mdef is None else mdef
-        self.profile = (
-            NFW(self, cosmo.mean_density0, delta_halo=self.mdef.halo_overdensity_mean)
-            if profile is None
-            else profile
-        )
+        self.profile = NFW(self, mdef=self.mdef) if profile is None else profile
+
         self.cosmo = cosmo
         self.mean_density0 = cosmo.mean_density0
 
