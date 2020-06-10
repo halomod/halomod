@@ -541,14 +541,6 @@ class DMHaloModel(MassFunction):
         """The halo-model-derived nonlinear 2-halo dark matter auto-correlation function."""
         return tools.power_to_corr_ogata(self.power_2h_auto_matter, self.k, self.r)
 
-        # The following is required if power_2h_auto_matter uses more complicated biasing.
-        # if self.exclusion_model is NoExclusion:
-        #     return tools.power_to_corr_ogata(self.power_2h_auto_matter, self.k, self.r)
-        # else:
-        #     return tools.power_to_corr_ogata_matrix(
-        #         self.power_2h_auto_matter, self.k, self.r
-        #     )
-
     @cached_quantity
     def corr_auto_matter(self):
         """The halo-model-derived nonlinear dark matter auto-correlation function."""
@@ -1145,13 +1137,7 @@ class TracerHaloModel(DMHaloModel):
     @cached_quantity
     def corr_2h_auto_tracer(self):
         """The 2-halo term of the tracer auto-correlation."""
-
-        if self.exclusion_model is NoExclusion and self.sd_bias_model is None:
-            corr = tools.power_to_corr_ogata(self._power_2h_auto_tracer, self.k, self.r)
-        else:
-            corr = tools.power_to_corr_ogata_matrix(
-                self._power_2h_auto_tracer, self.k, self.r
-            )
+        corr = tools.power_to_corr_ogata(self._power_2h_auto_tracer, self.k, self.r)
 
         # modify by the new density. This step is *extremely* sensitive to the exact
         # value of __density_mod at large
