@@ -14,23 +14,20 @@ from . import tools
 
 
 class HODCross(Component):
-    """
-    Provides methods necessary to compute cross-correlation pairs for HOD models.
-    """
+    """Provides methods necessary to compute cross-correlation pairs for HOD models."""
 
     _defaults = {}
     __metaclass__ = ABCMeta
 
     def __init__(self, hods, **model_params):
-        super(HODCross, self).__init__(**model_params)
+        super().__init__(**model_params)
 
         assert len(hods) == 2
         self.hods = hods
 
     @abstractmethod
     def R_ss(self, m):
-        r"""
-        The cross-correlation of numbers of pairs within a halo.
+        r"""The cross-correlation of numbers of pairs within a halo.
 
         Notes
         -----
@@ -38,15 +35,17 @@ class HODCross(Component):
 
         .. math:: \langle T_1 T_2 \rangle  = \langle T_1 \rangle \langle T_2 \rangle + \sigma_1 \sigma_2 R_{ss},
 
-        where :math:`T` is the total amount of tracer in the halo's profile (i.e. not counting the central component,
-        if this exists).
+        where :math:`T` is the total amount of tracer in the halo's profile (i.e. not counting the
+        central component, if this exists).
         """
         pass
 
     @abstractmethod
     def R_cs(self, m):
         r"""
-        The cross-correlation of central-satellite pairs within a halo (central from first hod, satellite from second)
+        The cross-correlation of central-satellite pairs within a halo.
+
+        Central from first hod, satellite from second.
 
         Notes
         -----
@@ -54,15 +53,17 @@ class HODCross(Component):
 
         .. math:: \langle T^c_1 T^s_2 \rangle  = \langle T^c_1 \rangle \langle T^s_2 \rangle + \sigma^c_1 \sigma^s_2 R_{cs},
 
-        where :math:`T^s` is the total amount of tracer in the halo's profile (i.e. not counting the central component,
-        if this exists).
+        where :math:`T^s` is the total amount of tracer in the halo's profile (i.e. not counting the
+        central component,if this exists).
         """
         pass
 
     @abstractmethod
     def R_sc(self, m):
         r"""
-        The cross-correlation of satellite-central pairs within a halo (central from second hod, satellite from first)
+        The cross-correlation of satellite-central pairs within a halo.
+
+        Central from second hod, Satellite from first.
 
         Notes
         -----
@@ -70,18 +71,22 @@ class HODCross(Component):
 
         .. math:: \langle T^s_1 T^c_2 \rangle  = \langle T^s_1 \rangle \langle T^c_2 \rangle + \sigma^s_1 \sigma^c_2 R_{sc},
 
-        where :math:`T^s` is the total amount of tracer in the halo's profile (i.e. not counting the central component,
-        if this exists).
+        where :math:`T^s` is the total amount of tracer in the halo's profile (i.e. not counting
+        the central component,if this exists).
         """
         pass
 
     @abstractmethod
     def self_pairs(self, m):
-        r"The expected number of cross-pairs at a separation of zero."
+        r"""The expected number of cross-pairs at a separation of zero."""
         pass
 
     def ss_cross_pairs(self, m):
-        r"The average value of cross-pairs in a halo of mass m, :math:`\langle T^s_1 T^s_2 \rangle - Q`."
+        r"""The average value of cross-pairs in a halo of mass m.
+
+        Notes
+        -----
+        .. math:: `\langle T^s_1 T^s_2 \rangle - Q`"""
         h1, h2 = self.hods
 
         return (
@@ -91,7 +96,13 @@ class HODCross(Component):
         )
 
     def cs_cross_pairs(self, m):
-        r"The average value of cross-pairs in a halo of mass m, :math:`\langle T^c_1 T^s_2 \rangle`."
+        r"""The average value of cross-pairs in a halo of mass m.
+
+        Notes
+        -----
+        .. math:: \langle T^c_1 T^s_2 \rangle.
+
+        """
         h1, h2 = self.hods
 
         return h1.central_occupation(m) * h2.satellite_occupation(m) + h1.sigma_central(
@@ -99,7 +110,12 @@ class HODCross(Component):
         ) * h2.sigma_satellite(m) * self.R_cs(m)
 
     def sc_cross_pairs(self, m):
-        r"The average value of cross-pairs in a halo of mass m, :math:`\langle T^s_1 T^c_2 \rangle`."
+        r"""The average value of cross-pairs in a halo of mass m,
+
+        Notes
+        -----
+        .. math:: \langle T^s_1 T^c_2 \rangle
+        """
         h1, h2 = self.hods
 
         return h2.central_occupation(m) * h1.satellite_occupation(m) + h2.sigma_central(
@@ -124,7 +140,7 @@ class ConstantCorr(HODCross):
 
     @abstractmethod
     def self_pairs(self, m):
-        "The expected number of cross-pairs at a separation of zero."
+        """The expected number of cross-pairs at a separation of zero."""
         return 0
 
 
@@ -136,6 +152,7 @@ class CrossCorrelations(Framework):
         halo_model_1_params={},
         halo_model_2_params={},
     ):
+        super().__init__()
 
         self.cross_hod_model = cross_hod_model
         self.cross_hod_params = cross_hod_params
@@ -145,7 +162,7 @@ class CrossCorrelations(Framework):
 
     @parameter("model")
     def cross_hod_model(self, val):
-        if not isinstance(val, str) and not np.issubclass_(val, HODCross):
+        if not (isinstance(val, str) or np.issubclass_(val, HODCross)):
             raise ValueError(
                 "cross_hod_model must be a subclass of cross_correlations.HODCross"
             )
@@ -177,9 +194,7 @@ class CrossCorrelations(Framework):
 
     @cached_quantity
     def power_1h_cross(self):
-        """
-        Total 1-halo cross-power
-        """
+        """Total 1-halo cross-power."""
         hm1, hm2 = self.halo_model_1, self.halo_model_2
         mask = np.logical_and(
             np.logical_and(
@@ -212,13 +227,13 @@ class CrossCorrelations(Framework):
 
     @cached_quantity
     def power_2h_cross(self):
-        "The 2-halo term of the cross-power spectrum"
+        """The 2-halo term of the cross-power spectrum."""
         hm1, hm2 = self.halo_model_1, self.halo_model_2
 
         u1 = hm1.tracer_profile_ukm[:, hm1._tm]
         u2 = hm2.tracer_profile_ukm[:, hm2._tm]
 
-        bias = hm1.bias
+        bias = hm1.halo_bias
 
         # Do this the simple way for now
         b1 = intg.simps(
@@ -239,20 +254,18 @@ class CrossCorrelations(Framework):
 
     @cached_quantity
     def corr_2h_cross(self):
-        """The 2-halo term of the cross-correlation"""
-
-        return tools.power_to_corr_ogata(
+        """The 2-halo term of the cross-correlation."""
+        corr = tools.power_to_corr_ogata(
             self.power_2h_cross, self.halo_model_1.k, self.halo_model_1.r
         )
+        return (1 + corr) - 1
 
     @cached_quantity
     def power_cross(self):
-        """
-        Total tracer auto power spectrum
-        """
+        """Total tracer auto power spectrum."""
         return self.power_1h_cross + self.power_2h_cross
 
     @cached_quantity
     def corr_cross(self):
-        """The tracer auto correlation function"""
+        """The tracer auto correlation function."""
         return self.corr_1h_cross + self.corr_2h_cross + 1

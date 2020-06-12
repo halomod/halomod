@@ -298,7 +298,7 @@ class DMHaloModel(MassFunction):
             delta_c=self.delta_c,
             m=self.m,
             mstar=self.mass_nonlinear,
-            delta_halo=self.mdef.halo_overdensity_mean(self.z, self.cosmo),
+            delta_halo=self.halo_overdensity_mean,
             n=self.n,
             Om0=self.cosmo.Om0,
             h=self.cosmo.h,
@@ -773,30 +773,23 @@ class TracerHaloModel(DMHaloModel):
 
         this_filter = copy(self.filter)
         this_filter.power = self._power0
-        this_profile = self.profile_model(
-            None,
-            self.mean_density0,
-            self.delta_halo,
-            self.z,
-            **self.tracer_profile_params,
+        this_profile = self.tracer_profile_model(
+            cm_relation=None, mdef=self.mdef, z=self.z, **self.tracer_profile_params,
         )
 
         return self.tracer_concentration_model(
+            cosmo=Cosmology(self.cosmo),
             filter0=this_filter,
-            mean_density0=self.mean_density0,
             growth=self.growth,
             delta_c=self.delta_c,
             profile=this_profile,
-            cosmo=self.cosmo,
-            delta_halo=self.delta_halo,
+            mdef=self.mdef,
             **self.tracer_concentration_params,
         )
 
     @cached_quantity
     def tracer_concentration(self):
-        """
-        The concentrations corresponding to :meth:`m`
-        """
+        """The concentrations corresponding to :meth:`m`."""
         return self.tracer_cm.cm(self.m, self.z)
 
     @cached_quantity
@@ -957,7 +950,9 @@ class TracerHaloModel(DMHaloModel):
 
         if self.force_1halo_turnover:
             r = np.pi / self.k / 10  # The 10 is a complete heuristic hack.
-            mmin = 4 * np.pi * r ** 3 * self.mean_density0 * self.delta_halo / 3
+            mmin = (
+                4 * np.pi * r ** 3 * self.mean_density0 * self.halo_overdensity_mean / 3
+            )
             mask = np.outer(self.m[self._tm], np.ones_like(self.k)) < mmin
             integ[mask.T] = 0
 
@@ -1048,6 +1043,7 @@ class TracerHaloModel(DMHaloModel):
         try:
             return self.power_1h_cs_auto_tracer + self.power_1h_ss_auto_tracer
         except AttributeError:
+            print("doing this")
             u = self.tracer_profile_ukm[:, self._tm]
             integ = (
                 u ** 2
@@ -1058,7 +1054,14 @@ class TracerHaloModel(DMHaloModel):
 
             if self.force_1halo_turnover:
                 r = np.pi / self.k / 10  # The 10 is a complete heuristic hack.
-                mmin = 4 * np.pi * r ** 3 * self.mean_density0 * self.delta_halo / 3
+                mmin = (
+                    4
+                    * np.pi
+                    * r ** 3
+                    * self.mean_density0
+                    * self.halo_overdensity_mean
+                    / 3
+                )
                 mask = np.outer(self.m[self._tm], np.ones_like(self.k)) < mmin
                 integ[mask.T] = 0
 
@@ -1092,7 +1095,7 @@ class TracerHaloModel(DMHaloModel):
                 )
             c = intg.trapz(integ, dx=self.dlog10m * np.log(10))
 
-            return c / self.mean_tracer_den ** 2 - 1
+            return c / self.mean_tracer_den ** 2
         else:
             try:
                 return self.corr_1h_cs_auto_tracer + self.corr_1h_ss_auto_tracer + 1
@@ -1118,7 +1121,7 @@ class TracerHaloModel(DMHaloModel):
             / self.mean_tracer_den,
             bias=bias,
             r=self.r,
-            delta_halo=self.mdef.halo_overdensity_mean(self.z, self.cosmo),
+            delta_halo=self.halo_overdensity_mean,
             mean_density=self.mean_density0,
             **self.exclusion_params,
         )
@@ -1181,7 +1184,7 @@ class TracerHaloModel(DMHaloModel):
     @cached_quantity
     def corr_auto_tracer(self):
         """The tracer auto correlation function"""
-        return self.corr_1h_auto_tracer + self.corr_2h_auto_tracer + 1
+        return self.corr_1h_auto_tracer + self.corr_2h_auto_tracer
 
     # ===========================================================================
     # Cross-correlations
