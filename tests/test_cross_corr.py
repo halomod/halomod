@@ -11,11 +11,13 @@ def test_cross_same():
             "exclusion_model": "NoExclusion",
             "sd_bias_model": None,
             "transfer_model": "EH",
+            "force_1halo_turnover": False,
         },
         halo_model_2_params={
             "exclusion_model": "NoExclusion",
             "sd_bias_model": None,
             "transfer_model": "EH",
+            "force_1halo_turnover": False,
         },
     )
 
@@ -27,4 +29,11 @@ def test_cross_same():
         rtol=1e-2,
     )
     assert np.allclose(cross.power_2h_cross, cross.halo_model_1.power_2h_auto_tracer)
-    # assert np.allclose(cross.power_1h_cross, cross.halo_model_1.power_1h_auto_tracer)
+
+    # This doesn't work because autos have a low-k cutoff applied
+    assert np.allclose(
+        cross.power_1h_cross,
+        cross.halo_model_1.power_1h_auto_tracer,
+        atol=1e-6,
+        rtol=1e-2,
+    )
