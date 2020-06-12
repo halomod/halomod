@@ -11,6 +11,8 @@ import warnings
 from scipy.special import sici
 from hmf.halos.mass_definitions import SOMean
 from astropy.cosmology import Planck15
+import hankel
+from scipy.integrate import quad
 
 
 def ginc(a, x):
@@ -133,8 +135,8 @@ class Profile(Component):
             sp = spline(x, integ, k=3)
             return sp(c)
 
-    def _p(self, K, c):
-        """
+    def _p(self, K: np.ndarray, c: np.ndarray):
+        r"""
         The reduced dimensionless fourier-transform of the halo_profile
 
         This function should not need to be called by the user in general.
@@ -146,50 +148,66 @@ class Profile(Component):
         c : float or array_like
             The halo_concentration
 
+        Notes
+        -----
         .. note :: This should be replaced by an analytic function if possible
+
+        The formula is
+
+        .. math:: \int_0^c x \sin(\kappa x) / \kappa f(x) dx
+
+        where :math:`kappa` is the unitless wavenumber `k*r_s`, and `x` is the unitless
+        radial co-ordinate `r/r_s`. This is simply the scaled 3D fourier transform
+        of the profile, taken to a Hankel transform.
         """
+
         c = np.atleast_1d(c)
         if K.ndim < 2:
             if len(K) != len(c):
-                K = np.atleast_2d(K).T  # should be len(rs) x len(k)
+                K = np.atleast_2d(K)  # should be len(k) * len(rs)
             else:
-                K = np.atleast_2d(K)
-        minsteps = 100
+                K = np.atleast_2d(K).T
 
-        if K.size > 100:
-            kk = np.logspace(np.log10(K.min()), np.log10(K.max()), 100)
-        else:
-            kk = np.sort(K.flatten())
+        assert K.ndim == 2
+        assert K.shape[1] == len(c)
 
-        res = np.zeros_like(K)
-        intermediate_res = np.zeros((len(kk), len(c)))
+        sort_indx = np.argsort(c)
 
-        for ik, kappa in enumerate(kk):
-            smallest_period = np.pi / kappa
-            dx = smallest_period / 5
+        # We get a shorter vector of different K's to find the integral for, otherwise
+        # we need to do a full integral for every K (which is 2D, since K is different
+        # for every c).
+        kk = np.logspace(np.log10(K.min()), np.log10(K.max()), 100)
 
-            nsteps = max(int(np.ceil(c.max() / dx)), minsteps)
+        intermediate_res = np.zeros((len(c), len(kk)))
 
-            x, dx = np.linspace(0, c.max(), nsteps, retstep=True)
-            spl = spline(x, x * self._f(x) * np.sin(kappa * x) / kappa)
+        # To make it more efficient, we do the integral in parts cumulatively, so we
+        # can get the value at each c in turn.
+        for j, k in enumerate(kk):
+            # Get all zeros up to the maximum c
+            zeros = np.pi / k * np.arange(c.max() // (np.pi / k))
+            for i, indx in enumerate(sort_indx):
+                # Get the limits on c for this iteration.
+                c_0 = 0 if not i else c[sort_indx[i - 1]]
+                c_1 = c[indx]
+                integral = quad(
+                    lambda x: x * self._f(x) * np.sin(k * x) / k, c_0, c_1, points=zeros
+                )[0]
 
-            intg = spl.antiderivative()
+                # If its not the minimum c, add it to the previous integrand.
+                if i:
+                    intermediate_res[indx, j] = (
+                        intermediate_res[sort_indx[i - 1], j] + integral
+                    )
+                else:
+                    intermediate_res[indx, j] = integral
 
-            intermediate_res[ik, :] = intg(c) - intg(0)
+        # Now we need to interpolate onto the actual K values we have at each c.
+        out = np.zeros_like(K)
+        for ic, integral in enumerate(intermediate_res):
+            spl = spline(kk, integral)
+            out[:, ic] = spl(K[:, ic])
 
-        for ic, cc in enumerate(c):
-            # For high K, intermediate_res can be negative, so we mask that.
-            mask = intermediate_res[:, ic] > 0
-            if not np.any(mask):
-                raise RuntimeError(
-                    f"{self.__class__.__name__} failed to get u() for c={cc},"
-                    f"since no values were greater than zero."
-                )
-
-            spl = spline(np.log(kk[mask]), np.log(intermediate_res[mask, ic]), k=1)
-            res[:, ic] = np.exp(spl(np.log(K[:, ic])))
-
-        return res
+        return out
 
     def _rho_s(self, c, r_s=None, norm=None):
         """
@@ -480,52 +498,24 @@ class ProfileInf(Profile):
 
         return self._reduce(u)
 
-    def _p(self, K, c):
+    def _p(self, K: np.ndarray, c: np.ndarray):
         """
         The dimensionless fourier-transform of the halo_profile
 
         This should be replaced by an analytic function if possible.
         """
-        # Make sure we use enough steps to fit every period at least 5 times
-        minsteps = 1000
-        smallest_period = np.pi / K.max()
-        dx = smallest_period / 5
-        nsteps = int(np.ceil(c / dx))
+        assert K.ndim == 2
+        assert K.shape[0] == len(c)
 
-        if nsteps < minsteps:
-            nsteps = minsteps
+        ft = hankel.SymmetricFourierTransform(ndim=3, N=640, h=0.005)
 
-        cc = 10.0
-        tol = 1e-3
-        allowed_diff = 0.8
+        out = np.zeros_like(K)
 
-        if len(K.shape) == 2:
-            kk = np.linspace(np.log(K.min()), np.log(K.max()), 1000)
-        else:
-            kk = np.log(K)
+        # Go through each value of c
+        for i, kk in enumerate(K):
+            out[i] = ft.transform(self._f, k=K, ret_err=False, ret_cumsum=False)
 
-        res = np.zeros(len(kk))
-        for i, k in enumerate(kk):
-            diff = 10.0
-            j = 0
-            while tol < diff < allowed_diff:
-                x, dx = np.linspace(j * cc, (j + 1) * cc, nsteps, retstep=True)
-
-                integrand = x * self._f(x) * np.sin(np.exp(k) * x) / np.exp(k)
-                this_iter = intg.simps(integrand, dx=dx)
-                diff = abs((this_iter - res[i]) / this_iter)
-                res[i] += this_iter
-                j += 1
-            if diff > allowed_diff:
-                raise Exception(
-                    "halo_profile has no analytic transform and converges too slow numerically"
-                )
-
-        if len(K.shape) == 2:
-            fit = spline(kk, res[i], k=3)
-            res = fit(K)
-
-        return res
+        return out
 
     def lam(self, r, m, norm=None, c=None, coord="r"):
         """

@@ -75,14 +75,14 @@ def test_decreasing_convolution(profile):
     "profile",
     (
         pf.NFW,
-        pf.NFWInf,
+        #        pf.NFWInf,  infinite profile can't be normalised by mass.
         pf.CoredNFW,
         pf.Einasto,
         pf.GeneralizedNFW,
-        pf.GeneralizedNFWInf,
+        #        pf.GeneralizedNFWInf,
         pf.Hernquist,
         pf.Moore,
-        pf.MooreInf,
+        #        pf.MooreInf,
     ),
 )
 def test_ukm_low_k(profile):
