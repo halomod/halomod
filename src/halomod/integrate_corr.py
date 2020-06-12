@@ -62,7 +62,7 @@ class ProjectedCF(HaloModel):
 
     @cached_quantity
     def rp(self):
-        if type(self.rp_min) == list or type(self.rp_min) == np.ndarray:
+        if isinstance(self.rp_min, (list, np.ndarray)):
             rp = np.array(self.rp_min)
         else:
             if self.rp_log:
@@ -98,7 +98,9 @@ class ProjectedCF(HaloModel):
         return projected_corr_gal(self.r, self.corr_gg, self.rlim, self.rp)
 
 
-def projected_corr_gal(r, xir, rlim, rp_out=None):
+def projected_corr_gal(
+    r: np.ndarray, xir: np.ndarray, rlim: np.ndarray, rp_out: [None, np.ndarray] = None
+):
     """
     Projected correlation function w(r_p).
 
@@ -109,10 +111,10 @@ def projected_corr_gal(r, xir, rlim, rp_out=None):
     Parameters
     ----------
     r : float array
-        Array of scales, in [Mpc/h]
-
+        Array of scales for the 3D correlation function, in [Mpc/h]
     xir : float array
-        Array of xi(r), unitless
+        3D correlation function Array of xi(r), unitless.
+    rlim :
     """
     if rp_out is None:
         rp_out = r
@@ -129,7 +131,8 @@ def projected_corr_gal(r, xir, rlim, rp_out=None):
         if a != 1.3 and i < len(r) - 1:
             # Get log slope at rp
             ydiff = (lnxi[i + 1] - lnxi[i]) / (lnr[i + 1] - lnr[i])
-            # if the slope is flatter than 1.3, it will converge faster, but to make sure, we cut at 1.3
+            # if the slope is flatter than 1.3, it will converge faster, but to make
+            # sure, we cut at 1.3
             a = max(1.3, -ydiff)
             theta = _get_theta(a)
 
@@ -174,7 +177,7 @@ def flat_z_dist(zmin, zmax):
 
 
 def dxdz(z, cosmo=csm().cosmo):
-    "Derivative of comoving distance with redshift [Mpc/h]"
+    """Derivative of comoving distance with redshift [Mpc/h]."""
     dh = cosmo.hubble_distance * cosmo.h
     return dh.value / cosmo.efunc(z)
 
@@ -191,40 +194,29 @@ class AngularCF(HaloModel):
         either a function of radial distance [Mpc/h] or redshift.
         If a function of radial distance, `p_of_z` must be set to
         False. Default is a flat distribution in redshift.
-
     p2 : callable, optional
         See `p1`. This can optionally be a different function against
         which to cross-correlate. By default is equivalent to `p1`.
-
     theta_min, theta_max : float, optional
         min,max angular separations [Rad]
-
     theta_num : int, optional
         Number of steps in angular separation
-
     theta_log : bool, optional
         Whether to use logspace for theta values
-
     zmin, zmax : float, optional
         The redshift limits of the sample distribution. Note that
         this is in redshit, regardless of the value of `p_of_z`.
-
     znum : int, optional
         Number of steps in redshift grid.
-
     logu_min, logu_max : float, optional
         min,max of the log10 of radial separation grid [Mpc/h]. Must be large
         enough to let the integral over the 3D correlation function to converge.
-
     unum : int, optional
         Number of steps in the u grid.
-
     check_p_norm : bool, optional
         If False, cancels checking the normalisation of `p1` and `p2`.
-
     p_of_z : bool, optional
         Whether `p1` and `p2` are functions of redshift.
-
     kwargs : unpacked-dict
         Any keyword arguments passed down to :class:`halomod.HaloModel`.
     """
@@ -343,17 +335,17 @@ class AngularCF(HaloModel):
 
     @cached_quantity
     def uvec(self):
-        "Radial separation grid [Mpc/h]"
+        """Radial separation grid [Mpc/h]."""
         return np.logspace(self.logu_min, self.logu_max, self.unum)
 
     @cached_quantity
     def xvec(self):
-        "Radial distance grid (corresponds to zvec) [Mpc/h]"
+        """Radial distance grid (corresponds to zvec) [Mpc/h]."""
         return self.cosmo.comoving_distance(self.zvec).value
 
     @cached_quantity
     def theta(self):
-        "Angular separations, [Rad]"
+        """Angular separations, [Rad]."""
         if self.theta_min > self.theta_max:
             raise ValueError("theta_min must be less than theta_max")
 
@@ -366,7 +358,7 @@ class AngularCF(HaloModel):
 
     @cached_quantity
     def r(self):
-        "Physical separation grid [Mpc/h]"
+        """Physical separation grid [Mpc/h]."""
         rmin = np.sqrt(
             (10 ** self.logu_min) ** 2 + self.theta.min() ** 2 * self.xvec.min() ** 2
         )
@@ -377,8 +369,7 @@ class AngularCF(HaloModel):
 
     @cached_quantity
     def angular_corr_gal(self):
-        """
-        The angular correlation function w(theta).
+        """The angular correlation function w(theta).
 
         From Blake+08, Eq. 33
         """
@@ -473,43 +464,32 @@ def angular_corr_gal(
     ----------
     theta : array_like
         Angles at which to calculate the angular correlation. In radians.
-
     xi : callable
         A function of one variable: r [Mpc/h], which returns
         the 3D correlation function at the scale r.
-
     p1: callable
         The redshift distribution of sources. Should integrate to 1 between
         `logz_min` and `logz_max`. A callable function of a single variable, z.
-
     zmin, zmax : float
         The redshift limits of the sample distribution. Note that
-        this is in redshit, regardless of the value of `p_of_z`.
-
+        this is in redshift, regardless of the value of `p_of_z`.
     logu_min, logu_max : float
         min,max of the log10 of radial separation grid [Mpc/h]. Must be large
         enough to let the integral over the 3D correlation function to converge.
-
     znum : int, optional
         Number of steps in redshift grid.
-
     unum : int, optional
         Number of steps in the u grid.
-
     p2 : callable, optional
         The same as `p1`, but for a second, cross-correlating dataset. If not
         provided, defaults to `p1` (i.e. auto-correlation).
-
     check_p_norm : bool, optional
         If False, cancels checking the normalisation of `p1` and `p2`.
-
     p_of_z : bool, optional
         Whether `p1` and `p2` are functions of redshift.
-
     cosmo : `hmf.cosmo.Cosmology` instance, optional
         A cosmology, used to generate comoving distance from redshift. Default
         is the default cosmology of the `hmf` package.
-
     xi_kw : unpacked-dict
         Any arguments to `xi` other than r,z.
 
