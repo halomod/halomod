@@ -10,6 +10,7 @@ import os
 import warnings
 from scipy.special import sici
 from hmf.halos.mass_definitions import SOMean
+from astropy.cosmology import Planck15
 
 
 def ginc(a, x):
@@ -43,14 +44,16 @@ class Profile(Component):
 
     _defaults = {}
 
-    def __init__(self, cm_relation, mdef=SOMean(), z=0.0, **model_parameters):
+    def __init__(
+        self, cm_relation, mdef=SOMean(), z=0.0, cosmo=Planck15, **model_parameters
+    ):
 
         self.mdef = mdef
-        self.delta_halo = self.mdef.halo_overdensity_mean
+        self.delta_halo = self.mdef.halo_overdensity_mean(z, cosmo)
         self.z = z
         self._cm_relation = cm_relation
-        self.mean_dens = mdef.mean_density0
-
+        self.mean_dens = mdef.mean_density(z=z, cosmo=cosmo)
+        self.mean_density0 = mdef.mean_density(0, cosmo=cosmo)
         self.has_lam = hasattr(self, "_l")
 
         super(Profile, self).__init__(**model_parameters)
@@ -140,7 +143,6 @@ class Profile(Component):
         ----------
         K : float or array_like
             The unit-less wavenumber k*r_s
-
         c : float or array_like
             The halo_concentration
 
@@ -157,7 +159,7 @@ class Profile(Component):
         if K.size > 100:
             kk = np.logspace(np.log10(K.min()), np.log10(K.max()), 100)
         else:
-            kk = np.sort(np.flatten(K))
+            kk = np.sort(K.flatten())
 
         res = np.zeros_like(K)
         intermediate_res = np.zeros((len(kk), len(c)))
@@ -176,9 +178,14 @@ class Profile(Component):
             intermediate_res[ik, :] = intg(c) - intg(0)
 
         for ic, cc in enumerate(c):
-            # print intermediate_res.shape, kk.shape, res.shape
             # For high K, intermediate_res can be negative, so we mask that.
             mask = intermediate_res[:, ic] > 0
+            if not np.any(mask):
+                raise RuntimeError(
+                    f"{self.__class__.__name__} failed to get u() for c={cc},"
+                    f"since no values were greater than zero."
+                )
+
             spl = spline(np.log(kk[mask]), np.log(intermediate_res[mask, ic]), k=1)
             res[:, ic] = np.exp(spl(np.log(K[:, ic])))
 
@@ -374,8 +381,8 @@ class Profile(Component):
         if x.size == 1:
             try:
                 return x[0]
-            except Exception:
-                return x
+            except IndexError:
+                return x.dtype.type(x)
         else:
             return x
 
@@ -471,7 +478,7 @@ class ProfileInf(Profile):
         elif norm != "m":
             raise ValueError(str(norm) + "is not a valid value for norm")
 
-        return self._make_scalar(u)
+        return self._reduce(u)
 
     def _p(self, K, c):
         """
@@ -681,23 +688,23 @@ class MooreInf(Moore, ProfileInf):
     def _p(self, K):
         def G(k):
             return mpmath.meijerg(
-                [[1.0 / 6.0, 5.0 / 12.0, 11.0 / 12.0], []],
+                [[1.0 / 2.0, 3.0 / 4.0, 1.0], []],
                 [
                     [
-                        1.0 / 6.0,
-                        1.0 / 6.0,
+                        1.0 / 12.0,
+                        1.0 / 4.0,
                         5.0 / 12.0,
                         0.5,
-                        2.0 / 3.0,
-                        5.0 / 6.0,
-                        11.0 / 12.0,
+                        3.0 / 4.0,
+                        3.0 / 4.0,
+                        1.0,
                     ],
-                    [0, 1.0 / 3.0],
+                    [-1.0 / 12.0, 7.0 / 12.0],
                 ],
                 k ** 6 / 46656.0,
             ) / (4 * np.sqrt(3) * np.pi ** (5 / 2) * k)
 
-        if len(K.shape) == 2:
+        if K.ndim == 2:
             K1 = np.reshape(K, -1)
             K1.sort()
         else:

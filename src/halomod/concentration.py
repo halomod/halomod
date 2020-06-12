@@ -120,8 +120,9 @@ class CMRelation(Component):
         # TODO: actually implement conversion of mass definitions.
         if self.mdef not in self.native_mdefs:
             warnings.warn(
-                f"Requested mass definition '{mdef}' is not in native definitions for the '{self.__class__.__name__}' CMRelation."
-                f"No mass conversion will be performed, so results will be wrong. Using '{self.mdef}'."
+                f"Requested mass definition '{mdef}' is not in native definitions for "
+                f"the '{self.__class__.__name__}' CMRelation. No mass conversion will be "
+                f"performed, so results will be wrong. Using '{self.mdef}'."
             )
 
         super(CMRelation, self).__init__(**model_parameters)
@@ -269,14 +270,13 @@ class Ludlow16(CMRelation):
     }
     native_mdefs = (SOCritical(),)
 
-    @property
-    def delta_halo(self):
-        return self.mdef.halo_overdensity_crit
+    def delta_halo(self, z=0):
+        return self.mdef.halo_overdensity_crit(z, self.cosmo.cosmo)
 
     def _eq6_zf(self, c, C, z):
         cosmo = self.cosmo.cosmo
         M2 = self.profile._h(1) / self.profile._h(c)
-        rho_2 = self.delta_halo * c ** 3 * M2
+        rho_2 = self.delta_halo(z) * c ** 3 * M2
         rhoc = rho_2 / C
         in_brackets = (
             rhoc * (cosmo.Om0 * (1 + z) ** 3 + cosmo.Ode0) - cosmo.Ode0
@@ -290,7 +290,6 @@ class Ludlow16(CMRelation):
 
         # Calculate zf for all values in cvec
         cvec, zf = self._eq6_zf(cvec, C, z)
-        print("z2: ", zf)
 
         # Mask out those that are unphysical
         mask = (np.isnan(zf) | np.isinf(zf)) | (zf < 0)
@@ -327,8 +326,11 @@ class Ludlow16(CMRelation):
             out = np.zeros_like(m)
             for i in range(len(m)):
                 arg = lhs - rhs[:, i]
+
                 if np.sum(arg <= 0) == 0:
                     out[i] = cvec.min()
+                elif np.sum(arg >= 0) == 0:
+                    out[i] = cvec.max()
                 else:
                     spl = interp1d(arg, cvec)
                     out[i] = spl(0.0)

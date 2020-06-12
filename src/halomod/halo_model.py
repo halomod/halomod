@@ -298,7 +298,7 @@ class DMHaloModel(MassFunction):
             delta_c=self.delta_c,
             m=self.m,
             mstar=self.mass_nonlinear,
-            delta_halo=self.mdef.halo_overdensity_mean,
+            delta_halo=self.mdef.halo_overdensity_mean(self.z, self.cosmo),
             n=self.n,
             Om0=self.cosmo.Om0,
             h=self.cosmo.h,
@@ -342,6 +342,15 @@ class DMHaloModel(MassFunction):
             return None
         else:
             return self.sd_bias_model(self._corr_mm_base, **self.sd_bias_params)
+
+    @cached_quantity
+    def halo_bias(self):
+        return self.bias.bias()
+
+    @cached_quantity
+    def cmz_relation(self):
+        """Concentration-mass-redshift relation."""
+        return self.halo_concentration.cm(self.m, self.z)
 
     # ===========================================================================
     # Halo/DM Statistics
@@ -550,6 +559,20 @@ class DMHaloModel(MassFunction):
     def power_auto_matter(self):
         """The halo-model-derived nonlinear dark power auto-power spectrum."""
         return self.power_1h_auto_matter + self.power_2h_auto_matter
+
+    @cached_quantity
+    def bias_effective_matter(self):
+        """The effective bias of matter in DM halos.
+
+        This *should* be unity for models in which all dark matter is encapsulated in
+        halos (though in practice it won't be for some halo-bias models). For models
+        in which some dark matter exists in a "smooth" component outside halos (eg.
+        the WDM model of Schneider et al. 2012) it also will not be unity.
+        """
+        # Integrand is just the density of halos at mass m by bias
+        integrand = self.m * self.dndm * self.halo_bias
+        b = intg.simps(integrand, self.m)
+        return b / self.rho_gtm[0]
 
 
 class TracerHaloModel(DMHaloModel):
@@ -834,7 +857,7 @@ class TracerHaloModel(DMHaloModel):
         return self.mean_tracer_den * self.hod.unit_conversion(self.cosmo, self.z)
 
     @cached_quantity
-    def bias_effective(self):
+    def bias_effective_tracer(self):
         """
         The tracer occupation-weighted halo bias factor (Tinker 2005)
         """
@@ -843,7 +866,7 @@ class TracerHaloModel(DMHaloModel):
             self.m[self._tm]
             * self.dndm[self._tm]
             * self.total_occupation[self._tm]
-            * self.bias[self._tm]
+            * self.halo_bias[self._tm]
         )
         b = intg.trapz(integrand, dx=np.log(self.m[1] / self.m[0]))
         return b / self.mean_tracer_den
@@ -1083,9 +1106,9 @@ class TracerHaloModel(DMHaloModel):
         """The 2-halo term of the tracer auto-power spectrum."""
         u = self.tracer_profile_ukm[:, self._tm]
         if self.sd_bias_model is not None:
-            bias = np.outer(self.sd_bias.bias_scale(), self.bias.bias())[:, self._tm]
+            bias = np.outer(self.sd_bias.bias_scale(), self.halo_bias)[:, self._tm]
         else:
-            bias = self.bias.bias()[self._tm]
+            bias = self.halo_bias[self._tm]
         inst = self.exclusion_model(
             m=self.m[self._tm],
             density=self.total_occupation[self._tm] * self.dndm[self._tm],
@@ -1095,7 +1118,7 @@ class TracerHaloModel(DMHaloModel):
             / self.mean_tracer_den,
             bias=bias,
             r=self.r,
-            delta_halo=self.mdef.halo_overdensity_mean,
+            delta_halo=self.mdef.halo_overdensity_mean(self.z, self.cosmo),
             mean_density=self.mean_density0,
             **self.exclusion_params,
         )
@@ -1197,7 +1220,7 @@ class TracerHaloModel(DMHaloModel):
         # if self.sd_bias_model is not None:
         #     bias = np.outer(self.sd_bias.bias_scale(), self.bias)[:, self._tm]
         # else:
-        bias = self.bias.bias()
+        bias = self.halo_bias
 
         # Do this the simple way for now
         bt = intg.simps(

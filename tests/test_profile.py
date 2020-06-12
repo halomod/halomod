@@ -69,3 +69,27 @@ def test_decreasing_convolution(profile):
         pytest.skip("This profile doesn't have a convolution defined.")
     else:
         assert np.all(np.diff(prof.lam(r, m=1e12)) <= 0)
+
+
+@pytest.mark.parametrize(
+    "profile",
+    (
+        pf.NFW,
+        pf.NFWInf,
+        pf.CoredNFW,
+        pf.Einasto,
+        pf.GeneralizedNFW,
+        pf.GeneralizedNFWInf,
+        pf.Hernquist,
+        pf.Moore,
+        pf.MooreInf,
+    ),
+)
+def test_ukm_low_k(profile):
+    """Test that all fourier transforms, when normalised by mass, are 1 at low k"""
+    k = np.array([1e-10])
+    m = np.logspace(10, 18, 100)
+
+    prof = profile(bullock)
+
+    assert np.allclose(prof.u(k, m, norm="m"), 1, rtol=1e-3)
