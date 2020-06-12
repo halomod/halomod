@@ -11,7 +11,6 @@ from scipy.interpolate import InterpolatedUnivariateSpline as _spline
 from scipy.integrate import simps
 from .halo_model import HaloModel
 from hmf import cached_quantity, parameter
-from .halo_exclusion import dblsimps
 from hmf import Cosmology as csm
 import warnings
 
@@ -503,18 +502,14 @@ def angular_corr_gal(
 
     # Arrays
     u = np.logspace(logu_min, logu_max, unum)
-    dlnu = np.log(u[1] / u[0])
 
     if p_of_z:
         z = np.linspace(zmin, zmax, znum)
-        diff = z[1] - z[0]
         x = (cosmo.comoving_distance(z) * cosmo.h).value
-
     else:
         xmin = (cosmo.comoving_distance(zmin) * cosmo.h).value
         xmax = (cosmo.comoving_distance(zmax) * cosmo.h).value
         x = np.linspace(xmin, xmax, znum)
-        diff = x[1] - x[0]
 
     if check_p_norm:
         p1 = _check_p(p1, z if p_of_z else x)
@@ -528,7 +523,7 @@ def angular_corr_gal(
     R = np.sqrt(np.add.outer(np.outer(theta ** 2, x ** 2), u ** 2)).flatten()
 
     integrand = np.einsum(
-        "kij,i,j->kij", xi(R, **xi_kw).reshape((len(theta), len(x), len(u))), p_integ, u
+        "kij,i->kij", xi(R, **xi_kw).reshape((len(theta), len(x), len(u))), p_integ
     )
 
-    return 2 * dblsimps(integrand, diff, dlnu)
+    return 2 * simps(simps(integrand, u), x)
