@@ -35,10 +35,24 @@ def test_monotonic_bias(bias_model, hmf: MassFunction):
     assert np.all(np.diff(b.bias()) >= 0)
 
 
-def test_bias_against_colossus():
-    cole89 = bias.make_colossus_bias("cole89", mdef=SOMean())
+@pytest.mark.parametrize(
+    "hmf_bias,col_bias",
+    [
+        (bias.Mo96, "cole89"),
+        (bias.Jing98, "jing98"),
+        (bias.SMT01, "sheth01"),
+        (bias.Seljak04, "seljak04"),
+        (bias.Pillepich10, "pillepich10"),
+        (bias.Tinker10, "tinker10"),
+    ],
+)
+def test_bias_against_colossus(hmf_bias, col_bias):
+    if col_bias in ["seljak04", "jing98"]:
+        pytest.skip("Uses nonlinear mass which has to be investigated.")
 
-    hm = DMHaloModel(transfer_model="EH", mdef_model=SOMean, bias_model=bias.Mo96)
-    col = DMHaloModel(transfer_model="EH", mdef_model=SOMean, bias_model=cole89)
+    cbias = bias.make_colossus_bias(col_bias, mdef=SOMean())
+
+    hm = DMHaloModel(transfer_model="EH", mdef_model=SOMean, bias_model=hmf_bias)
+    col = DMHaloModel(transfer_model="EH", mdef_model=SOMean, bias_model=cbias)
 
     assert np.allclose(hm.halo_bias, col.halo_bias, rtol=1e-2)

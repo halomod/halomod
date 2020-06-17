@@ -794,7 +794,7 @@ def make_colossus_bias(model="comparat17", mdef=SOMean(), **defaults):
             return haloBiasFromNu(
                 nu=np.sqrt(self.nu),
                 z=self.z,
-                mdef=self._mdef,
+                mdef=self._mdef.colossus_name,
                 model=self._model_name,
                 **self.params
             )
