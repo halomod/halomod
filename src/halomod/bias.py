@@ -49,6 +49,10 @@ from typing import Optional
 import numpy as np
 from hmf import Component
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
+from hmf.cosmology.cosmo import astropy_to_colossus
+from colossus.lss.bias import haloBiasFromNu
+from astropy.cosmology import FLRW, Planck15
+from hmf.halos.mass_definitions import SOMean
 
 
 class Bias(Component):
@@ -63,7 +67,7 @@ class Bias(Component):
     Parameters
     ----------
     nu : array-like
-        Peak-height, ``delta_c/sigma``.
+        Peak-height, ``delta^2_c/sigma^2``.
     delta_c : float, optional
         Critical over-density for collapse. Not all bias components require this
         parameter.
@@ -99,9 +103,8 @@ class Bias(Component):
         mstar: Optional[float] = None,
         delta_halo: Optional[float] = 200,
         n: Optional[float] = 1,
-        Om0: Optional[float] = 0.3,
         sigma_8: Optional[float] = 0.8,
-        h: Optional[float] = 0.7,
+        cosmo: FLRW = Planck15,
         z: float = 0.0,
         **model_parameters
     ):
@@ -112,8 +115,9 @@ class Bias(Component):
         self.m = m
         self.mstar = mstar
         self.z = z
-        self.h = h
-        self.Om0 = Om0
+        self.cosmo = cosmo
+        self.h = cosmo.h
+        self.Om0 = cosmo.Om0
         self.sigma_8 = sigma_8
 
         super(Bias, self).__init__(**model_parameters)
@@ -774,3 +778,25 @@ class TinkerSD05(ScaleDepBias):
         c = self.params["c"]
         d = self.params["d"]
         return np.sqrt((1 + a * self.xi_dm) ** b / (1 + c * self.xi_dm) ** d)
+
+
+def make_colossus_bias(model="comparat17", mdef=SOMean(), **defaults):
+    class CustomColossusBias(Bias):
+        _model_name = model
+        _defaults = defaults
+        _mdef = mdef
+
+        def __init__(self, *args, **kwargs):
+            super(CustomColossusBias, self).__init__(*args, **kwargs)
+            astropy_to_colossus(self.cosmo, sigma8=self.sigma_8, ns=self.n)
+
+        def bias(self):
+            return haloBiasFromNu(
+                nu=np.sqrt(self.nu),
+                z=self.z,
+                mdef=self._mdef,
+                model=self._model_name,
+                **self.params
+            )
+
+    return CustomColossusBias

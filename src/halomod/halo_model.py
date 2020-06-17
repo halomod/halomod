@@ -300,8 +300,7 @@ class DMHaloModel(MassFunction):
             mstar=self.mass_nonlinear,
             delta_halo=self.halo_overdensity_mean,
             n=self.n,
-            Om0=self.cosmo.Om0,
-            h=self.cosmo.h,
+            cosmo=self.cosmo,
             sigma_8=self.sigma_8,
             **self.bias_params,
         )
