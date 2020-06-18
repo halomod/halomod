@@ -1,0 +1,7 @@
+bias_model: Tinker10PBSplit
+exclusion_model: NoExclusion
+halo_concentration_model: Ludlow16
+halo_profile_model: NFW
+hc_spectrum: filtered-nl
+sd_bias_model: null
+z: 2

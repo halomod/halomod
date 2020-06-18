@@ -272,7 +272,7 @@ class DMHaloModel(MassFunction):
         COLOSSUS operations.
         """
         return astropy_to_colossus(
-            self.cosmo.cosmo, sigma8=self.sigma_8, ns=self.n, **self.colossus_params
+            self.cosmo, sigma8=self.sigma_8, ns=self.n, **self.colossus_params
         )
 
     @cached_quantity
@@ -460,17 +460,20 @@ class DMHaloModel(MassFunction):
     @cached_quantity
     def halo_profile_ukm(self):
         """Mass-normalised fourier halo profile, with shape (len(k), len(m))."""
-        return self.halo_profile.u(self.k, self.m)
+        return self.halo_profile.u(self.k, self.m, c=self.cmz_relation)
 
     @cached_quantity
     def halo_profile_rho(self):
         """Mass-normalised halo density profile, with shape (len(r), len(m))."""
-        return self.halo_profile.rho(self.r, self.m, norm="m")
+        return self.halo_profile.rho(self.r, self.m, norm="m", c=self.cmz_relation)
 
     @cached_quantity
     def halo_profile_lam(self):
         """Mass-normalised halo profile self-convolution, with shape (len(r), len(m))."""
-        return self.halo_profile.lam(self.r, self.m)
+        if self.halo_profile.has_lam:
+            return self.halo_profile.lam(self.r, self.m, c=self.cmz_relation)
+        else:
+            return None
 
     # ===========================================================================
     # 2-point DM statistics
@@ -768,7 +771,7 @@ class TracerHaloModel(DMHaloModel):
     def tracer_cm(self):
         """Concentration-mass relation model instance."""
         if self.tracer_concentration_model is None:
-            return self.halo_concentration_model
+            return self.halo_concentration
 
         this_filter = copy(self.filter)
         this_filter.power = self._power0
@@ -915,17 +918,22 @@ class TracerHaloModel(DMHaloModel):
     @cached_quantity
     def tracer_profile_ukm(self):
         """The mass-normalised fourier density profile of the tracer, shape (len(k), len(m))."""
-        return self.tracer_profile.u(self.k, self.m)
+        return self.tracer_profile.u(self.k, self.m, c=self.tracer_concentration)
 
     @cached_quantity
     def tracer_profile_rho(self):
         """The mass-normalised density profile of the tracer, with shape (len(r), len(m))."""
-        return self.tracer_profile.rho(self.r, self.m, norm="m")
+        return self.tracer_profile.rho(
+            self.r, self.m, norm="m", c=self.tracer_concentration
+        )
 
     @cached_quantity
     def tracer_profile_lam(self):
         """The mass-normalised profile self-convolution of the tracer, shape (len(r), len(m))."""
-        return self.tracer_profile.lam(self.r, self.m)
+        if self.tracer_profile.has_lam:
+            return self.tracer_profile.lam(self.r, self.m, c=self.tracer_concentration)
+        else:
+            return None
 
     # ===========================================================================
     # 2-point tracer-tracer (HOD) statistics
@@ -970,12 +978,12 @@ class TracerHaloModel(DMHaloModel):
             raise AttributeError("The HOD being used has no satellite occupation")
 
         if self.tracer_profile.has_lam:
-            lam = self.tracer_profile.lam(self.r, self.m[self._tm], norm="m")
+            lam = self.tracer_profile_lam
             integ = (
                 self.m[self._tm]
                 * self.dndm[self._tm]
                 * self.hod.ss_pairs(self.m[self._tm])
-                * lam
+                * lam[:, self._tm]
             )
 
             c = intg.trapz(integ, dx=self.dlog10m * np.log(10))
@@ -1006,7 +1014,9 @@ class TracerHaloModel(DMHaloModel):
 
         if self.force_1halo_turnover:
             r = np.pi / self.k / 10  # The 10 is a complete heuristic hack.
-            mmin = 4 * np.pi * r ** 3 * self.mean_density0 * self.delta_halo / 3
+            mmin = (
+                4 * np.pi * r ** 3 * self.mean_density0 * self.halo_overdensity_mean / 3
+            )
             mask = np.outer(self.m[self._tm], np.ones_like(self.k)) < mmin
             integ[mask.T] = 0
 
@@ -1042,7 +1052,6 @@ class TracerHaloModel(DMHaloModel):
         try:
             return self.power_1h_cs_auto_tracer + self.power_1h_ss_auto_tracer
         except AttributeError:
-            print("doing this")
             u = self.tracer_profile_ukm[:, self._tm]
             integ = (
                 u ** 2

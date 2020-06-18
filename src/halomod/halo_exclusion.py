@@ -230,7 +230,7 @@ class DblSphere(Sphere):
         out = np.zeros_like(self.r)
         for i, r in enumerate(self.r):
             integrand = np.outer(self.density * self.m, np.ones_like(self.density))
-            integrand[self.mask] = 0
+            integrand[self.mask[i]] = 0
             out[i] = intg.simps(intg.simps(integrand, dx=self.dlnx), dx=self.dlnx)
         return np.sqrt(out)
 

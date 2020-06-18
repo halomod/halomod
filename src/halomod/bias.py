@@ -589,7 +589,7 @@ class Tinker10(Bias):
         )
 
 
-class Tinker10PBsplit(Bias):
+class Tinker10PBSplit(Bias):
     r"""
     Empirical bias of Tinker et al (2010).
 

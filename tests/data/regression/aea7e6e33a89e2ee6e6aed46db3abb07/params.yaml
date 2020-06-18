@@ -1,0 +1,7 @@
+bias_model: Tinker10
+exclusion_model: NgMatched
+halo_concentration_model: Duffy08
+halo_profile_model: NFW
+hc_spectrum: nonlinear
+sd_bias_model: TinkerSD05
+z: 0
