@@ -249,8 +249,7 @@ class Duffy08(Bullock01Power):
             },
         }
 
-        print(self)
-        parameter_set = set_params.get(self.mdef.colossus_name, "200c").get(
+        parameter_set = set_params.get(self.mdef.colossus_name, set_params["200c"]).get(
             self.params["sample"]
         )
         a = self.params["a"] or parameter_set["a"]
