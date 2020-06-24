@@ -61,12 +61,23 @@ class Profile(Component):
         super(Profile, self).__init__(**model_parameters)
 
     def _halo_mass_to_radius(self, m):
-        """Return the halo radius corresponding to ``m``."""
-        return (3 * m / (4 * np.pi * self.delta_halo * self.mean_dens)) ** (1.0 / 3.0)
+        """Return the halo radius corresponding to ``m``.
+
+        Note that this is the radius corresponding to the halo at redshift zero,
+        even if the redshift of the profile is not zero.
+        """
+        # I'm not absolutely sure that it's correct to use mean_density0 here,
+        # rather than mean_dens (i.e. a function of redshift). Using mean_density0
+        # lines up with HMCode, which I kind of trust, but it seems odd to me that
+        # the radius of a halo of a given mass at a given redshift should only depend on the
+        # background density at z=0.
+        return (3 * m / (4 * np.pi * self.delta_halo * self.mean_density0)) ** (
+            1.0 / 3.0
+        )
 
     def _halo_radius_to_mass(self, r):
         """Return the halo mass corresponding to ``r``."""
-        return 4 * np.pi * r ** 3 * self.delta_halo * self.mean_dens / 3
+        return 4 * np.pi * r ** 3 * self.delta_halo * self.mean_density0 / 3
 
     def _rs_from_m(self, m, c=None):
         """
