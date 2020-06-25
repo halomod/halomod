@@ -21,5 +21,5 @@ from . import profiles
 from . import tools
 from . import wdm
 
-from .halo_model import HaloModel
+from .halo_model import HaloModel, DMHaloModel, TracerHaloModel
 from .integrate_corr import ProjectedCF, AngularCF, projected_corr_gal

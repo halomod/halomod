@@ -49,6 +49,10 @@ from typing import Optional
 import numpy as np
 from hmf import Component
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
+from hmf.cosmology.cosmo import astropy_to_colossus
+from colossus.lss.bias import haloBiasFromNu
+from astropy.cosmology import FLRW, Planck15
+from hmf.halos.mass_definitions import SOMean
 
 
 class Bias(Component):
@@ -63,7 +67,7 @@ class Bias(Component):
     Parameters
     ----------
     nu : array-like
-        Peak-height, ``delta_c/sigma``.
+        Peak-height, ``delta^2_c/sigma^2``.
     delta_c : float, optional
         Critical over-density for collapse. Not all bias components require this
         parameter.
@@ -88,6 +92,7 @@ class Bias(Component):
 
     """
 
+    _models = {}
     _defaults = {}
 
     def __init__(
@@ -98,9 +103,9 @@ class Bias(Component):
         mstar: Optional[float] = None,
         delta_halo: Optional[float] = 200,
         n: Optional[float] = 1,
-        Om0: Optional[float] = 0.3,
         sigma_8: Optional[float] = 0.8,
-        h: Optional[float] = 0.7,
+        cosmo: FLRW = Planck15,
+        z: float = 0.0,
         **model_parameters
     ):
         self.nu = nu
@@ -109,10 +114,10 @@ class Bias(Component):
         self.delta_halo = delta_halo
         self.m = m
         self.mstar = mstar
-
-        self.n = n
-        self.h = h
-        self.Om0 = Om0
+        self.z = z
+        self.cosmo = cosmo
+        self.h = cosmo.h
+        self.Om0 = cosmo.Om0
         self.sigma_8 = sigma_8
 
         super(Bias, self).__init__(**model_parameters)
@@ -136,6 +141,10 @@ class Bias(Component):
         >>> plt.plot(peak_height, bias.bias())
         """
         return np.ones_like(self.nu)
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        cls._models[cls.__name__] = cls
 
 
 class UnityBias(Bias):
@@ -201,10 +210,14 @@ class Jing98(Bias):
            of Dark Matter Halos", http://adsabs.harvard.edu/abs/1998ApJ...503L...9J, 1998.
     """
 
-    _defaults = {"a": 0.5, "b": 0.06, "c": 0.02}
+    _defaults = {"a": 0.5, "b": 0.06, "c": 0.02, "use_nu": False}
 
     def bias(self):
-        nu = (self.m / self.mstar) ** (self.n + 3) / 6
+        if self.params["use_nu"]:
+            nu = np.sqrt(self.nu)
+        else:
+            nu = (self.m / self.mstar) ** (self.n + 3) / 6
+
         a = self.params["a"]
         b = self.params["b"]
         c = self.params["c"]
@@ -576,7 +589,7 @@ class Tinker10(Bias):
         )
 
 
-class Tinker10PBsplit(Bias):
+class Tinker10PBSplit(Bias):
     r"""
     Empirical bias of Tinker et al (2010).
 
@@ -765,3 +778,25 @@ class TinkerSD05(ScaleDepBias):
         c = self.params["c"]
         d = self.params["d"]
         return np.sqrt((1 + a * self.xi_dm) ** b / (1 + c * self.xi_dm) ** d)
+
+
+def make_colossus_bias(model="comparat17", mdef=SOMean(), **defaults):
+    class CustomColossusBias(Bias):
+        _model_name = model
+        _defaults = defaults
+        _mdef = mdef
+
+        def __init__(self, *args, **kwargs):
+            super(CustomColossusBias, self).__init__(*args, **kwargs)
+            astropy_to_colossus(self.cosmo, sigma8=self.sigma_8, ns=self.n)
+
+        def bias(self):
+            return haloBiasFromNu(
+                nu=np.sqrt(self.nu),
+                z=self.z,
+                mdef=self._mdef.colossus_name,
+                model=self._model_name,
+                **self.params
+            )
+
+    return CustomColossusBias

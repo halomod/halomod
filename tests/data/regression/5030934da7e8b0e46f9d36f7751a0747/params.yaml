@@ -1,0 +1,7 @@
+bias_model: Manera10
+exclusion_model: NoExclusion
+halo_concentration_model: Ludlow16
+halo_profile_model: CoredNFW
+hc_spectrum: filtered-lin
+sd_bias_model: null
+z: 6

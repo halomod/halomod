@@ -22,6 +22,10 @@ Changes
 
 * Removed dynamic ``mmin``.
 
+Bugfixes
+++++++++
+
+* Fix for ``DblSphere`` halo exclusion model.
 
 v1.4.5
 ------

@@ -9,6 +9,10 @@ from scipy.special import gammainc, gamma
 import os
 import warnings
 from scipy.special import sici
+from hmf.halos.mass_definitions import SOMean
+from astropy.cosmology import Planck15
+import hankel
+from scipy.integrate import quad
 
 
 def ginc(a, x):
@@ -32,12 +36,10 @@ class Profile(Component):
 
     Parameters
     ----------
-    omegam : float, default 0.3
-        Fractional matter density at current epoch
-    delta_halo : float, default 200.0
-        Overdensity of the halo definition, with respect to MEAN BACKGROUND density.
-    cm_relation : str {'zehavi','duffy'}
-        Identifies which halo_concentration-mass relation to use
+    cm_relation : :class:`~halomod.CMRelation` instance
+        Identifies which halo-concentration-mass relation to use.
+    mdef : :class:`hmf.halos.mass_definitions.MassDefinition` instance
+        A mass definition to interpret input masses with.
     z : float, default 0.0
         The redshift of the halo
     """
@@ -45,29 +47,42 @@ class Profile(Component):
     _defaults = {}
 
     def __init__(
-        self, cm_relation, mean_dens, delta_halo=200.0, z=0.0, **model_parameters
+        self, cm_relation, mdef=SOMean(), z=0.0, cosmo=Planck15, **model_parameters
     ):
 
-        self.delta_halo = delta_halo
+        self.mdef = mdef
+        self.delta_halo = self.mdef.halo_overdensity_mean(z, cosmo)
         self.z = z
         self._cm_relation = cm_relation
-        self.mean_dens = mean_dens
-
+        self.mean_dens = mdef.mean_density(z=z, cosmo=cosmo)
+        self.mean_density0 = mdef.mean_density(0, cosmo=cosmo)
         self.has_lam = hasattr(self, "_l")
 
         super(Profile, self).__init__(**model_parameters)
 
-    def _mvir_to_rvir(self, m):
-        """ Return the virial radius corresponding to m"""
-        return (3 * m / (4 * np.pi * self.delta_halo * self.mean_dens)) ** (1.0 / 3.0)
+    def halo_mass_to_radius(self, m, at_z=False):
+        """Return the halo radius corresponding to ``m``.
 
-    def _rvir_to_mvir(self, r):
-        """Return the virial mass corresponding to r"""
-        return 4 * np.pi * r ** 3 * self.delta_halo * self.mean_dens / 3
-
-    def _rs_from_m(self, m, c=None):
+        Note that this is the radius corresponding to the halo at redshift zero,
+        even if the redshift of the profile is not zero.
         """
-        Return the scale radius for a halo of mass m
+        # I'm not absolutely sure that it's correct to use mean_density0 here,
+        # rather than mean_dens (i.e. a function of redshift). Using mean_density0
+        # lines up with HMCode, which I kind of trust, but it seems odd to me that
+        # the radius of a halo of a given mass at a given redshift should only depend on the
+        # background density at z=0.
+        dens = self.mean_dens if at_z else self.mean_density0
+        return (3 * m / (4 * np.pi * self.delta_halo * dens)) ** (1.0 / 3.0)
+
+    def halo_radius_to_mass(self, r, at_z=False):
+        """Return the halo mass corresponding to ``r``."""
+        dens = self.mean_dens if at_z else self.mean_density0
+
+        return 4 * np.pi * r ** 3 * self.delta_halo * dens / 3
+
+    def _rs_from_m(self, m, c=None, at_z=False):
+        """
+        Return the scale radius for a halo of mass m.
 
         Parameters
         ----------
@@ -78,15 +93,14 @@ class Profile(Component):
         """
         if c is None:
             c = self.cm_relation(m)
-        rvir = self._mvir_to_rvir(m)
-        return rvir / c
+        r = self.halo_mass_to_radius(m, at_z=at_z)
+        return r / c
 
     def virial_velocity(self, m=None, r=None):
         """
-        Return the virial velocity for a halo of virial mass `m`.
+        Return the virial velocity for a halo of mass ``m``.
 
-        Either `m` or `r` must be passed. If both are passed, `m`
-        is preferentially used.
+        Either `m` or `r` must be passed. If both are passed, ``m`` is preferentially used.
 
         Parameters
         ----------
@@ -98,38 +112,43 @@ class Profile(Component):
         if m is None and r is None:
             raise ValueError("Either m or r must be specified")
         if m is not None:
-            r = self._mvir_to_rvir(m)
+            r = self.halo_mass_to_radius(m)
         else:
-            m = self._rvir_to_mvir(r)
+            m = self.halo_radius_to_mass(r)
         return np.sqrt(6.673 * 1e-11 * m / r)
 
-    def _h(self, c=None, m=None):
+    def _h(self, c=None, m=None) -> [float, np.ndarray]:
         """
         The integral of f(x)*x^2 out to c
+
+        .. note:: This function should be replaced with an analytic solution if
+                  possible in derived classes.
 
         Parameters
         ----------
         c : float or array_like, optional
             The halo_concentration(s) of the halo(s). Used ONLY if m is not specified.
-
         m : float or array_like, optional
             The mass of the halo. Determines the halo_concentration if provided.
-
-        .. note :: This function should be replaced with an analytic solution if
-                possible in derived classes.
         """
         if c is None and m is None:
             raise ValueError("Either c or m must be provided.")
         if m is not None:
             c = self.cm_relation(m)
 
-        x, dx = np.linspace(1e-6, c, 2000, retstep=True)
+        x, dx = np.linspace(1e-6, np.max(c), 2000, retstep=True)
         integrand = self._f(x) * x ** 2
 
-        return intg.simps(integrand, dx=dx)
+        integ = intg.cumtrapz(integrand, dx=dx, initial=0)
 
-    def _p(self, K, c):
-        """
+        if not hasattr(c, "__len__"):
+            return integ[-1]
+        else:
+            sp = spline(x, integ, k=3)
+            return sp(c)
+
+    def _p(self, K: np.ndarray, c: np.ndarray):
+        r"""
         The reduced dimensionless fourier-transform of the halo_profile
 
         This function should not need to be called by the user in general.
@@ -138,54 +157,69 @@ class Profile(Component):
         ----------
         K : float or array_like
             The unit-less wavenumber k*r_s
-
         c : float or array_like
             The halo_concentration
 
+        Notes
+        -----
         .. note :: This should be replaced by an analytic function if possible
+
+        The formula is
+
+        .. math:: \int_0^c x \sin(\kappa x) / \kappa f(x) dx
+
+        where :math:`kappa` is the unitless wavenumber `k*r_s`, and `x` is the unitless
+        radial co-ordinate `r/r_s`. This is simply the scaled 3D fourier transform
+        of the profile, taken to a Hankel transform.
         """
+
         c = np.atleast_1d(c)
         if K.ndim < 2:
             if len(K) != len(c):
-                K = np.atleast_2d(K).T  # should be len(rs) x len(k)
+                K = np.atleast_2d(K)  # should be len(k) * len(rs)
             else:
-                K = np.atleast_2d(K)
-        minsteps = 100
+                K = np.atleast_2d(K).T
 
-        # if len(c)>50:
-        #     C = np.linspace(c.min(),c.max(),50)
-        # else:
-        #     C = c
-        #
-        if K.size > 100:
-            kk = np.logspace(np.log10(K.min()), np.log10(K.max()), 100)
-        else:
-            kk = np.sort(np.flatten(K))
+        assert K.ndim == 2
+        assert K.shape[1] == len(c)
 
-        res = np.zeros_like(K)
-        intermediate_res = np.zeros((len(kk), len(c)))
+        sort_indx = np.argsort(c)
 
-        for ik, kappa in enumerate(kk):
-            smallest_period = np.pi / kappa
-            dx = smallest_period / 5
+        # We get a shorter vector of different K's to find the integral for, otherwise
+        # we need to do a full integral for every K (which is 2D, since K is different
+        # for every c).
+        kk = np.logspace(np.log10(K.min()), np.log10(K.max()), 100)
 
-            nsteps = max(int(np.ceil(c.max() / dx)), minsteps)
+        intermediate_res = np.zeros((len(c), len(kk)))
 
-            x, dx = np.linspace(0, c.max(), nsteps, retstep=True)
-            spl = spline(x, x * self._f(x) * np.sin(kappa * x) / kappa)
+        # To make it more efficient, we do the integral in parts cumulatively, so we
+        # can get the value at each c in turn.
+        for j, k in enumerate(kk):
+            # Get all zeros up to the maximum c
+            zeros = np.pi / k * np.arange(c.max() // (np.pi / k))
+            for i, indx in enumerate(sort_indx):
+                # Get the limits on c for this iteration.
+                c_0 = 0 if not i else c[sort_indx[i - 1]]
+                c_1 = c[indx]
+                integral = quad(
+                    lambda x: x * self._f(x) * np.sin(k * x) / k, c_0, c_1, points=zeros
+                )[0]
 
-            intg = spl.antiderivative()
+                # If its not the minimum c, add it to the previous integrand.
+                if i:
+                    intermediate_res[indx, j] = (
+                        intermediate_res[sort_indx[i - 1], j] + integral
+                    )
+                else:
+                    intermediate_res[indx, j] = integral
 
-            intermediate_res[ik, :] = intg(c) - intg(0)
+        # Now we need to interpolate onto the actual K values we have at each c.
+        out = np.zeros_like(K)
+        for ic, integral in enumerate(intermediate_res):
+            spl = spline(kk, integral)
+            out[:, ic] = spl(K[:, ic])
 
-        for ic, cc in enumerate(c):
-            # print intermediate_res.shape, kk.shape, res.shape
-            # For high K, intermediate_res can be negative, so we mask that.
-            mask = intermediate_res[:, ic] > 0
-            spl = spline(np.log(kk[mask]), np.log(intermediate_res[mask, ic]), k=1)
-            res[:, ic] = np.exp(spl(np.log(K[:, ic])))
-
-        return res
+        return out
 
     def _rho_s(self, c, r_s=None, norm=None):
         """
@@ -219,16 +253,12 @@ class Profile(Component):
         ----------
         r : float or array of floats
             The radial location(s). The units vary according to :attr:`coord`
-
         m : float or array of floats
             The mass(es) of the halo(s)
-
-        norm : str, {``None``,``m``,``rho``}
+        norm : str, {``m``,``rho``}
             Normalisation of the density.
-
         c : float or array of floats, default ``None``
             Concentration(s) of the halo(s). Must be same length as :attr:`m`.
-
         coord : str, {``r``,``x``,``s``}
             What the radial coordinate represents. ``r`` represents physical
             co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius
@@ -248,16 +278,12 @@ class Profile(Component):
         ----------
         k : float or array of floats
             The radial wavenumber(s). The units vary according to :attr:`coord`
-
         m : float or array of floats
             The mass(es) of the halo(s)
-
         norm : str, {``None``,``m``,``rho``}
             Normalisation of the density.
-
         c : float or array of floats, default ``None``
             Concentration(s) of the halo(s). Must be same length as :attr:`m`.
-
         coord : str, {``k``,``kappa``}
             What the radial coordinate represents. ``r`` represents physical
             wavenumbers [units h/Mpc]. ``kappa`` is in units of the scale radius,
@@ -282,16 +308,12 @@ class Profile(Component):
         ----------
         r : float or array of floats
             The radial location(s). The units vary according to :attr:`coord`
-
         m : float or array of floats
             The mass(es) of the halo(s)
-
         norm : str, {``None``,``m``,``rho``}
             Normalisation of the density.
-
         c : float or array of floats, default ``None``
             Concentration(s) of the halo(s). Must be same length as :attr:`m`.
-
         coord : str, {``r``,``x``,``s``}
             What the radial coordinate represents. ``r`` represents physical
             co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius
@@ -313,15 +335,12 @@ class Profile(Component):
 
         Parameters
         ----------
-        x : float or array_like
+        r : float or array_like
             The radial location -- units defined by :attr:`coord`
-
         c : float or array_like, optional
             The halo_concentration. Only used if m not provided
-
         m : float or array_like, optional
             The mass of the halo. Defines the halo_concentration if provided.
-
         coord : str, {``"x"``, ``"r"``, ``"s"``}
             What the radial coordinate represents. ``r`` represents physical
             co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius
@@ -330,7 +349,7 @@ class Profile(Component):
         c, r_s, x = self._get_r_variables(r, m, c, coord)
         return self._h(x) / self._h(c)
 
-    def cm_relation(self, m):
+    def cm_relation(self, m: [float, np.ndarray]) -> [float, np.ndarray]:
         """
         The halo_concentration-mass relation
         """
@@ -345,10 +364,8 @@ class Profile(Component):
         -------
         c : same shape as m
             halo_concentration
-
         r_s : same shape as m
             Scale radius
-
         x : 2d array
             Dimensionless scale parameter, shape (r,[m]).
         """
@@ -362,7 +379,8 @@ class Profile(Component):
             x = r
         elif coord == "s":
             x = np.outer(r, c)
-
+        else:
+            raise ValueError(f"coord must be one of 'r', 'x' or 's', got '{coord}'.")
         return c, r_s, x
 
     def _get_k_variables(self, k, m, c=None, coord="k"):
@@ -374,7 +392,6 @@ class Profile(Component):
         -------
         c : same shape as m
             halo_concentration
-
         K : 1d or 2d array
             Dimensionless scale parameter, shape (r,[m]).
         """
@@ -383,10 +400,7 @@ class Profile(Component):
         r_s = self._rs_from_m(m, c)
 
         if coord == "k":
-            if np.iterable(k) and np.iterable(r_s):
-                K = np.outer(k, r_s)
-            else:
-                K = k * r_s
+            K = np.outer(k, r_s) if np.iterable(k) and np.iterable(r_s) else k * r_s
         elif coord == "kappa":
             K = k
 
@@ -397,18 +411,18 @@ class Profile(Component):
         if x.size == 1:
             try:
                 return x[0]
-            except Exception:
-                return x
+            except IndexError:
+                return x.dtype.type(x)
         else:
             return x
 
-    def populate(self, N, m, c=None, centre=np.zeros(3)):
+    def populate(self, n, m, c=None, centre=np.zeros(3)):
         """
-        Populate a halo with the current halo_profile of mass ``m`` with ``N`` tracers.
+        Populate a halo with the current halo profile of mass ``m`` with ``n`` tracers.
 
         Parameters
         ----------
-        N : int
+        n : int
             Number of tracers to place down
         m : float
             Mass of the halo.
@@ -427,11 +441,11 @@ class Profile(Component):
         cdf = self.cdf(x, c, m, coord="x")
         spl = spline(cdf, x, k=3)
 
-        rnd = np.random.uniform(size=N)
+        rnd = np.random.uniform(size=n)
         x = spl(rnd)
 
         r = r_s * x
-        pos = np.random.normal(size=(3, N))
+        pos = np.random.normal(size=(3, n))
         pos *= r / np.sqrt(np.sum(pos ** 2, axis=0))
         return pos.T + centre
 
@@ -449,16 +463,12 @@ class ProfileInf(Profile):
         ----------
         r : float or array of floats
             The radial location(s). The units vary according to :attr:`coord`
-
         m : float or array of floats
             The mass(es) of the halo(s)
-
         norm : str, {``None``,``m``,``rho``}
             Normalisation of the density.
-
         c : float or array of floats, default ``None``
             Concentration(s) of the halo(s). Must be same length as :attr:`m`.
-
         coord : str, {``r``,``x``,``s``}
             What the radial coordinate represents. ``r`` represents physical
             co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius
@@ -466,9 +476,9 @@ class ProfileInf(Profile):
         """
         c, r_s, x = self._get_r_variables(r, m, c, coord)
 
-        rho = self._f(x) * self.rho_s(c, r_s, norm)
+        rho = self._f(x) * self._rho_s(c, r_s, norm)
 
-        return self._make_scalar(rho)
+        return self._reduce(rho)
 
     def u(self, k, m, norm=None, c=None, coord="k"):
         """
@@ -478,16 +488,12 @@ class ProfileInf(Profile):
         ----------
         k : float or array of floats
             The radial wavenumber(s). The units vary according to :attr:`coord`
-
         m : float or array of floats
             The mass(es) of the halo(s)
-
         norm : str, {``None``,``m``,``rho``}
             Normalisation of the density.
-
         c : float or array of floats, default ``None``
             Concentration(s) of the halo(s). Must be same length as :attr:`m`.
-
         coord : str, {``k``,``kappa``}
             What the radial coordinate represents. ``r`` represents physical
             co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius
@@ -502,73 +508,41 @@ class ProfileInf(Profile):
         elif norm != "m":
             raise ValueError(str(norm) + "is not a valid value for norm")
 
-        return self._make_scalar(u)
+        return self._reduce(u)
 
-    def _p(self, K, c):
+    def _p(self, K: np.ndarray, c: np.ndarray):
         """
         The dimensionless fourier-transform of the halo_profile
 
-        This should be replaced by an analytic function if possible
+        This should be replaced by an analytic function if possible.
         """
-        # Make sure we use enough steps to fit every period at least 5 times
-        minsteps = 1000
-        smallest_period = np.pi / K.max()
-        dx = smallest_period / 5
-        nsteps = int(np.ceil(c / dx))
+        assert K.ndim == 2
+        assert K.shape[0] == len(c)
 
-        if nsteps < minsteps:
-            nsteps = minsteps
+        ft = hankel.SymmetricFourierTransform(ndim=3, N=640, h=0.005)
 
-        cc = 10.0
-        tol = 1e-3
-        allowed_diff = 0.8
+        out = np.zeros_like(K)
 
-        if len(K.shape) == 2:
-            kk = np.linspace(np.log(K.min()), np.log(K.max()), 1000)
-        else:
-            kk = np.log(K)
+        # Go through each value of c
+        for i, kk in enumerate(K):
+            out[i] = ft.transform(self._f, k=K, ret_err=False, ret_cumsum=False)
 
-        res = np.zeros(len(kk))
-        for i, k in enumerate(kk):
-            diff = 10.0
-            j = 0
-            while diff > tol and diff < allowed_diff:
-                x, dx = np.linspace(j * cc, (j + 1) * cc, nsteps, retstep=True)
-
-                integrand = x * self._f(x) * np.sin(np.exp(k) * x) / np.exp(k)
-                this_iter = intg.simps(integrand, dx=dx)
-                diff = abs((this_iter - res[i]) / this_iter)
-                res[i] += this_iter
-                j += 1
-            if diff > allowed_diff:
-                raise Exception(
-                    "halo_profile has no analytic transform and converges too slow numerically"
-                )
-
-        if len(K.shape) == 2:
-            fit = spline(kk, res[i], k=3)
-            res = fit(K)
-
-        return res
+        return out
 
     def lam(self, r, m, norm=None, c=None, coord="r"):
         """
-        The density halo_profile convolved with itself.
+        The density profile convolved with itself.
 
         Parameters
         ----------
         r : float or array of floats
             The radial location(s). The units vary according to :attr:`coord`
-
         m : float or array of floats
             The mass(es) of the halo(s)
-
         norm : str, {``None``,``m``,``rho``}
             Normalisation of the density.
-
         c : float or array of floats, default ``None``
             Concentration(s) of the halo(s). Must be same length as :attr:`m`.
-
         coord : str, {``r``,``x``,``s``}
             What the radial coordinate represents. ``r`` represents physical
             co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius
@@ -582,7 +556,7 @@ class ProfileInf(Profile):
                 raise ValueError("norm must be None or 'm'")
         else:
             raise AttributeError("this halo_profile has no self-convolution defined.")
-        return self._make_scalar(lam)
+        return self._reduce(lam)
 
 
 class NFW(Profile):
@@ -609,14 +583,13 @@ class NFW(Profile):
         if np.all(x > 2 * c):
             return result  # Stays as zero
 
-        if len(x.shape) == 2:
+        if x.ndim == 2:
             c = np.outer(np.ones(x.shape[0]), c)
 
-        if len(x.shape) == 1:
-            if not hasattr(c, "__len__"):
-                c = np.ones(x.shape[0]) * c
+        if x.ndim == 1:
+            c = np.ones(x.shape[0]) * c
 
-        # GET LOW VALUES
+        # Get low values
         if np.any(x <= c):
             mask = x <= c
             x_lo = x[mask]
@@ -650,14 +623,14 @@ class NFW(Profile):
 
 
 class NFWInf(NFW, ProfileInf):
-    def _p(self, K):
+    def _p(self, K, c=None):
         bs, bc = sp.sici(K)
         return 0.5 * ((np.pi - 2 * bs) * np.sin(K) - 2 * np.cos(K) * bc)
 
-    def _l(self, x):
+    def _l(self, x, c=None):
 
         f1 = 8 * np.pi / (x ** 2 * (x + 2))
-        f2 = ((x ** 2 + 2 * x + 2)(np.log(1 + x)) / (x * (x + 2))) - 1
+        f2 = ((x ** 2 + 2 * x + 2) * np.log(1 + x)) / (x * (x + 2)) - 1
 
         return f1 * f2
 
@@ -702,35 +675,38 @@ class Moore(Profile):
     def _h(self, c):
         return 2.0 * np.log(1 + c ** 1.5) / 3
 
-    def cm_relation(self, m, z):
-        c, r_s = super(Moore, self).cm_relation(m, z)
-        r_s *= c / (c / 1.7) ** 0.9
+    def cm_relation(self, m):
+        c = super(Moore, self).cm_relation(m)
         c = (c / 1.7) ** 0.9
 
-        return c, r_s
+        return c
+
+    def _rs_from_m(self, m, c=None):
+        r_s = super(Moore, self)._rs_from_m(m, c)
+        return r_s * c / (c / 1.7) ** 0.9
 
 
 class MooreInf(Moore, ProfileInf):
     def _p(self, K):
         def G(k):
             return mpmath.meijerg(
-                [[1.0 / 6.0, 5.0 / 12.0, 11.0 / 12.0], []],
+                [[1.0 / 2.0, 3.0 / 4.0, 1.0], []],
                 [
                     [
-                        1.0 / 6.0,
-                        1.0 / 6.0,
+                        1.0 / 12.0,
+                        1.0 / 4.0,
                         5.0 / 12.0,
                         0.5,
-                        2.0 / 3.0,
-                        5.0 / 6.0,
-                        11.0 / 12.0,
+                        3.0 / 4.0,
+                        3.0 / 4.0,
+                        1.0,
                     ],
-                    [0, 1.0 / 3.0],
+                    [-1.0 / 12.0, 7.0 / 12.0],
                 ],
                 k ** 6 / 46656.0,
             ) / (4 * np.sqrt(3) * np.pi ** (5 / 2) * k)
 
-        if len(K.shape) == 2:
+        if K.ndim == 2:
             K1 = np.reshape(K, -1)
             K1.sort()
         else:
@@ -759,28 +735,37 @@ class Constant(Profile):
 
 
 class GeneralizedNFW(Profile):
-    def __init__(self, alpha, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.alpha = alpha
+    _defaults = {"alpha": 1}
 
     def _f(self, x):
-        return 1.0 / (x ** self.alpha * (1 + x) ** (3 - self.alpha))
+        return 1.0 / (x ** self.params["alpha"] * (1 + x) ** (3 - self.params["alpha"]))
 
-    def _h(self, c):
-        c = np.complex(c)
-        f1 = -((-c) ** self.alpha) * c ** self.alpha
-        f2 = mpmath.betainc(-c, 3 - self.alpha, self.alpha - 2)
-        return (f1 * f2).real
+    # def _h(self, c=None, m=None):
+    #     if c is None and m is None:
+    #         raise ValueError("Either c or m must be provided.")
+    #     if m is not None:
+    #         c = self.cm_relation(m)
+    #
+    #     c = np.complex(c)
+    #     f1 = -((-c) ** self.params['alpha']) * c ** self.params['alpha']
+    #     f2 = mpmath.betainc(-c, 3 - self.params['alpha'], self.params['alpha'] - 2)
+    #     return (f1 * f2).real
 
 
 class GeneralizedNFWInf(GeneralizedNFW, ProfileInf):
     def _p(self, K):
         def G(k):
             return mpmath.meijerg(
-                [[(self.alpha - 2) / 2.0, (self.alpha - 1) / 2.0], []],
+                [
+                    [
+                        (self.params["alpha"] - 2) / 2.0,
+                        (self.params["alpha"] - 1) / 2.0,
+                    ],
+                    [],
+                ],
                 [[0, 0, 0.5], [-0.5]],
                 k ** 2 / 4,
-            ) / (np.sqrt(np.pi) * sp.gamma(3 - self.alpha))
+            ) / (np.sqrt(np.pi) * sp.gamma(3 - self.params["alpha"]))
 
         if len(K.shape) == 2:
             K1 = np.reshape(K, -1)
@@ -801,11 +786,12 @@ class GeneralizedNFWInf(GeneralizedNFW, ProfileInf):
 
 class Einasto(Profile):
     """
-    An Einasto halo_profile.
+    An Einasto halo profile.
 
-    This halo_profile has no analytic Fourier Transform. The numerical FT has been pre-computed and is by default
-    used to interpolate to the correct solution. If the full numerical calculation is preferred, set the
-    model parameter ``use_interp`` to `False`. The interpolation speeds up the calculation by at least 10 times.
+    This halo profile has no analytic Fourier Transform. The numerical FT has been
+    pre-computed and is by default used to interpolate to the correct solution. If the
+    full numerical calculation is preferred, set the model parameter ``use_interp`` to
+    ``False``. The interpolation speeds up the calculation by at least 10 times.
     """
 
     _defaults = {"alpha": 0.18, "use_interp": True}

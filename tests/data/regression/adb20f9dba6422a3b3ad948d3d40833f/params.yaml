@@ -1,0 +1,7 @@
+bias_model: Mo96
+exclusion_model: Sphere
+halo_concentration_model: Bullock01Power
+halo_profile_model: Einasto
+hc_spectrum: nonlinear
+sd_bias_model: TinkerSD05
+z: 1
