@@ -1176,7 +1176,7 @@ class TracerHaloModel(DMHaloModel):
         # modify by the new density. This step is *extremely* sensitive to the exact
         # value of __density_mod at large
         # scales, where the ratio *should* be exactly 1.
-        if self.r[-1] > 2 * self.halo_profile._halo_mass_to_radius(self.m[-1]):
+        if self.r[-1] > 2 * self.halo_profile.halo_mass_to_radius(self.m[-1]):
             try:
                 self.__density_mod *= self.mean_tracer_den / self.__density_mod[-1]
             except TypeError:
