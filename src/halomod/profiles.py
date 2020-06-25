@@ -60,7 +60,7 @@ class Profile(Component):
 
         super(Profile, self).__init__(**model_parameters)
 
-    def _halo_mass_to_radius(self, m):
+    def halo_mass_to_radius(self, m, at_z=False):
         """Return the halo radius corresponding to ``m``.
 
         Note that this is the radius corresponding to the halo at redshift zero,
@@ -71,15 +71,16 @@ class Profile(Component):
         # lines up with HMCode, which I kind of trust, but it seems odd to me that
         # the radius of a halo of a given mass at a given redshift should only depend on the
         # background density at z=0.
-        return (3 * m / (4 * np.pi * self.delta_halo * self.mean_density0)) ** (
-            1.0 / 3.0
-        )
+        dens = self.mean_dens if at_z else self.mean_density0
+        return (3 * m / (4 * np.pi * self.delta_halo * dens)) ** (1.0 / 3.0)
 
-    def _halo_radius_to_mass(self, r):
+    def halo_radius_to_mass(self, r, at_z=False):
         """Return the halo mass corresponding to ``r``."""
-        return 4 * np.pi * r ** 3 * self.delta_halo * self.mean_density0 / 3
+        dens = self.mean_dens if at_z else self.mean_density0
 
-    def _rs_from_m(self, m, c=None):
+        return 4 * np.pi * r ** 3 * self.delta_halo * dens / 3
+
+    def _rs_from_m(self, m, c=None, at_z=False):
         """
         Return the scale radius for a halo of mass m.
 
@@ -92,7 +93,7 @@ class Profile(Component):
         """
         if c is None:
             c = self.cm_relation(m)
-        r = self._halo_mass_to_radius(m)
+        r = self.halo_mass_to_radius(m, at_z=at_z)
         return r / c
 
     def virial_velocity(self, m=None, r=None):
@@ -111,9 +112,9 @@ class Profile(Component):
         if m is None and r is None:
             raise ValueError("Either m or r must be specified")
         if m is not None:
-            r = self._halo_mass_to_radius(m)
+            r = self.halo_mass_to_radius(m)
         else:
-            m = self._halo_radius_to_mass(r)
+            m = self.halo_radius_to_mass(r)
         return np.sqrt(6.673 * 1e-11 * m / r)
 
     def _h(self, c=None, m=None) -> [float, np.ndarray]:
