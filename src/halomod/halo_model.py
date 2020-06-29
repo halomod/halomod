@@ -355,6 +355,10 @@ class DMHaloModel(MassFunction):
     # Halo/DM Statistics
     # ===========================================================================
     @cached_quantity
+    def sd_bias_correction(self):
+        return self.sd_bias.bias_scale()
+
+    @cached_quantity
     def _power_halo_centres(self):
         """
         Power spectrum of halo centres, unbiased.
