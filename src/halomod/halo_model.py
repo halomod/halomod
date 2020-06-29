@@ -58,9 +58,9 @@ class DMHaloModel(MassFunction):
         halo_concentration_params=None,
         bias_model="Tinker10",
         bias_params=None,
-        sd_bias_model="TinkerSD05",
+        sd_bias_model=None,
         sd_bias_params=None,
-        exclusion_model="NgMatched",
+        exclusion_model="NoExclusion",
         exclusion_params=None,
         colossus_params=None,
         hc_spectrum="nonlinear",
@@ -354,6 +354,10 @@ class DMHaloModel(MassFunction):
     # ===========================================================================
     # Halo/DM Statistics
     # ===========================================================================
+    @cached_quantity
+    def sd_bias_correction(self):
+        return self.sd_bias.bias_scale()
+
     @cached_quantity
     def _power_halo_centres(self):
         """
