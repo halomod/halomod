@@ -105,6 +105,7 @@ class Bias(Component):
         n: Optional[float] = 1,
         sigma_8: Optional[float] = 0.8,
         cosmo: FLRW = Planck15,
+        n_eff: [None, np.ndarray] = None,
         z: float = 0.0,
         **model_parameters
     ):
@@ -119,6 +120,7 @@ class Bias(Component):
         self.h = cosmo.h
         self.Om0 = cosmo.Om0
         self.sigma_8 = sigma_8
+        self.n_eff = n_eff
 
         super(Bias, self).__init__(**model_parameters)
 
@@ -210,20 +212,15 @@ class Jing98(Bias):
            of Dark Matter Halos", http://adsabs.harvard.edu/abs/1998ApJ...503L...9J, 1998.
     """
 
-    _defaults = {"a": 0.5, "b": 0.06, "c": 0.02, "use_nu": False}
+    _defaults = {"a": 0.5, "b": 0.06, "c": 0.02}
 
     def bias(self):
-        if self.params["use_nu"]:
-            nu = np.sqrt(self.nu)
-        else:
-            nu = (self.m / self.mstar) ** (self.n + 3) / 6
+        nu = self.nu
 
         a = self.params["a"]
         b = self.params["b"]
         c = self.params["c"]
-        return (a / nu ** 4 + 1) ** (b - c * self.n) * (
-            1 + (nu ** 2 - 1) / self.delta_c
-        )
+        return (a / nu ** 2 + 1) ** (b - c * self.n_eff) * (1 + (nu - 1) / self.delta_c)
 
 
 class ST99(Bias):
@@ -503,16 +500,16 @@ class Manera10(ST99):
 
     See documentation for :class:`Bias` for information on input parameters. This
     model has no free parameters.
-
-    Notes
-    -----
-    This form from [1]_ has the same form as :class:`ST99`, but has refitted the
-    parameters with ``(q, p) = (0.709, 0.248)``.
+48)``.
 
     Other Parameters
     ----------------
     q, p : float, optional
-        The fitted parameters.
+        The
+    Notes
+    -----
+    This form from [1]_ has the same form as :class:`ST99`, but has refitted the
+    parameters with ``(q, p) = (0.709, 0.2fitted parameters.
 
     References
     ----------
