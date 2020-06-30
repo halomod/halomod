@@ -114,7 +114,7 @@ class DMHaloModel(MassFunction):
         ----------------
         All other parameters are passed to :class:`~MassFunction`.
         """
-        super(DMHaloModel, self).__init__(Mmin=Mmin, Mmax=Mmax, **hmf_kwargs)
+        super().__init__(Mmin=Mmin, Mmax=Mmax, **hmf_kwargs)
 
         # Initially save parameters to the class.
         self.halo_profile_model, self.halo_profile_params = (
@@ -143,7 +143,7 @@ class DMHaloModel(MassFunction):
     # ===============================================================================
     # Parameters
     # ===============================================================================
-    @parameter("switch")
+    @parameter("model")
     def bias_model(self, val):
         if not (isinstance(val, str) or issubclass_(val, bias.Bias)):
             raise ValueError("bias_model must be a subclass of bias.Bias")
@@ -213,7 +213,7 @@ class DMHaloModel(MassFunction):
     def rlog(self, val):
         return bool(val)
 
-    @parameter("switch")
+    @parameter("model")
     def sd_bias_model(self, val):
         if (
             not isinstance(val, str)
@@ -241,7 +241,7 @@ class DMHaloModel(MassFunction):
     def force_1halo_turnover(self, val):
         return bool(val)
 
-    @parameter("switch")
+    @parameter("model")
     def exclusion_model(self, val):
         """A string identifier for the type of halo exclusion used (or None)"""
         if val is None:
@@ -302,6 +302,7 @@ class DMHaloModel(MassFunction):
             n=self.n,
             cosmo=self.cosmo,
             sigma_8=self.sigma_8,
+            n_eff=self.n_eff,
             **self.bias_params,
         )
 
@@ -356,7 +357,10 @@ class DMHaloModel(MassFunction):
     # ===========================================================================
     @cached_quantity
     def sd_bias_correction(self):
-        return self.sd_bias.bias_scale()
+        if self.sd_bias is not None:
+            return self.sd_bias.bias_scale()
+        else:
+            return None
 
     @cached_quantity
     def _power_halo_centres(self):
@@ -638,7 +642,7 @@ class TracerHaloModel(DMHaloModel):
         force_1halo_turnover=True,
         **halomodel_kwargs,
     ):
-        super(TracerHaloModel, self).__init__(**halomodel_kwargs)
+        super().__init__(**halomodel_kwargs)
 
         # Initially save parameters to the class.
         self.hod_params = hod_params
@@ -669,7 +673,7 @@ class TracerHaloModel(DMHaloModel):
             if "M_min" in kwargs["hod_params"]:
                 self.tracer_density = None
 
-        super(TracerHaloModel, self).update(**kwargs)
+        super().update(**kwargs)
 
         if self.tracer_density is not None:
             mmin = self._find_m_min(self.tracer_density)
@@ -1097,7 +1101,7 @@ class TracerHaloModel(DMHaloModel):
                     )
                 )
                 if self.hod._central:
-                    integ *= self.n_cen[self._tm]
+                    integ *= self.central_occupation[self._tm]
 
             else:
                 integ = (
@@ -1117,8 +1121,16 @@ class TracerHaloModel(DMHaloModel):
                 )
 
     @cached_quantity
-    def _power_2h_auto_tracer(self):
-        """The 2-halo term of the tracer auto-power spectrum."""
+    def _power_2h_auto_tracer_primitive(self):
+        """The 2-halo term of the tracer auto-power spectrum.
+
+        This is 'primitive' because it can be 2D, i.e. it can have an r-based scale
+        dependence based either on scale dependent bias or halo exclusion.
+        """
+        # It's possible that a better route for both scale-dep bias and halo-exclusion
+        # is to use the scales r=2pi/k. But then you'd get correlation functions that
+        # weren't necessarily the FT of the power...
+
         u = self.tracer_profile_ukm[:, self._tm]
         if self.sd_bias_model is not None:
             bias = np.outer(self.sd_bias.bias_scale(), self.halo_bias)[:, self._tm]
@@ -1150,7 +1162,7 @@ class TracerHaloModel(DMHaloModel):
         """The 2-halo term of the tracer auto-power spectrum."""
         # If there's nothing modifying the scale-dependence, just return the original power.
         if self.exclusion_model is NoExclusion and self.sd_bias_model is None:
-            return self._power_2h_auto_tracer
+            return self._power_2h_auto_tracer_primitive
 
         # Otherwise, first calculate the correlation function.
         if self.r.min() > 0.3 / self.k.max():
@@ -1175,7 +1187,9 @@ class TracerHaloModel(DMHaloModel):
     @cached_quantity
     def corr_2h_auto_tracer(self):
         """The 2-halo term of the tracer auto-correlation."""
-        corr = tools.power_to_corr_ogata(self._power_2h_auto_tracer, self.k, self.r)
+        corr = tools.power_to_corr_ogata(
+            self._power_2h_auto_tracer_primitive, self.k, self.r
+        )
 
         # modify by the new density. This step is *extremely* sensitive to the exact
         # value of __density_mod at large
