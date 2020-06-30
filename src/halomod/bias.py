@@ -402,10 +402,12 @@ class Seljak04Cosmo(Seljak04):
     }
 
     def bias(self):
-        b = super(Seljak04, self).bias()
+        b = super().bias()
         a1 = self.params["a1"]
         a2 = self.params["a2"]
-        return b + np.log10(self.m / self.mstar) * (
+        x = np.log10(self.m / self.mstar)
+        x[x < -1] = -1
+        return b + x * (
             a1 * (self.Om0 - 0.3 + self.n - 1)
             + a2 * (self.sigma_8 - 0.9 + self.h - 0.7)
         )
