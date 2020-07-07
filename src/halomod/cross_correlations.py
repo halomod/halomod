@@ -222,7 +222,7 @@ class CrossCorrelations(Framework):
     def corr_1h_cross(self):
         """The 1-halo term of the cross correlation"""
         return tools.power_to_corr_ogata(
-            self.power_1h_cross, self.halo_model_1.k, self.halo_model_1.r
+            self.power_1h_cross, self.halo_model_1.k_hm, self.halo_model_1.r
         )
 
     @cached_quantity
@@ -256,7 +256,7 @@ class CrossCorrelations(Framework):
     def corr_2h_cross(self):
         """The 2-halo term of the cross-correlation."""
         corr = tools.power_to_corr_ogata(
-            self.power_2h_cross, self.halo_model_1.k, self.halo_model_1.r
+            self.power_2h_cross, self.halo_model_1.k_hm, self.halo_model_1.r
         )
         return (1 + corr) - 1
 
