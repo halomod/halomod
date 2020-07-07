@@ -25,7 +25,7 @@ def dmhm():
 
 @pytest.fixture(scope="module")
 def thm():
-    return TracerHaloModel()
+    return TracerHaloModel(rmin=0.01, rmax=50, rnum=20)
 
 
 def test_dm_model_instances(dmhm):
@@ -65,10 +65,5 @@ def test_tr_model_instances(thm):
     ),
 )
 def test_monotonic_dec(thm: TracerHaloModel, quantity):
-    if quantity == "corr_2h_auto_tracer":
-        pytest.skip(
-            "this one is not quite working at low r and I am not convinced its a problem"
-        )
-
     # Ensure it's going down (or potentially 1e-5 level numerical noise going up)
     assert np.all(np.diff(getattr(thm, quantity)) <= 1e-5)

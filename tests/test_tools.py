@@ -3,10 +3,11 @@ from halomod.tools import power_to_corr, power_to_corr_ogata, populate
 from halomod.profiles import NFW
 from halomod.hod import Tinker05, Zehavi05
 from halomod.concentration import Bullock01Power
+import pytest
 
 
 def test_ogata_powerlaw():
-    k = np.logspace(-4, 2, 1000)
+    k = np.logspace(-4, 2, 100)
     power = k ** -1.5
 
     r = np.logspace(-1, 1, 5)
@@ -17,8 +18,40 @@ def test_ogata_powerlaw():
     assert np.allclose(corr_ogata, corr_simple, rtol=1e-4)
 
 
+def test_ogata_powerlaw_trunc():
+    "Test that power_to_corr still works on a truncated spectrum"
+    k = np.logspace(-1, 1, 100)
+    power = k ** -1.5
+
+    r = np.logspace(-1, 1, 5)
+
+    with pytest.warns(UserWarning):
+        corr_ogata = power_to_corr_ogata(power, k, r)
+
+    corr_simple = power_to_corr(lambda x: np.exp(x) ** -1.5, r)
+
+    assert np.allclose(corr_ogata, corr_simple, rtol=1e-3)
+
+
+def test_ogata_powerlaw_upper_trunc():
+    "Test that power_to_corr still works on a truncated spectrum"
+    k = np.logspace(-1, 2, 1000)
+    power = np.where(k < 10, k ** -1.5, 0)
+
+    r = np.logspace(-1, 1, 5)
+
+    with pytest.warns(UserWarning):
+        corr_ogata = power_to_corr_ogata(power, k, r, power_pos=(True, False))
+
+    corr_simple = power_to_corr(
+        lambda x: np.where(np.exp(x) < 10, np.exp(x) ** -1.5, 0), r
+    )
+
+    assert np.allclose(corr_ogata, corr_simple, rtol=1e-1)
+
+
 def test_ogata_powerlaw_matrix():
-    k = np.logspace(-4, 2, 1000)
+    k = np.logspace(-4, 2, 100)
     power = np.array([i * k ** -1.5 for i in range(1, 6)])
     print(power.shape)
     r = np.logspace(-1, 1, 5)
