@@ -7,7 +7,10 @@ import numpy as np
 import scipy.integrate as intg
 from scipy.stats import poisson
 import time
-from scipy.interpolate import InterpolatedUnivariateSpline as spline
+from scipy.interpolate import (
+    InterpolatedUnivariateSpline as spline,
+    UnivariateSpline as uspline,
+)
 from .profiles import Profile
 from .hod import HOD
 import warnings
@@ -416,29 +419,91 @@ def populate(
     return pos, halo.astype("int"), ncen
 
 
-# def asymptotic_spline(x, y, check_convergent=True):
-#     """Generate a function from data x,y where y is assumed to have power-law behaviour at extreme x."""
-#
-#     if x.min() <= 0:
-#         raise ValueError("x must be positive.")
-#
-#     low_x_slope = (y[1] - y[0]) / (x[1] - x[0])
-#
-#     lnx = np.log(x)
-#     if np.all(y > 0):
-#         lny = np.log(y)
-#         spl = spline(lnx, lny, k=3)
-#         der = spl.derivative()
-#         low_x_slope = der(lnx[0])
-#         hi_x_slope = der(lnx[-1])
-#
-#         if check_convergent:
-#             assert lnx[0] < lnx[1] < lnx[2]
-#             assert lnx[-1] < lnx[-2] < lnx[3]
-#
-#     elif np.all(y < 0):
-#         pass
-#     spl = spline(x, y, k=3)
-#
-#     def fnc(xx):
-#         pass
+class ExtendedSpline:
+    def __init__(
+        self,
+        x: np.ndarray,
+        y: np.ndarray,
+        lower_func: [callable, None, str] = None,
+        upper_func: [callable, None, str] = None,
+        match_lower: bool = True,
+        match_upper: bool = True,
+        domain=(-np.inf, np.inf),
+        k: int = 3,
+        lower_power_law_n=10,
+        upper_power_law_n=10,
+    ):
+        """Generate a function from data x,y with arbitrary behaviour below and above limit."""
+
+        if x.min() < domain[0] or x.max() > domain[1]:
+            raise ValueError("x is outside domain")
+
+        self.xmin = x.min()
+        self.xmax = x.max()
+
+        self._spl = spline(x, y, k=k, ext="extrapolate")
+
+        self.lfunc = self._get_extension_func(
+            lower_func,
+            x[:lower_power_law_n],
+            y[:lower_power_law_n],
+            match_lower,
+            self.xmin,
+        )
+        self.ufunc = self._get_extension_func(
+            upper_func,
+            x[-upper_power_law_n:],
+            y[-upper_power_law_n:],
+            match_upper,
+            self.xmax,
+        )
+
+    def _get_extension_func(self, fnc, x, y, match, match_x):
+        if callable(fnc):
+            if match:
+                norm = self._spl(match_x) / fnc(match_x)
+                return lambda xx: fnc(xx) * norm
+            else:
+                return fnc
+        elif fnc == "power_law":
+            assert np.all(x > 0), "to use a power-law, x must be >= 0"
+            assert np.all(y > 0) or np.all(
+                y < 0
+            ), "to use a power-law, y must be all positive or negative"
+            neg = y[0] < 0
+
+            spl = uspline(np.log(x), np.log(y * (-1 if neg else 1)), k=1)
+
+            print(match_x)
+
+            return lambda xx: np.exp(spl(np.log(xx))) * (-1 if neg else 1)
+        elif fnc is None:
+            return self._spl
+        else:
+            raise ValueError("Invalid choice for lower or upper func")
+
+    def __call__(self, x):
+        if np.isscalar(x):
+            if x < self.xmin:
+                return self.lfunc(x)
+            elif x > self.xmax:
+                return self.ufunc(x)
+            else:
+                return self._spl(x)
+        else:
+            x = np.array(x)
+            out = np.zeros_like(x)
+            lmask = x < self.xmin
+            umask = x > self.xmax
+            mmask = ~(lmask | umask)
+
+            xlo = x[lmask]
+            xhi = x[umask]
+            xmid = x[mmask]
+
+            # print(out.shape, x.shape, lmask, xlo, self.lfunc, self.ufunc)
+            out[lmask] = self.lfunc(xlo)
+            out[umask] = self.ufunc(xhi)
+            out[mmask] = self._spl(xmid)
+
+            return out

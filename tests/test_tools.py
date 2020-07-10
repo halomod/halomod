@@ -1,5 +1,5 @@
 import numpy as np
-from halomod.tools import power_to_corr, power_to_corr_ogata, populate
+from halomod.tools import power_to_corr, power_to_corr_ogata, populate, ExtendedSpline
 from halomod.profiles import NFW
 from halomod.hod import Tinker05, Zehavi05
 from halomod.concentration import Bullock01Power
@@ -120,3 +120,70 @@ def test_populate_runs_without_central_cond():
 
     # Test that the central condition is False
     assert not all(h in halo[:ncen] for h in halo[ncen:])
+
+
+@pytest.fixture(scope="module")
+def xy():
+    """Simple power-law vector"""
+    x = np.logspace(0, 1, 100)
+    y = x ** -2
+    return x, y
+
+
+def test_extended_spline_pl_explicit_func(xy):
+
+    es = ExtendedSpline(
+        *xy,
+        lower_func=lambda xx: xx ** -2,
+        upper_func=lambda xx: xx ** -2,
+        match_lower=False,
+        match_upper=False
+    )
+
+    assert np.isclose(es(0.1), 100.0)
+    assert np.isclose(es(100.0), 0.0001)
+    assert np.isclose(es(1.0), 1)
+    assert np.isclose(es(5.0), 1 / 25.0)
+
+
+def test_extended_spline_pl_power_law(xy):
+    es = ExtendedSpline(*xy, lower_func="power_law", upper_func="power_law")
+
+    assert es.lfunc(0.1) == es(0.1)
+    assert es.ufunc(100) == es(100)
+    assert np.isclose(es(0.1), 100.0)
+    assert np.isclose(es(100.0), 0.0001)
+    assert np.isclose(es(1.0), 1)
+    assert np.isclose(es(5.0), 1 / 25.0)
+
+
+def test_extended_spline_pl_match(xy):
+    es = ExtendedSpline(
+        *xy, lower_func=lambda xx: 3 * xx ** -2, upper_func=lambda xx: 3 * xx ** -2
+    )
+
+    assert np.isclose(es(0.1), 100.0)
+    assert np.isclose(es(100.0), 0.0001)
+    assert np.isclose(es(1.0), 1)
+    assert np.isclose(es(5.0), 1 / 25.0)
+
+
+def test_extended_spline_pl_pure(xy):
+    es = ExtendedSpline(*xy)
+
+    assert np.isclose(es(0.1), es._spl(0.1))
+    assert np.isclose(es(100.0), es._spl(100))
+    assert np.isclose(es(1.0), 1)
+    assert np.isclose(es(5.0), 1 / 25.0)
+
+
+def test_extended_spline_pl_noise(xy):
+    x, y = xy
+    y += np.random.normal(scale=y / 1000)
+
+    es = ExtendedSpline(x, y, lower_func="power_law", upper_func="power_law")
+
+    assert np.isclose(es(0.1), 100.0, rtol=1e-1)
+    assert np.isclose(es(100.0), 0.0001, rtol=1e-1)
+    assert np.isclose(es(1.0), 1, rtol=1e-2)
+    assert np.isclose(es(5.0), 1 / 25.0, rtol=1e-2)
