@@ -1,5 +1,11 @@
 import numpy as np
-from halomod.tools import power_to_corr, power_to_corr_ogata, populate, ExtendedSpline
+from halomod.tools import (
+    power_to_corr,
+    power_to_corr_ogata,
+    populate,
+    ExtendedSpline,
+    hankel_transform,
+)
 from halomod.profiles import NFW
 from halomod.hod import Tinker05, Zehavi05
 from halomod.concentration import Bullock01Power
@@ -13,6 +19,15 @@ def test_ogata_powerlaw():
     r = np.logspace(-1, 1, 5)
 
     corr_ogata = power_to_corr_ogata(power, k, r)
+    corr_simple = power_to_corr(lambda x: np.exp(x) ** -1.5, r)
+
+    assert np.allclose(corr_ogata, corr_simple, rtol=1e-4)
+
+
+def test_ogata_powerlaw_fnc():
+    r = np.logspace(-1, 1, 5)
+
+    corr_ogata = hankel_transform(lambda k: k ** -1.5, r, "r")
     corr_simple = power_to_corr(lambda x: np.exp(x) ** -1.5, r)
 
     assert np.allclose(corr_ogata, corr_simple, rtol=1e-4)

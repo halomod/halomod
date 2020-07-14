@@ -55,10 +55,7 @@ hm = DMHaloModel(
     Mmax=18,  # Line 796,
     lnk_min=np.log(1e-3),  # Line 50
     lnk_max=np.log(1e2),  # Line 51
-    dlnk=np.log(1e2 / 1e-3) / 129,  # Line 52
-    hm_logk_min=-3,
-    hm_logk_max=2,
-    hm_dlog10k=5 / 129,
+    dlnk=0.01,
     dlog10m=16 / 256,
     mdef_model="SOMean",
     disable_mass_conversion=True,
@@ -71,6 +68,10 @@ def test_hmcode(hmcode_data, iz):
 
     hm.update(z=z)
 
-    spl = spline(hm.k_hm, hm.power_auto_matter * hm.k_hm ** 3 / (2 * np.pi ** 2))
+    halomod = (
+        hm.power_auto_matter_fnc(hmcode_data["k"])
+        * hmcode_data["k"] ** 3
+        / (2 * np.pi ** 2)
+    )
 
-    assert np.allclose(spl(hmcode_data["k"]), hmcode_data["p"][:, iz], rtol=3e-2)
+    assert np.allclose(halomod, hmcode_data["p"][:, iz], rtol=3e-2)
