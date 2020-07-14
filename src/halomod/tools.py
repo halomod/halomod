@@ -3,6 +3,8 @@ Created on Sep 9, 2013
 
 @author: Steven
 """
+from typing import List
+
 import numpy as np
 import scipy.integrate as intg
 from scipy.stats import poisson
@@ -14,6 +16,9 @@ from scipy.interpolate import (
 from .profiles import Profile
 from .hod import HOD
 import warnings
+from functools import lru_cache
+
+from hankel import SymmetricFourierTransform
 
 try:
     from pathos import multiprocessing as mp
@@ -21,6 +26,64 @@ try:
     HAVE_POOL = True
 except ImportError:
     HAVE_POOL = False
+
+
+@lru_cache(maxsize=25)
+def _get_sumspace(h: float, nmin: int, nmax: int):
+
+    roots = np.arange(nmin, nmax)
+    t = h * roots
+    s = np.pi * np.sinh(t)
+    x = np.pi * roots * np.tanh(s / 2)
+
+    dpsi = 1 + np.cosh(s)
+    dpsi[dpsi != 0] = (np.pi * t * np.cosh(t) + np.sinh(s)) / dpsi[dpsi != 0]
+    sumparts = np.pi * np.sin(x) * dpsi * x
+
+    return x, sumparts
+
+
+def hankel_transform(
+    f: [callable, List[callable]],
+    trns_var: np.ndarray,
+    trns_var_name: str,
+    h=0.005,
+    chunksize=100,
+    atol=1e-8,
+    rtol=1e-8,
+):
+    if trns_var_name not in "kr":
+        raise ValueError("trns_var_name must be either 'k' or 'r'.")
+
+    # Optimal value of nmax, given h.
+    nmax = int(3.2 / h)
+
+    out = np.zeros(len(trns_var))
+
+    for ir, rr in enumerate(trns_var):
+        nn = 1
+        prev_res = 100
+        res = 0
+        p = f[ir] if hasattr(f, "__len__") else f
+        while not np.isclose(prev_res, res, atol=atol, rtol=rtol) and nn < nmax:
+            prev_res = res
+
+            x, sumparts = _get_sumspace(h, nn, nn + chunksize)
+
+            kk = x / rr
+            pk = p(kk)
+
+            pk[np.isnan(pk)] = 0
+
+            res = prev_res + np.sum(sumparts * pk)
+            nn += chunksize
+
+        out[ir] = res
+
+    if trns_var_name == "r":
+        return out / (2 * np.pi ** 2 * trns_var ** 3)
+    else:
+        return out * 4 * np.pi / trns_var ** 3
 
 
 def power_to_corr_ogata(
@@ -107,7 +170,7 @@ def power_to_corr_ogata(
         upper_mask = logk > lnk.max()
         if power_pos[1]:
             if p[-1] <= 0 or p[-2] <= 0:
-                raise ValueError("Something went horrible wrong")
+                raise ValueError("Something went horribly wrong")
             result[upper_mask] = np.exp(
                 (np.log(p[-1]) - np.log(p[-2]))
                 * (logk[upper_mask] - lnk[-1])
@@ -467,16 +530,18 @@ class ExtendedSpline:
                 return fnc
         elif fnc == "power_law":
             assert np.all(x > 0), "to use a power-law, x must be >= 0"
-            assert np.all(y > 0) or np.all(
-                y < 0
-            ), "to use a power-law, y must be all positive or negative"
+            if not np.all(y > 0) or np.all(y < 0):
+                warnings.warn(
+                    "to use a power-law, y must be all positive or negative. Switching to zero extrapolation."
+                )
+                return _zero
             neg = y[0] < 0
 
             spl = uspline(np.log(x), np.log(y * (-1 if neg else 1)), k=1)
 
-            print(match_x)
-
             return lambda xx: np.exp(spl(np.log(xx))) * (-1 if neg else 1)
+        elif fnc == "boundary":
+            return lambda xx: np.ones_like(xx) * self._spl(match_x)
         elif fnc is None:
             return self._spl
         else:
@@ -507,3 +572,11 @@ class ExtendedSpline:
             out[mmask] = self._spl(xmid)
 
             return out
+
+
+def _zero(x):
+    """Simple function that returns zeros."""
+    if np.isscalar(x):
+        return 0
+    else:
+        return np.zeros_like(x)

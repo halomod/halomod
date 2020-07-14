@@ -176,11 +176,11 @@ class CrossCorrelations(Framework):
         return val
 
     @subframework
-    def halo_model_1(self):
+    def halo_model_1(self) -> TracerHaloModel:
         return TracerHaloModel(**self._halo_model_1_params)
 
     @subframework
-    def halo_model_2(self):
+    def halo_model_2(self) -> TracerHaloModel:
         return TracerHaloModel(**self._halo_model_2_params)
 
     # ===========================================================================
@@ -193,7 +193,7 @@ class CrossCorrelations(Framework):
         )
 
     @cached_quantity
-    def power_1h_cross(self):
+    def power_1h_cross_fnc(self):
         """Total 1-halo cross-power."""
         hm1, hm2 = self.halo_model_1, self.halo_model_2
         mask = np.logical_and(
@@ -216,17 +216,36 @@ class CrossCorrelations(Framework):
 
         p = intg.simps(integ, m)
 
-        return p / (hm1.mean_tracer_den * hm2.mean_tracer_den)
+        p /= hm1.mean_tracer_den * hm2.mean_tracer_den
+        return tools.ExtendedSpline(
+            hm1.k, p, lower_func="power_law", upper_func="power_law"
+        )
+
+    @property
+    def power_1h_cross(self):
+        """Total 1-halo cross-power."""
+        return self.power_1h_cross_fnc(self.halo_model_1.k_hm)
+
+    @cached_quantity
+    def corr_1h_cross_fnc(self):
+        """The 1-halo term of the cross correlation"""
+        corr = tools.hankel_transform(
+            self.power_1h_cross_fnc, self.halo_model_1._r_table, "r"
+        )
+        return tools.ExtendedSpline(
+            self.halo_model_1._r_table,
+            corr,
+            lower_func="power_law",
+            upper_func=tools._zero,
+        )
 
     @cached_quantity
     def corr_1h_cross(self):
         """The 1-halo term of the cross correlation"""
-        return tools.power_to_corr_ogata(
-            self.power_1h_cross, self.halo_model_1.k_hm, self.halo_model_1.r
-        )
+        return self.corr_1h_cross_fnc(self.halo_model_1.r)
 
     @cached_quantity
-    def power_2h_cross(self):
+    def power_2h_cross_fnc(self):
         """The 2-halo term of the cross-power spectrum."""
         hm1, hm2 = self.halo_model_1, self.halo_model_2
 
@@ -245,27 +264,58 @@ class CrossCorrelations(Framework):
             hm2.m[hm2._tm],
         )
 
-        return (
+        p = (
             b1
             * b2
-            * hm1._power_halo_centres
+            * hm1._power_halo_centres_fnc(hm1.k)
             / (hm1.mean_tracer_den * hm2.mean_tracer_den)
+        )
+
+        return tools.ExtendedSpline(
+            hm1.k,
+            p,
+            lower_func=hm1.linear_power_fnc,
+            match_lower=True,
+            upper_func="power_law",
+        )
+
+    @property
+    def power_2h_cross(self):
+        """The 2-halo term of the cross-power spectrum."""
+        return self.power_2h_cross_fnc(self.halo_model_1.k_hm)
+
+    @cached_quantity
+    def corr_2h_cross_fnc(self):
+        """The 2-halo term of the cross-correlation."""
+        corr = tools.hankel_transform(
+            self.power_2h_cross_fnc, self.halo_model_1._r_table, "r"
+        )
+        return tools.ExtendedSpline(
+            self.halo_model_1._r_table,
+            corr,
+            lower_func="power_law",
+            upper_func=tools._zero,
         )
 
     @cached_quantity
     def corr_2h_cross(self):
         """The 2-halo term of the cross-correlation."""
-        corr = tools.power_to_corr_ogata(
-            self.power_2h_cross, self.halo_model_1.k_hm, self.halo_model_1.r
-        )
-        return (1 + corr) - 1
+        return self.corr_2h_cross_fnc(self.halo_model_1.r)
 
-    @cached_quantity
+    def power_cross_fnc(self, k):
+        """Total tracer cross power spectrum."""
+        return self.power_1h_cross_fnc(k) + self.power_2h_cross_fnc(k)
+
+    @property
     def power_cross(self):
-        """Total tracer auto power spectrum."""
-        return self.power_1h_cross + self.power_2h_cross
+        """Total tracer cross power spectrum."""
+        return self.power_cross_fnc(self.halo_model_1.k_hm)
 
-    @cached_quantity
+    def corr_cross_fnc(self, r):
+        """The tracer cross correlation function."""
+        return self.corr_1h_cross_fnc(r) + self.corr_2h_cross_fnc(r) + 1
+
+    @property
     def corr_cross(self):
-        """The tracer auto correlation function."""
-        return self.corr_1h_cross + self.corr_2h_cross + 1
+        """The tracer cross correlation function."""
+        return self.corr_cross_fnc(self.halo_model_1.r)
