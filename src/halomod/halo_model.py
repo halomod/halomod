@@ -435,7 +435,7 @@ class DMHaloModel(MassFunction):
                 self.k,
                 p,
                 lower_func=self.linear_power_fnc,
-                upper_func=lambda x: np.zeros_like(x),
+                upper_func=tools._zero,
                 match_lower=False,
             )
         elif self.hc_spectrum == "filtered-nl":
@@ -447,7 +447,7 @@ class DMHaloModel(MassFunction):
                 self.k,
                 p,
                 lower_func=self.nonlinear_power_fnc,
-                upper_func=lambda x: np.zeros_like(x),
+                upper_func=tools._zero,
                 match_lower=False,
             )
         elif self.hc_spectrum == "linear":
