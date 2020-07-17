@@ -701,7 +701,10 @@ class TracerHaloModel(DMHaloModel):
     @parameter("param")
     def tracer_profile_params(self, val):
         """Dictionary of parameters for the Profile model"""
-        return val
+        if val is None:
+            return {}
+        else:
+            return val
 
     @parameter("model")
     def tracer_profile_model(self, val):
@@ -733,7 +736,10 @@ class TracerHaloModel(DMHaloModel):
 
     @parameter("param")
     def tracer_concentration_params(self, val):
-        return val
+        if val is None:
+            return {}
+        else:
+            return val
 
     @parameter("switch")
     def force_1halo_turnover(self, val):
@@ -804,10 +810,9 @@ class TracerHaloModel(DMHaloModel):
         if self.tracer_profile_model is None:
             return self.halo_profile
 
-        return self.profile_model(
+        return self.tracer_profile_model(
             cm_relation=self.tracer_cm,
-            mean_dens=self.mean_density0,
-            delta_halo=self.delta_halo,
+            mdef=self.mdef,
             z=self.z,
             **self.tracer_profile_params,
         )
