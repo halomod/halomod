@@ -16,7 +16,7 @@ def hmf():
 
 @pytest.mark.parametrize("bias_model", list(bias.Bias._models.values()))
 def test_monotonic_bias(bias_model, hmf: MassFunction):
-    if bias_model.__name__ in ["Jing98", "Seljak04", "Seljak04Cosmo"]:
+    if bias_model.__name__ in ["Jing98", "Seljak04"]:
         pytest.skip("Known to be non-monotonic.")
 
     # Test that all bias models are monotonic
@@ -31,8 +31,10 @@ def test_monotonic_bias(bias_model, hmf: MassFunction):
         delta_halo=200,
         z=hmf.z,
     )
-
-    assert np.all(np.diff(b.bias()) >= 0)
+    dlog10m = np.log10(b.m[1] / b.m[0])
+    diff = np.diff(b.bias() / dlog10m)
+    print(diff.min())
+    assert diff.min() >= -2e-2
 
 
 @pytest.mark.parametrize(
