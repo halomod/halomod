@@ -52,9 +52,9 @@ class DMHaloModel(MassFunction):
         rmax=120.0,
         rnum=100,
         rlog=True,
-        r_table_num=100,
-        hm_logk_min=-2.5,
-        hm_logk_max=1.5,
+        dr_table=0.01,
+        hm_logk_min=-2,
+        hm_logk_max=2,
         hm_dlog10k=0.05,
         halo_profile_model="NFW",
         halo_profile_params=None,
@@ -140,7 +140,7 @@ class DMHaloModel(MassFunction):
         # for generating power spectra as hankel transforms.
         self._logr_table_min = -3
         self._logr_table_max = 2.5
-        self.r_table_num = r_table_num
+        self.dr_table = dr_table
 
         self.rmin = rmin
         self.rmax = rmax
@@ -234,8 +234,8 @@ class DMHaloModel(MassFunction):
         return bool(val)
 
     @parameter("res")
-    def r_table_num(self, val):
-        return int(val)
+    def dr_table(self, val):
+        return float(val)
 
     @parameter("res")
     def hm_dlog10k(self, val):
@@ -303,7 +303,9 @@ class DMHaloModel(MassFunction):
     # ===========================================================================
     @cached_quantity
     def _r_table(self):
-        return np.logspace(self._logr_table_min, self._logr_table_max, self.r_table_num)
+        return 10 ** np.arange(
+            self._logr_table_min, self._logr_table_max, self.dr_table
+        )
 
     @cached_quantity
     def colossus_cosmo(self):
@@ -1430,13 +1432,30 @@ class TracerHaloModel(DMHaloModel):
             return self._power_2h_auto_tracer_primitive(self.k_hm)
 
         # Otherwise, first calculate the correlation function.
-        return tools.hankel_transform(self.corr_2h_auto_tracer_fnc, self.k_hm, "k")
+        out = tools.hankel_transform(
+            self.corr_2h_auto_tracer_fnc, self.k_hm, "k", h=0.001
+        )
+
+        # Everything below about k=1e-2 is essentially just the linear power biased,
+        # and the hankel transform stops working at some small k.
+        if np.any(self.k_hm < 1e-2):
+            warnings.warn(
+                "power_2h_auto_tracer for k < 1e-2 is not computed directly, but "
+                "is rather just the linear power * effective bias."
+            )
+            out[self.k_hm < 1e-2] = (
+                self.power[self.k_hm < 1e-2] * self.bias_effective_tracer
+            )
+
+        return out
 
     @cached_quantity
     def corr_2h_auto_tracer_fnc(self):
         """The 2-halo term of the tracer auto-correlation."""
+        # Need to set h smaller here because this might need to be transformed back
+        # to power.
         corr = tools.hankel_transform(
-            self._power_2h_auto_tracer_primitive, self._r_table, "r"
+            self._power_2h_auto_tracer_primitive, self._r_table, "r", h=1e-4
         )
 
         # modify by the new density. This step is *extremely* sensitive to the exact
