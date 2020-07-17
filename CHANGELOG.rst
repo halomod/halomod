@@ -7,6 +7,8 @@ Releases
 Features
 ++++++++
 
+* More accurate hankel transforms due to higher-res background table of r values
+* ExtendedSpline class which does better (and more customized) extrapolation on splines.
 * Added ability to change the underlying distribution of satellite and central counts.
 * Python 3!
 * New UnityBias component
