@@ -288,7 +288,7 @@ class CrossCorrelations(Framework):
     def corr_2h_cross_fnc(self):
         """The 2-halo term of the cross-correlation."""
         corr = tools.hankel_transform(
-            self.power_2h_cross_fnc, self.halo_model_1._r_table, "r"
+            self.power_2h_cross_fnc, self.halo_model_1._r_table, "r", h=1e-4
         )
         return tools.ExtendedSpline(
             self.halo_model_1._r_table,
