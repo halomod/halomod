@@ -34,7 +34,7 @@ You can also specify a different profile for tracer if you're working with
     >>> from halomod.halo_model import TracerHaloModel
     >>> hm = TracerHaloModel(halo_profile_model="NFW",tracer_profile_model="CoredNFW")
 
-Notice that tracer density profile density should be used only in inverse volume or dimensionless  unit.
+Notice that tracer density profile density should be used only in inverse volume or dimensionless unit.
 """
 import numpy as np
 import scipy.special as sp
