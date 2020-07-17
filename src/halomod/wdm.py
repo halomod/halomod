@@ -90,12 +90,12 @@ class HaloModelWDM(DMHaloModel, MassFunctionWDM):
             * self.halo_profile.u(self.k, self.m, norm="m")
         )
         pch = intg.simps(integrand, self.m)
-        return self.bias_smooth * self._power_halo_centres * pch / self.rho_gtm[0]
+        return self.bias_smooth * self._power_halo_centres_table * pch / self.rho_gtm[0]
 
     @cached_quantity
     def power_auto_matter_ss(self) -> np.ndarray:
         """The smooth-smooth matter power spectrum."""
-        return self.bias_smooth ** 2 * self._power_halo_centres
+        return self.bias_smooth ** 2 * self._power_halo_centres_table
 
     @cached_quantity
     def bias_smooth(self):

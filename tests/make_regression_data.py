@@ -80,7 +80,7 @@ quantities = [
     "corr_auto_matter",
     "power_auto_matter",
     "bias_effective_matter",
-    "tracer_concentration",
+    "tracer_cmz_relation",
     "total_occupation",
     "satellite_occupation",
     "central_occupation",
