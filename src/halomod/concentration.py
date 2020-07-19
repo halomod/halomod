@@ -1,5 +1,5 @@
 """
-Concentration-mass relations.
+Module defining oncentration-mass relations.
 
 This module defines a base :class:`CMRelation` component class, and a number of specific
 concentration-mass relations. In addition, it defines a factory function :func:`make_colossus_cm`
@@ -224,7 +224,7 @@ class Bullock01(CMRelation):
 
     The detailed description of the model can be found in [1]_.
 
-    Model Parameters
+    Other Parameters
     ----------------`
     F, K : float
         Default value is ``F=0.01`` and ``K=0.34``
@@ -265,7 +265,7 @@ class Bullock01Power(CMRelation):
 
     where a,b,c,ms are model parameters.
 
-    Model Parameters
+    Other Parameters
     ----------------`
     a, b, c: float
         Default value is ``a=9.0``, ``b=-0.13`` and ``c=1.0``.
@@ -306,7 +306,7 @@ class Duffy08(Bullock01Power):
     .. note:: Only "NFW" parameters are implemented by default here. Of course, you can
               always pass your own parameters from Table 1 of [1]_.
 
-    Model Parameters
+    Other Parameters
     ----------------
     a, b, c: float
         Default is "NFW" parameters in [1]_.
@@ -364,7 +364,7 @@ class Zehavi11(Bullock01Power):
     See documentation for :class:`Bias` for information on input parameters. This
     model has four model parameters.
 
-    Model Parameters
+    Other Parameters
     ----------------
     a, b, c, ms: float
         Default is ``(11.0,-0.13,1.0,2.26e12)``.
@@ -389,7 +389,7 @@ class Ludlow16(CMRelation):
     -----
     .. note:: The form of the concentration is described by eq(6) and eq(7) in [1]_.
 
-    Model Parameters
+    Other Parameters
     ----------------`
     f, C : float
         Default value is ``f=0.02`` and ``C=650``
@@ -489,7 +489,7 @@ class Ludlow16Empirical(CMRelation):
     -----
     .. note:: The form of the concentration is described by eq(C1-C6) in [1]_::
 
-    Model Parameters
+    Other Parameters
     ----------------`
     c0_0, c0_z, beta_0, beta_z, gamma1_0, gamma1_z, gamma2_0, gamma2_z: float
         Default value is ``(3.395,-0.215,0.307,0.54,0.628,-0.047,0.317,-0.893)``.
@@ -573,31 +573,3 @@ class Ludlow2016Empirical(Ludlow16Empirical):
             category=DeprecationWarning,
         )
         super().__init__(*args, **kwargs)
-
-
-class CustomColossusCM(CMRelation):
-    r"""
-    The output class of :func:`make_colossus_bias`. It is used internally and should **not** be
-    called externally.
-
-    The calculation of concentration uses :func:`~colossus.halo.concentration.concentration`.
-    """
-    _model_name = ""
-    _defaults = {}
-    native_mdefs = ()
-
-    def __init__(self, *args, **kwargs):
-        super(CustomColossusCM, self).__init__(*args, **kwargs)
-        # TODO: may want a more accurate way of passing sigma8 and ns here.
-        astropy_to_colossus(self.cosmo.cosmo, sigma8=0.8, ns=1)
-
-    def cm(self, m, z=0):
-        return concentration.concentration(
-            M=m,
-            mdef=self.mdef.colossus_name,
-            z=z,
-            model=self._model_name,
-            range_return=False,
-            range_warning=True,
-            **self.params,
-        )

@@ -1,9 +1,7 @@
 """
-Modules defining a series of utility functions.
+Module defining a series of utility functions to perform hankel transformation
+and Fourier transformation from correlation function to power spectrum.
 
-Created on Sep 9, 2013
-
-@author: Steven
 """
 from typing import List
 

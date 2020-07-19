@@ -1,7 +1,23 @@
 """
-Define cross-correlated samples. Has classes for both pure HOD cross-correlations
+Modules defining cross-correlated samples.
+
+Has classes for both pure HOD cross-correlations
 (i.e. number of cross-pairs) and for HaloModel-derived quantities
 based on these cross-pairs.
+
+To construct a :class:`CrossCorrelations` one need to specify the
+halo models to be cross-correlated, and how they're correlated.
+
+Examples
+--------
+
+Cross-correlating the same galaxy samples in different redshifts::
+
+    >>> from halomod import HaloModel
+    >>> from halomod.cross_correlations import CrossCorrelations, HODCross
+    >>> cross = CrossCorrelations(cross_hod_model=HODCross, halo_model_1_params=dict(z=1.0),
+    >>>                           halo_model_2_params=dict(z=0.0))
+    >>> pkcorr = cross.power_cross
 """
 
 from .halo_model import TracerHaloModel
@@ -151,7 +167,7 @@ class CrossCorrelations(Framework):
     r"""
     The Framework for cross-correlations.
 
-    This class generates two :class:`~halomod.halo_model.HaloModel`,
+    This class generates two :class:`~halomod.halo_model.TracerHaloModel`,
     and calculates their cross-correlation according to the cross-correlation
     model given.
 

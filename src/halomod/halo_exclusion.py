@@ -23,14 +23,14 @@ except ImportError:
 # ===============================================================================
 def outer(a, b):
     r"""
-    Calculates the outer product of two vectors.
+    Calculate the outer product of two vectors.
     """
     return np.outer(a, b).reshape(a.shape + b.shape)
 
 
 def dbltrapz(X, dx, dy=None):
     """
-    Double-integral over the last two dimensions of X using trapezoidal rule
+    Double-integral over the last two dimensions of X using trapezoidal rule.
     """
     dy = dy or dx
     out = X.copy()
@@ -60,7 +60,7 @@ def dblsimps(X, dx, dy=None):
 
 def makeW(nx, ny):
     r"""
-    returns a window matrix for double-intergral.
+    Return a window matrix for double-intergral.
     """
     W = np.ones((nx, ny))
     W[1 : nx - 1 : 2, :] *= 4
@@ -75,7 +75,7 @@ if USE_NUMBA:
     @jit(nopython=True)
     def dblsimps_(X, dx, dy):
         """
-        Double-integral of X **FOR SYMMETRIC FUNCTIONS**
+        Double-integral of X **FOR SYMMETRIC FUNCTIONS**.
         """
         nx = X.shape[0]
         ny = X.shape[1]
@@ -99,7 +99,7 @@ if USE_NUMBA:
     @jit(nopython=True)
     def makeW_(nx, ny):
         r"""
-        Returns a window matrix for symmetric double-intergral.
+        Return a window matrix for symmetric double-intergral.
         """
         W = np.ones((nx, ny))
         for ix in range(1, nx - 1, 2):
@@ -117,7 +117,7 @@ if USE_NUMBA:
     @jit(nopython=True)
     def makeH_(nx, ny):
         """
-        Returns the window matrix for trapezoidal intergral.
+        Return the window matrix for trapezoidal intergral.
         """
         H = np.ones((nx, ny))
         for ix in range(1, nx - 1):
@@ -130,7 +130,7 @@ if USE_NUMBA:
     @jit(nopython=True)
     def dbltrapz_(X, dx, dy):
         """
-        Double-integral of X for the trapezoidal method
+        Double-integral of X for the trapezoidal method.
         """
         nx = X.shape[0]
         ny = X.shape[1]
@@ -177,7 +177,7 @@ class Exclusion(Component):
 
     def raw_integrand(self) -> np.ndarray:
         """
-        Returns either a 2d (k,m) or 3d (r,k,m) array with the general integrand.
+        Return either a 2d (k,m) or 3d (r,k,m) array with the general integrand.
         """
         if self.bias.ndim == 1:
             return self.Ifunc * self.bias * self.m  # *m since integrating in logspace
@@ -186,6 +186,8 @@ class Exclusion(Component):
 
     def integrate(self):
         """
+        Integrate the :meth:`raw_integrand` over mass.
+
         This should pass back whatever is multiplied by P_m(k) to get the two-halo
         term. Often this will be a square of an integral, sometimes a Double-integral.
         """
@@ -198,17 +200,23 @@ class NoExclusion(Exclusion):
     """
 
     def integrate(self):
+        """Integrate the :meth:`raw_integrand` over mass."""
         return intg.simps(self.raw_integrand(), dx=self.dlnx) ** 2
 
 
 class Sphere(Exclusion):
     r"""
-    Spherical halo exclusion model.
+    Spherical halo exclusion model. Only halo pairs where the virial radius of
+    either halo is smaller than half of the seperation, i.e.:
+
+    .. math:: R_{\rm vir} \le r/2
+
+    will be accounted for.
     """
 
     def raw_integrand(self):
         """
-        Returns either a 2d (k,m) or 3d (r,k,m) array with the general integrand.
+        Return either a 2d (k,m) or 3d (r,k,m) array with the general integrand.
         """
         if self.bias.ndim == 1:
             # *m since integrating in logspace
@@ -235,8 +243,7 @@ class Sphere(Exclusion):
 
     def integrate(self):
         """
-        This should pass back whatever is multiplied by P_m(k) to get the two-halo
-        term.
+        Integrate the :meth:`raw_integrand` over mass.
         """
         integ = self.raw_integrand()  # r,k,m
         integ.transpose((1, 0, 2))[:, self.mask] = 0
@@ -245,7 +252,12 @@ class Sphere(Exclusion):
 
 class DblSphere(Sphere):
     r"""
-    Double Sphere model of halo exclusion.
+    Double Sphere model of halo exclusion. Only halo pairs for which the sum of virial radii
+    is smaller than the separation, i.e.:
+
+    .. math:: R_{\rm vir,1}+R_{\rm vir,2} \le r
+
+    will be accounted for.
     """
 
     @property
@@ -273,8 +285,7 @@ class DblSphere(Sphere):
 
     def integrate(self):
         """
-        This should pass back whatever is multiplied by P_m(k) to get the two-halo
-        term.
+        Integrate the :meth:`raw_integrand` over mass.
         """
         integ = self.raw_integrand()  # (r,k,m)
         return integrate_dblsphere(integ, self.mask, self.dlnx)
@@ -325,24 +336,38 @@ if USE_NUMBA:
         """
 
         def integrate(self):
+            """Integrate the :meth:`raw_integrand` over mass."""
             integ = self.raw_integrand()  # (r,k,m)
             return integrate_dblsphere_(integ, self.mask, self.dlnx)
 
 
 class DblEllipsoid(DblSphere):
-    """
-    Double Ellipsoid model of halo exclusion.
+    r"""
+    Double Ellipsoid model of halo exclusion. Assuming a lognormal distribution
+    of ellipticities for halos, the probability of halo pairs **not** excluded
+    is:
+
+    .. math:: P(y) = 3 y^2 - 2 y^3 ,\; y = (x-0.8)/0.29,\; x = r/(R_{\rm vir,1}+R_{\rm vir,2})
+
+    taken from [1]_.
+
+
+
+    References
+    ----------
+    .. [1]  Tinker, J. et al., " On the Mass-to-Light Ratio of Large-Scale Structure",
+            https://ui.adsabs.harvard.edu/abs/2005ApJ...631...41T.
     """
 
     @cached_property
     def mask(self):
-        "Unecessary for this approach"
+        "Unecessary for this approach."
         return None
 
     @cached_property
     def prob(self):
         """
-        The probablity distribution used in calculating double integral
+        The probablity distribution used in calculating double integral.
         """
         rvir = self.r_halo
         x = outer(self.r, 1 / np.add.outer(rvir, rvir))
@@ -360,8 +385,7 @@ class DblEllipsoid(DblSphere):
 
     def integrate(self):
         """
-        This should pass back whatever is multiplied by P_m(k) to get the two-halo
-        term.
+        Integrate the :meth:`raw_integrand` over mass.
         """
         integ = self.raw_integrand()  # (r,k,m)
         out = np.zeros_like(integ[:, :, 0])
@@ -403,8 +427,7 @@ if USE_NUMBA:
 
         def integrate(self):
             """
-            This should pass back whatever is multiplied by P_m(k) to get the two-halo
-            term.
+            Integrate the :meth:`raw_integrand` over mass.
             """
             return integrate_dblell(self.raw_integrand(), self.prob, self.dlnx)
 
@@ -499,8 +522,7 @@ class NgMatched(DblEllipsoid):
 
     def integrate(self):
         """
-        This should pass back whatever is multiplied by P_m(k) to get the two-halo
-        term.
+        Integrate the :meth:`raw_integrand` over mass.
         """
         integ = self.raw_integrand()  # r,k,m
         integ.transpose((1, 0, 2))[:, self.mask] = 0
@@ -529,8 +551,7 @@ if USE_NUMBA:
 
         def integrate(self):
             """
-            This should pass back whatever is multiplied by P_m(k) to get the two-halo
-            term.
+            Integrate the :meth:`raw_integrand` over mass.
             """
             integ = self.raw_integrand()  # r,k,m
             integ.transpose((1, 0, 2))[:, self.mask] = 0

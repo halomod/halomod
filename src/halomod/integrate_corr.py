@@ -1,10 +1,6 @@
 """
-Module for routines and _frameworks that intelligently integrate the real-space
-correlation function
-
-Created on 10/03/2015
-
-@author: Steven
+Routines and Frameworks for intelligent integration of the correlation function,
+to obtain eg. projected and angular correlations functions.
 
 """
 import numpy as np
@@ -44,22 +40,22 @@ class ProjectedCF(HaloModel):
 
     @parameter("switch")
     def rp_min(self, val):
-        """Minimum projected radius"""
+        """Minimum projected radius."""
         return val
 
     @parameter("option")
     def rp_log(self, val):
-        """If projected radius bins are logarithmetically distributed"""
+        """If projected radius bins are logarithmetically distributed."""
         return bool(val)
 
     @parameter("res")
     def rp_max(self, val):
-        """Maximum projected radius"""
+        """Maximum projected radius."""
         return val
 
     @parameter("res")
     def rp_num(self, val):
-        """Number of projected radius bins"""
+        """Number of projected radius bins."""
         if val < 0:
             raise ValueError("rp_num must be > 0")
         return int(val)
@@ -71,7 +67,7 @@ class ProjectedCF(HaloModel):
 
     @cached_quantity
     def rp(self):
-        """Array of projected radius bins"""
+        """Array of projected radius bins."""
         if isinstance(self.rp_min, (list, np.ndarray)):
             rp = np.array(self.rp_min)
         else:
@@ -95,7 +91,7 @@ class ProjectedCF(HaloModel):
 
     @cached_quantity
     def r(self):
-        """Logarithematically distributed rp array"""
+        """Logarithematically distributed rp array."""
         return np.logspace(np.log10(self.rp.min()), np.log10(self.rlim), self.rnum)
 
     @cached_quantity
@@ -116,7 +112,7 @@ def projected_corr_gal(
     """
     Projected correlation function w(r_p).
 
-    From Beutler 2011, eq 6.
+    Equation taken from [1]_.
 
     To integrate, we perform a substitution y = x - r_p.
 
@@ -126,7 +122,14 @@ def projected_corr_gal(
         Array of scales for the 3D correlation function, in [Mpc/h]
     xir : float array
         3D correlation function Array of xi(r), unitless.
-    rlim :
+    rlim : float array
+        Upper limits of scales.
+
+    References
+    ----------
+    .. [1]  Davis, M. and Peebles, P. J. E., "A survey of galaxy redshifts.
+            V. The two-point position and velocity correlations. ",
+            https://ui.adsabs.harvard.edu/abs/1983ApJ...267..465D.
     """
     if rp_out is None:
         rp_out = r
@@ -165,7 +168,7 @@ def projected_corr_gal(
 
 
 def _get_theta(a):
-    """Utility Function"""
+    """Utility Function."""
     theta = (
         2 ** (1 + 2 * a)
         * (
@@ -182,7 +185,7 @@ def _get_theta(a):
 
 
 def flat_z_dist(zmin, zmax):
-    """Get an array of z weights, assuming equally distributed z bins"""
+    """Get an array of z weights, assuming equally distributed z bins."""
 
     def ret(z):
         z = np.atleast_1d(z)
@@ -283,71 +286,71 @@ class AngularCF(HaloModel):
 
     @parameter("param")
     def p1(self, val):
-        """The redshift distribution of the sample"""
+        """The redshift distribution of the sample."""
         return val
 
     @parameter("param")
     def p2(self, val):
-        """The redshift distribution of the second sample for correlation"""
+        """The redshift distribution of the second sample for correlation."""
         return val
 
     @parameter("model")
     def p_of_z(self, val):
-        """Whether :func:`p1` and :func:`p2` are functions of redshift"""
+        """Whether :func:`p1` and :func:`p2` are functions of redshift."""
         return val
 
     @parameter("res")
     def theta_min(self, val):
-        """Minimum angular separations [Rad]"""
+        """Minimum angular separations [Rad]."""
         if val < 0:
             raise ValueError("theta_min must be > 0")
         return val
 
     @parameter("res")
     def theta_max(self, val):
-        """Maximum angular separations [Rad]"""
+        """Maximum angular separations [Rad]."""
         if val > 180.0:
             raise ValueError("theta_max must be < 180.0")
         return val
 
     @parameter("res")
     def theta_num(self, val):
-        """Number of angular separations [Rad]"""
+        """Number of angular separations [Rad]."""
         return val
 
     @parameter("res")
     def theta_log(self, val):
-        """If angular seperations are logarithmetically distributed"""
+        """If angular seperations are logarithmetically distributed."""
         return val
 
     @parameter("param")
     def zmin(self, val):
-        """Minimum redshift"""
+        """Minimum redshift."""
         return val
 
     @parameter("param")
     def zmax(self, val):
-        """Maximum redshift"""
+        """Maximum redshift."""
         return val
 
     @parameter("res")
     def znum(self, val):
-        """Number of redshift bins"""
+        """Number of redshift bins."""
         return val
 
     @parameter("res")
     def logu_min(self, val):
-        """Minimum radial separation grid [Mpc/h]"""
+        """Minimum radial separation grid [Mpc/h]."""
         return val
 
     @parameter("res")
     def logu_max(self, val):
-        """Maximum radial separation grid [Mpc/h]"""
+        """Maximum radial separation grid [Mpc/h]."""
         return val
 
     @parameter("res")
     def unum(self, val):
-        """Number of radial separation grids [Mpc/h]"""
+        """Number of radial separation grids [Mpc/h]."""
         return val
 
     @parameter("option")
@@ -398,9 +401,16 @@ class AngularCF(HaloModel):
 
     @cached_quantity
     def angular_corr_gal(self):
-        """The angular correlation function w(theta).
+        """The angular correlation function w(theta) for tracers.
 
-        From Blake+08, Eq. 33
+        Equation taken from Eq.(33) of [1]_.
+
+        References
+        ----------
+        .. [1]  Blake, C. et al., "Halo-model signatures
+                from 380000 Sloan Digital Sky Survey luminous red galaxies
+                with photometric redshifts",
+                https://ui.adsabs.harvard.edu/abs/2008MNRAS.385.1257B.
         """
 
         def xi(r):
@@ -426,9 +436,16 @@ class AngularCF(HaloModel):
     @cached_quantity
     def angular_corr_matter(self):
         """
-        The angular correlation function w(theta).
+        The angular correlation function w(theta) for matter.
 
-        From Blake+08, Eq. 33
+        Equation taken from Eq.(33) of [1]_.
+
+        References
+        ----------
+        .. [1]  Blake, C. et al., "Halo-model signatures
+                from 380000 Sloan Digital Sky Survey luminous red galaxies
+                with photometric redshifts",
+                https://ui.adsabs.harvard.edu/abs/2008MNRAS.385.1257B.
         """
 
         def xi(r):
@@ -487,7 +504,7 @@ def angular_corr_gal(
     """
     Calculate the angular correlation function w(theta).
 
-    From Blake+08, Eq. 33. That is, this uses the Limber approximation.
+    From [1]_, Eq. 33. That is, this uses the Limber approximation.
     This does not hold either for wide angles, or thin radial distributions.
 
     Parameters
@@ -527,6 +544,14 @@ def angular_corr_gal(
     -------
     wtheta : array_like
         The angular correlation function corresponding to `theta`.
+
+
+    References
+    ----------
+    .. [1]  Blake, C. et al., "Halo-model signatures
+            from 380000 Sloan Digital Sky Survey luminous red galaxies
+            with photometric redshifts",
+            https://ui.adsabs.harvard.edu/abs/2008MNRAS.385.1257B.
     """
     if cosmo is None:
         cosmo = csm().cosmo
