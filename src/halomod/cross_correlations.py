@@ -1,6 +1,7 @@
 """
-Define cross-correlated samples. Has classes for both pure HOD cross-correlations (i.e. number of cross-pairs) and
-for HaloModel-derived quantities based on these cross-pairs.
+Define cross-correlated samples. Has classes for both pure HOD cross-correlations
+(i.e. number of cross-pairs) and for HaloModel-derived quantities
+based on these cross-pairs.
 """
 
 from .halo_model import TracerHaloModel
@@ -124,6 +125,8 @@ class HODCross(Component):
 
 
 class ConstantCorr(HODCross):
+    """A Class for constant correlation of various pairs."""
+
     _defaults = {"R_ss": 0.0, "R_cs": 0.0, "R_sc": 0.0}
 
     @abstractmethod
@@ -145,6 +148,24 @@ class ConstantCorr(HODCross):
 
 
 class CrossCorrelations(Framework):
+    r"""
+    The Framework for cross-correlations.
+
+    This class generates two :class:`~halomod.halo_model.HaloModel`,
+    and calculates their cross-correlation according to the cross-correlation
+    model given.
+
+    Parameters
+    ----------
+    cross_hod_model : class
+        Model for the HOD of cross correlation.
+    cross_hod_params : dict
+        Parameters for HOD used in cross-correlation.
+    halo_model_1_params,halo_model_2_params : dict
+        Parameters for the tracers used in cross-correlation.
+
+    """
+
     def __init__(
         self,
         cross_hod_model,
@@ -177,10 +198,12 @@ class CrossCorrelations(Framework):
 
     @subframework
     def halo_model_1(self) -> TracerHaloModel:
+        """Halo Model of the first tracer"""
         return TracerHaloModel(**self._halo_model_1_params)
 
     @subframework
     def halo_model_2(self) -> TracerHaloModel:
+        """Halo Model of the second tracer"""
         return TracerHaloModel(**self._halo_model_2_params)
 
     # ===========================================================================
@@ -188,6 +211,7 @@ class CrossCorrelations(Framework):
     # ===========================================================================
     @cached_quantity
     def cross_hod(self):
+        """HOD model of the cross-correlation"""
         return self.cross_hod_model(
             [self.halo_model_1.hod, self.halo_model_2.hod], **self.cross_hod_params
         )

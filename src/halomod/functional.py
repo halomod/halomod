@@ -1,3 +1,6 @@
+r"""
+Module which defines a :func:`get_halomodel` function.
+"""
 from .halo_model import HaloModel
 from hmf import get_hmf
 
@@ -23,4 +26,10 @@ def get_halomodel(
     },
     **kwargs
 ):
+    r"""
+    Yield framework instances for all combinations of parameters supplied.
+    It returns a :func:`~hmf.helpers.functional.get_hmf`, with `framework =`
+    :class:`~halomod.halo_model.HaloModel`. See
+    :func:`~hmf.helpers.functional.get_hmf` for input parameters and yields.
+    """
     return get_hmf(required_attrs, get_label, kls, fast_kwargs, **kwargs)

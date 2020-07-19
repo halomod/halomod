@@ -1,4 +1,6 @@
 """
+Modules defining a series of utility functions.
+
 Created on Sep 9, 2013
 
 @author: Steven
@@ -30,7 +32,7 @@ except ImportError:
 
 @lru_cache(maxsize=25)
 def _get_sumspace(h: float, nmin: int, nmax: int):
-
+    r"""Function used in hankel transformation to get the parts of the integral sum"""
     roots = np.arange(nmin, nmax)
     t = h * roots
     s = np.pi * np.sinh(t)
@@ -52,6 +54,7 @@ def hankel_transform(
     atol=1e-8,
     rtol=1e-8,
 ):
+    r"""Function to do the hankel tranformation"""
     if trns_var_name not in "kr":
         raise ValueError("trns_var_name must be either 'k' or 'r'.")
 
@@ -149,6 +152,7 @@ def power_to_corr_ogata(
         power_pos = (power_pos[0], False)
 
     def pfunc(logk, p):
+        """An interpolation function for masked p(k)."""
         spl = spline(lnk, p, k=3)
         result = np.zeros_like(logk)
         inner_mask = (lnk.min() <= logk) & (logk <= lnk.max())
@@ -446,6 +450,7 @@ def populate(
     indx = np.concatenate(([0], np.cumsum(sgal))) + ncen
 
     def fill_array(i):
+        r"""Function to populate the field with ith tracer"""
         m, n, ctr = masses[i], sgal[i], centres[i]
         pos[indx[i] : indx[i + 1], :] = profile.populate(n, m, centre=ctr)
 
@@ -522,6 +527,7 @@ class ExtendedSpline:
         )
 
     def _get_extension_func(self, fnc, x, y, match, match_x):
+        """Function to generate the extended spline"""
         if callable(fnc):
             if match:
                 norm = self._spl(match_x) / fnc(match_x)
@@ -548,6 +554,7 @@ class ExtendedSpline:
             raise ValueError("Invalid choice for lower or upper func")
 
     def __call__(self, x):
+        """Function to call the output"""
         if np.isscalar(x):
             if x < self.xmin:
                 return self.lfunc(x)

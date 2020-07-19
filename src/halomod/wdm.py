@@ -27,6 +27,7 @@ def CMRelationWDMRescaled(name):
         self.m_hm = m_hm
 
     def cm(self, m, z=0):
+        """Rescaled Concentration-Mass relation for WDM."""
         cm = super(self.__class__, self).cm(m, z)
         g1 = self.params["g1"]
         g2 = self.params["g2"]
@@ -65,6 +66,7 @@ class HaloModelWDM(DMHaloModel, MassFunctionWDM):
 
     @cached_quantity
     def power_auto_matter(self):
+        """Auto power spectrum of dark matter"""
         return (
             (1 - self.f_halos) ** 2 * self.power_auto_matter_ss
             + 2 * (1 - self.f_halos) * self.f_halos * self.power_auto_matter_sh
@@ -107,10 +109,12 @@ class HaloModelWDM(DMHaloModel, MassFunctionWDM):
 
     @cached_quantity
     def mean_density_halos(self):
+        """Mean density of matter in halos"""
         return self.rho_gtm[0]
 
     @cached_quantity
     def mean_density_smooth(self):
+        """Mean density of matter outside halos"""
         return (1 - self.f_halos) * self.mean_density
 
     @parameter("model")
@@ -131,6 +135,7 @@ class HaloModelWDM(DMHaloModel, MassFunctionWDM):
 
     @cached_quantity
     def halo_concentration(self):
+        """Halo Concentration"""
         cm = super().halo_concentration
 
         if hasattr(cm, "m_hm"):
@@ -140,4 +145,6 @@ class HaloModelWDM(DMHaloModel, MassFunctionWDM):
 
 
 class ProjectedCFWDM(ProjectedCF, HaloModelWDM):
+    """Projected Correlation Function for WDM halos."""
+
     pass
