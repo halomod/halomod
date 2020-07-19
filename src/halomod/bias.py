@@ -819,32 +819,3 @@ def make_colossus_bias(model="comparat17", mdef=SOMean(), **defaults):
             )
 
     return CustomColossusBias
-
-
-class CustomColossusBias(Bias):
-    r"""
-    The output class of :func:`make_colossus_bias`. It is used internally and should **not** be
-    called externally.
-
-    The calculation of bias uses :func:`~colossus.lss.bias.haloBiasFromNu`.
-    """
-    _model_name = ""
-    _defaults = {}
-    _mdef = []
-
-    def __init__(self, *args, **kwargs):
-        super(CustomColossusBias, self).__init__(*args, **kwargs)
-        astropy_to_colossus(self.cosmo, sigma8=self.sigma_8, ns=self.n)
-
-    def bias(self):
-        r"""
-        Return the :func:`~colossus.lss.bias.haloBiasFromNu`,
-        generated using input parameters.
-        """
-        return haloBiasFromNu(
-            nu=np.sqrt(self.nu),
-            z=self.z,
-            mdef=self._mdef.colossus_name,
-            model=self._model_name,
-            **self.params
-        )

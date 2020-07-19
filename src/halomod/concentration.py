@@ -573,31 +573,3 @@ class Ludlow2016Empirical(Ludlow16Empirical):
             category=DeprecationWarning,
         )
         super().__init__(*args, **kwargs)
-
-
-class CustomColossusCM(CMRelation):
-    r"""
-    The output class of :func:`make_colossus_bias`. It is used internally and should **not** be
-    called externally.
-
-    The calculation of concentration uses :func:`~colossus.halo.concentration.concentration`.
-    """
-    _model_name = ""
-    _defaults = {}
-    native_mdefs = ()
-
-    def __init__(self, *args, **kwargs):
-        super(CustomColossusCM, self).__init__(*args, **kwargs)
-        # TODO: may want a more accurate way of passing sigma8 and ns here.
-        astropy_to_colossus(self.cosmo.cosmo, sigma8=0.8, ns=1)
-
-    def cm(self, m, z=0):
-        return concentration.concentration(
-            M=m,
-            mdef=self.mdef.colossus_name,
-            z=z,
-            model=self._model_name,
-            range_return=False,
-            range_warning=True,
-            **self.params,
-        )
