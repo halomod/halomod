@@ -160,6 +160,7 @@ class DMHaloModel(MassFunction):
     # ===============================================================================
     @parameter("model")
     def bias_model(self, val):
+        """Bias Model"""
         if not (isinstance(val, str) or issubclass_(val, bias.Bias)):
             raise ValueError("bias_model must be a subclass of bias.Bias")
         elif isinstance(val, str):
@@ -169,10 +170,13 @@ class DMHaloModel(MassFunction):
 
     @parameter("param")
     def bias_params(self, val):
+        """Dictionary of parameters for the Bias model"""
         return val
 
     @parameter("switch")
     def hc_spectrum(self, val):
+        """Method to calculate halo centre spectrum. Must be
+        \"linear\",\"nonlinear\",\"filtered-lin\" or \"filtered-nl\"."""
         if val not in ["linear", "nonlinear", "filtered-lin", "filtered-nl"]:
             raise ValueError(
                 "hc_spectrum must be one of linear, nonlinear, filtered-lin and filtered-nl"
@@ -210,14 +214,17 @@ class DMHaloModel(MassFunction):
 
     @parameter("param")
     def halo_concentration_params(self, val):
+        """Dictionary of parameters for the concentration model"""
         return val
 
     @parameter("switch")
     def rmin(self, val):
+        """Minimum length scale"""
         return val
 
     @parameter("res")
     def rmax(self, val):
+        """Maximum length scale"""
         val = float(val)
         if val > 10 ** self._logr_table_max:
             warnings.warn(
@@ -227,30 +234,37 @@ class DMHaloModel(MassFunction):
 
     @parameter("res")
     def rnum(self, val):
+        """Number of r bins"""
         return int(val)
 
     @parameter("option")
     def rlog(self, val):
+        """If True, r bins are logarithmically distributed"""
         return bool(val)
 
     @parameter("res")
     def dr_table(self, val):
+        """The width of r bin"""
         return float(val)
 
     @parameter("res")
     def hm_dlog10k(self, val):
+        """The width of k bin in log10"""
         return float(val)
 
     @parameter("res")
     def hm_logk_min(self, val):
+        """The minimum k bin in log10"""
         return float(val)
 
     @parameter("res")
     def hm_logk_max(self, val):
+        """The maximum k bin in log10"""
         return float(val)
 
     @parameter("model")
     def sd_bias_model(self, val):
+        """Model of Scale Dependant Bias"""
         if (
             not isinstance(val, str)
             and not issubclass_(val, bias.ScaleDepBias)
@@ -271,10 +285,12 @@ class DMHaloModel(MassFunction):
 
     @parameter("param")
     def sd_bias_params(self, val):
+        """Dictionary of parameters for Scale Dependant Bias"""
         return val
 
     @parameter("switch")
     def force_1halo_turnover(self, val):
+        """If True, tracer below a certain turnover mass will be set to 0."""
         return bool(val)
 
     @parameter("model")
@@ -303,6 +319,7 @@ class DMHaloModel(MassFunction):
     # ===========================================================================
     @cached_quantity
     def _r_table(self):
+        """An utility function which returns a r table with dr_table as step size"""
         return 10 ** np.arange(
             self._logr_table_min, self._logr_table_max, self.dr_table
         )
@@ -397,6 +414,7 @@ class DMHaloModel(MassFunction):
 
     @cached_quantity
     def halo_bias(self):
+        """halo bias"""
         return self.bias.bias()
 
     @cached_quantity
@@ -409,6 +427,7 @@ class DMHaloModel(MassFunction):
     # ===========================================================================
     @cached_quantity
     def sd_bias_correction(self):
+        """returns the correction for scale dependancy of bias"""
         if self.sd_bias is not None:
             return self.sd_bias.bias_scale()
         else:
@@ -845,7 +864,7 @@ class TracerHaloModel(DMHaloModel):
 
     @parameter("param")
     def tracer_profile_params(self, val):
-        """Dictionary of parameters for the Profile model"""
+        """Dictionary of parameters for the tracer Profile model"""
         if val is None:
             return self.halo_profile_params
         else:
@@ -853,7 +872,7 @@ class TracerHaloModel(DMHaloModel):
 
     @parameter("model")
     def tracer_profile_model(self, val):
-        """The halo density halo_profile model"""
+        """The tracer density halo_profile model"""
         if val is None:
             return val
         if not (isinstance(val, str) or issubclass_(val, profiles.Profile)):
@@ -867,7 +886,7 @@ class TracerHaloModel(DMHaloModel):
 
     @parameter("model")
     def tracer_concentration_model(self, val):
-        """A halo_concentration-mass relation"""
+        """A tracer concentration-mass relation"""
         if val is None:
             return val
         if not (isinstance(val, str) or issubclass_(val, CMRelation)):
@@ -881,6 +900,7 @@ class TracerHaloModel(DMHaloModel):
 
     @parameter("param")
     def tracer_concentration_params(self, val):
+        """Dictionary of parameters for tracer concentration-mass relation"""
         if val is None:
             return self.halo_concentration_params
         else:
@@ -981,15 +1001,17 @@ class TracerHaloModel(DMHaloModel):
     # ===========================================================================
     @cached_quantity
     def total_occupation(self):
-        """The mean occupation of the tracer as a function of halo mass"""
+        """The mean total occupation of the tracer as a function of halo mass"""
         return self.hod.total_occupation(self.m)
 
     @cached_quantity
     def satellite_occupation(self):
+        """The mean satellite occupation of the tracer as a function of halo mass"""
         return self.hod.satellite_occupation(self.m)
 
     @cached_quantity
     def central_occupation(self):
+        """The mean central occupation of the tracer as a function of halo mass"""
         return self.hod.central_occupation(self.m)
 
     # ===========================================================================
@@ -1693,61 +1715,73 @@ class TracerHaloModel(DMHaloModel):
     # =============================
     @property
     def corr_gg_1h(self):
+        """See :func:`corr_1h_auto_tracer`"""
         warnings.warn("This method is deprecated in favour of corr_1h_auto_tracer")
         return self.corr_1h_auto_tracer
 
     @property
     def corr_gg_2h(self):
+        """See :func:`corr_2h_auto_tracer`"""
         warnings.warn("This method is deprecated in favour of corr_2h_auto_tracer")
         return self.corr_2h_auto_tracer
 
     @property
     def corr_gg(self):
+        """See :func:`corr_auto_tracer`"""
         warnings.warn("This method is deprecated in favour of corr_auto_tracer")
         return self.corr_auto_tracer
 
     @property
     def power_gg_1h(self):
+        """See :func:`corr_auto_tracer`"""
         warnings.warn("This method is deprecated in favour of power_1h_auto_tracer")
         return self.power_1h_auto_tracer
 
     @property
     def power_gg_2h(self):
+        """See :func:`power_2h_auto_tracer`"""
         warnings.warn("This method is deprecated in favour of power_2h_auto_tracer")
         return self.power_2h_auto_tracer
 
     @property
     def power_gg(self):
+        """See :func:`power_auto_tracer`"""
         warnings.warn("This method is deprecated in favour of power_auto_tracer")
         return self.power_auto_tracer
 
     @property
     def corr_mm_1h(self):
+        """See :func:`corr_1h_auto_matter`"""
         warnings.warn("This method is deprecated in favour of corr_1h_auto_matter")
         return self._corr_1h_auto_matter_table
 
     @property
     def corr_mm_2h(self):
+        """See :func:`corr_2h_auto_matter`"""
         warnings.warn("This method is deprecated in favour of corr_2h_auto_matter")
         return self.corr_2h_auto_matter
 
     @property
     def corr_mm(self):
+        """See :func:`corr_auto_matter`"""
         warnings.warn("This method is deprecated in favour of corr_auto_matter")
         return self.corr_auto_matter
 
     @property
     def power_mm_1h(self):
+        """See :func:`power_1h_auto_matter`"""
         warnings.warn("This method is deprecated in favour of power_1h_auto_matter")
         return self.power_1h_auto_matter
 
     @property
     def power_mm_2h(self):
+        """See :func:`power_2h_auto_matter`"""
         warnings.warn("This method is deprecated in favour of power_2h_auto_matter")
         return self.power_2h_auto_matter
 
     @property
     def power_mm(self):
+        """See :func:`power_auto_matter`"""
         warnings.warn("This method is deprecated in favour of power_auto_matter")
         return self.power_auto_matter
 

@@ -1,10 +1,11 @@
 """
+Module for routines and _frameworks that intelligently integrate the real-space
+correlation function
+
 Created on 10/03/2015
 
 @author: Steven
 
-Module for routines and _frameworks that intelligently integrate the real-space
-correlation function
 """
 import numpy as np
 from scipy.interpolate import InterpolatedUnivariateSpline as _spline
@@ -16,6 +17,10 @@ import warnings
 
 
 class ProjectedCF(HaloModel):
+    r"""
+    Class for calculating projected correlation function.
+    """
+
     def __init__(
         self,
         rp_min=0.01,
@@ -39,28 +44,34 @@ class ProjectedCF(HaloModel):
 
     @parameter("switch")
     def rp_min(self, val):
+        """Minimum projected radius"""
         return val
 
     @parameter("option")
     def rp_log(self, val):
+        """If projected radius bins are logarithmetically distributed"""
         return bool(val)
 
     @parameter("res")
     def rp_max(self, val):
+        """Maximum projected radius"""
         return val
 
     @parameter("res")
     def rp_num(self, val):
+        """Number of projected radius bins"""
         if val < 0:
             raise ValueError("rp_num must be > 0")
         return int(val)
 
     @parameter("switch")
     def proj_limit(self, val):
+        """Upper limits for projected raius. Can be ``None``."""
         return val
 
     @cached_quantity
     def rp(self):
+        """Array of projected radius bins"""
         if isinstance(self.rp_min, (list, np.ndarray)):
             rp = np.array(self.rp_min)
         else:
@@ -75,6 +86,7 @@ class ProjectedCF(HaloModel):
 
     @cached_quantity
     def rlim(self):
+        """Upper limits for projected raius. Either manually set or taken to be some large value."""
         if self.proj_limit is None:
             rlim = max(80.0, 5 * self.rp.max())
         else:
@@ -83,6 +95,7 @@ class ProjectedCF(HaloModel):
 
     @cached_quantity
     def r(self):
+        """Logarithematically distributed rp array"""
         return np.logspace(np.log10(self.rp.min()), np.log10(self.rlim), self.rnum)
 
     @cached_quantity
@@ -152,6 +165,7 @@ def projected_corr_gal(
 
 
 def _get_theta(a):
+    """Utility Function"""
     theta = (
         2 ** (1 + 2 * a)
         * (
@@ -168,6 +182,8 @@ def _get_theta(a):
 
 
 def flat_z_dist(zmin, zmax):
+    """Get an array of z weights, assuming equally distributed z bins"""
+
     def ret(z):
         z = np.atleast_1d(z)
         return np.where(np.logical_and(z >= zmin, z <= zmax), 1.0 / (zmax - zmin), 0)
@@ -191,11 +207,11 @@ class AngularCF(HaloModel):
         The redshift distribution of the sample. This needs not
         be normalised to 1, as this will occur internally. May be
         either a function of radial distance [Mpc/h] or redshift.
-        If a function of radial distance, `p_of_z` must be set to
+        If a function of radial distance, :func:`p_of_z` must be set to
         False. Default is a flat distribution in redshift.
     p2 : callable, optional
         See `p1`. This can optionally be a different function against
-        which to cross-correlate. By default is equivalent to `p1`.
+        which to cross-correlate. By default is equivalent to :func:`p1`.
     theta_min, theta_max : float, optional
         min,max angular separations [Rad]
     theta_num : int, optional
@@ -204,7 +220,7 @@ class AngularCF(HaloModel):
         Whether to use logspace for theta values
     zmin, zmax : float, optional
         The redshift limits of the sample distribution. Note that
-        this is in redshit, regardless of the value of `p_of_z`.
+        this is in redshit, regardless of the value of :func:`p_of_z`.
     znum : int, optional
         Number of steps in redshift grid.
     logu_min, logu_max : float, optional
@@ -213,9 +229,9 @@ class AngularCF(HaloModel):
     unum : int, optional
         Number of steps in the u grid.
     check_p_norm : bool, optional
-        If False, cancels checking the normalisation of `p1` and `p2`.
+        If False, cancels checking the normalisation of :func:`p1` and :func:`p2`.
     p_of_z : bool, optional
-        Whether `p1` and `p2` are functions of redshift.
+        Whether :func:`p1` and :func:`p2` are functions of redshift.
     kwargs : unpacked-dict
         Any keyword arguments passed down to :class:`halomod.HaloModel`.
     """
@@ -267,62 +283,76 @@ class AngularCF(HaloModel):
 
     @parameter("param")
     def p1(self, val):
+        """The redshift distribution of the sample"""
         return val
 
     @parameter("param")
     def p2(self, val):
+        """The redshift distribution of the second sample for correlation"""
         return val
 
     @parameter("model")
     def p_of_z(self, val):
+        """Whether :func:`p1` and :func:`p2` are functions of redshift"""
         return val
 
     @parameter("res")
     def theta_min(self, val):
+        """Minimum angular separations [Rad]"""
         if val < 0:
             raise ValueError("theta_min must be > 0")
         return val
 
     @parameter("res")
     def theta_max(self, val):
+        """Maximum angular separations [Rad]"""
         if val > 180.0:
             raise ValueError("theta_max must be < 180.0")
         return val
 
     @parameter("res")
     def theta_num(self, val):
+        """Number of angular separations [Rad]"""
         return val
 
     @parameter("res")
     def theta_log(self, val):
+        """If angular seperations are logarithmetically distributed"""
         return val
 
     @parameter("param")
     def zmin(self, val):
+        """Minimum redshift"""
         return val
 
     @parameter("param")
     def zmax(self, val):
+        """Maximum redshift"""
         return val
 
     @parameter("res")
     def znum(self, val):
+        """Number of redshift bins"""
         return val
 
     @parameter("res")
     def logu_min(self, val):
+        """Minimum radial separation grid [Mpc/h]"""
         return val
 
     @parameter("res")
     def logu_max(self, val):
+        """Maximum radial separation grid [Mpc/h]"""
         return val
 
     @parameter("res")
     def unum(self, val):
+        """Number of radial separation grids [Mpc/h]"""
         return val
 
     @parameter("option")
     def check_p_norm(self, val):
+        """If False, cancels checking the normalisation of :func:`p1` and :func:`p2`."""
         return val
 
     @cached_quantity
@@ -423,6 +453,7 @@ class AngularCF(HaloModel):
 
 
 def _check_p(p, z):
+    """If False, cancels checking the normalisation of :func:`p1` and :func:`p2`."""
     if hasattr(p, "integral"):
         integ = p.integral(z.min(), z.max())
     else:
