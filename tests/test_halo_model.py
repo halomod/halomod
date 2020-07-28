@@ -67,3 +67,29 @@ def test_tr_model_instances(thm):
 def test_monotonic_dec(thm: TracerHaloModel, quantity):
     # Ensure it's going down (or potentially 1e-5 level numerical noise going up)
     assert np.all(np.diff(getattr(thm, quantity)) <= 1e-5)
+
+
+def test_setting_default_tracers_conc():
+    """Tests setting default tracer parameters based on halo parameters"""
+    hm = TracerHaloModel(
+        halo_profile_model="NFW",
+        tracer_profile_model="CoredNFW",
+        halo_concentration_model="Ludlow16",
+        tracer_concentration_model="Duffy08",
+        halo_concentration_params={"f": 0.02, "C": 650,},
+    )
+
+    assert hm.tracer_concentration.params == hm.tracer_concentration._defaults
+
+
+def test_setting_default_tracers_prof():
+    """Tests setting default tracer parameters based on halo parameters"""
+    hm = TracerHaloModel(
+        halo_profile_model="GeneralizedNFW",
+        tracer_profile_model="NFW",
+        halo_concentration_model="Ludlow16",
+        tracer_concentration_model="Duffy08",
+        halo_profile_params={"alpha": 1.1},
+    )
+
+    assert hm.tracer_profile.params == hm.tracer_profile._defaults
