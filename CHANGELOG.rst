@@ -28,6 +28,8 @@ Bugfixes
 ++++++++
 
 * Fix for ``DblSphere`` halo exclusion model.
+* Fix for when no tracer profile/concentration params are given. Now use the halo params
+  iff the tracer model is equal to the halo one.
 
 v1.4.5
 ------
