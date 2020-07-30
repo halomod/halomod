@@ -15,6 +15,9 @@ base_options = {
     "rmax": 50.0,
     "rnum": 20,
     "transfer_model": "EH",
+    "dr_table": 0.1,
+    "dlnk": 0.1,
+    "dlog10m": 0.1,
 }
 
 tested_params = (
@@ -25,7 +28,7 @@ tested_params = (
             "halo_concentration_model": "Duffy08",
             "bias_model": "Tinker10",
             "sd_bias_model": "TinkerSD05",
-            "exclusion_model": "NgMatched",
+            "exclusion_model": "NgMatched_",
             "hc_spectrum": "nonlinear",
         },
     ],
