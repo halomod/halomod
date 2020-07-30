@@ -974,7 +974,13 @@ class TracerHaloModel(DMHaloModel):
     @cached_quantity
     def hod(self):
         """A class representing the HOD"""
-        return self.hod_model(**self.hod_params)
+        return self.hod_model(
+            cosmo=self.cosmo,
+            cm_relation=self.tracer_concentration,
+            profile=self.tracer_profile,
+            mdef=self.mdef,
+            **self.hod_params,
+        )
 
     # ===========================================================================
     # Basic HOD Quantities
