@@ -1,3 +1,41 @@
+r"""
+Module defining halo density profile.
+
+The halo density profile is used to describe the density distribution of dark matter or a specific type of tracer within a dark matter halo. It is usually descirbed as a function
+
+``rho(r|rho_s,r_s) = rho_s f(x=r/r_s)``
+
+Here ``rho_s`` is the amplitude of the density, ``r_s = r_vir/c`` is related to the concentration and the virial radius of the halo.
+
+The profile used in power spectrum calculation is usually the Fourier Transformed one, which is usually a function of ``u(K=kr_s)``.
+
+Profile models are defined as :class:`~hmf.Component` instances -- that is,
+they are flexible models that the user can subclass and use in the halo model framework.
+See :class:`Profile` for instructions on how to use ``Profile`` models. The following notes
+will mostly describe how to use various models provided in the literature.
+
+All models are specified in terms of the ``f(x)``, and analytically transformed to Fourier space, if
+an analytical formulae can be obtained.
+
+As with all ``Component`` subclasses, arbitrary user-specified variables can be received
+by defining them in the `_defaults` class-level dictionary.
+
+The module also defines a :class:`ProfileInf`, which does not truncate the dark matter halo at ``x=c``. Mathematically, it does not require a concentration-mass relation as an input. Here, an arbitary :class:`~halomod.CMRelation` should be plugged in, and results will remain the same.
+
+Examples
+--------
+Use NFW profile in a halo model::
+
+    >>> from halomod import HaloModel
+    >>> hm = HaloModel(halo_profile_model="NFW")
+
+You can also specify a different profile for tracer if you're working with
+:class:`~halomod.TracerHaloModel` ::
+    >>> from halomod.halo_model import TracerHaloModel
+    >>> hm = TracerHaloModel(halo_profile_model="NFW",tracer_profile_model="CoredNFW")
+
+Notice that tracer density profile density should be used only in inverse volume or dimensionless unit.
+"""
 import numpy as np
 import scipy.special as sp
 import scipy.integrate as intg
@@ -16,6 +54,9 @@ from scipy.integrate import quad
 
 
 def ginc(a, x):
+    r"""
+    ``gamma(a)*gammainc(a,x)``
+    """
     return gamma(a) * gammainc(a, x)
 
 
@@ -560,6 +601,27 @@ class ProfileInf(Profile):
 
 
 class NFW(Profile):
+    r"""
+    Canonical Density Profile of Navarro, Frenk & White(1997).
+
+    See documentation for :class:`Profile` for information on input parameters. This
+    model has no free parameters.
+
+    Notes
+    -----
+    This is an empirical form proposed in [1]_ and [2]_, with the formula
+
+    .. math:: \rho(r) = \frac{\rho_s}{r/R_s\big(1+r/R_s\big)^2}
+
+
+    References
+    ----------
+    .. [1] Navarro, Julio F., Frenk, Carlos S. and White, Simon D. M., "The Structure of Cold Dark
+           Matter Halos", https://ui.adsabs.harvard.edu/abs/1996ApJ...462..563N.
+    .. [2] Navarro, Julio F., Frenk, Carlos S. and White, Simon D. M., "A Universal Density Profile from
+           Hierarchical Clustering", https://ui.adsabs.harvard.edu/abs/1997ApJ...490..493N.
+    """
+
     def _f(self, x):
         return 1.0 / (x * (1 + x) ** 2)
 
@@ -623,6 +685,10 @@ class NFW(Profile):
 
 
 class NFWInf(NFW, ProfileInf):
+    r"""
+    The same as NFW profile, but not truncated at x=c.
+    """
+
     def _p(self, K, c=None):
         bs, bc = sp.sici(K)
         return 0.5 * ((np.pi - 2 * bs) * np.sin(K) - 2 * np.cos(K) * bc)
@@ -636,6 +702,25 @@ class NFWInf(NFW, ProfileInf):
 
 
 class Hernquist(Profile):
+    r"""
+    Halo Density Profile of Hernquist(1990).
+
+    See documentation for :class:`Profile` for information on input parameters. This
+    model has no free parameters.
+
+    Notes
+    -----
+    This is an empirical form proposed in [1]_, with the formula
+
+    .. math:: \rho(r) = \frac{\rho_s}{r/R_s\big(1+r/R_s\big)^3}
+
+
+    References
+    ----------
+    .. [1] Hernquist, L., "An Analytical Model for Spherical Galaxies and Bulges",
+    https://ui.adsabs.harvard.edu/abs/1990ApJ...356..359H.
+    """
+
     def _f(self, x):
         return 1.0 / (x * (1 + x) ** 3)
 
@@ -655,6 +740,10 @@ class Hernquist(Profile):
 
 
 class HernquistInf(Hernquist, ProfileInf):
+    r"""
+    The same as Hernquist profile, but not truncated at x=c.
+    """
+
     def _p(self, K):
         si, ci = sp.sici(K)
 
@@ -669,6 +758,27 @@ class HernquistInf(Hernquist, ProfileInf):
 
 
 class Moore(Profile):
+    r"""
+    Halo Density Profile of Moore(1998).
+
+    See documentation for :class:`Profile` for information on input parameters. This
+    model has no free parameters.
+
+    Notes
+    -----
+    This is an empirical form proposed in [1]_ and [2]_, with the formula
+
+    .. math:: \rho(r) = \frac{\rho_s}{\big(r/R_s\big)^{1.5}\big(1+r/R_s\big)^{1.5}}
+
+
+    References
+    ----------
+    .. [1] Moore, B. et al., "Resolving the Structure of Cold Dark Matter Halos",
+           https://ui.adsabs.harvard.edu/abs/1998ApJ...499L...5M.
+    .. [2] Moore, B. et al., "Cold collapse and the core catastrophe ",
+           https://ui.adsabs.harvard.edu/abs/1999MNRAS.310.1147M.
+    """
+
     def _f(self, x):
         return 1.0 / (x ** 1.5 * (1 + x ** 1.5))
 
@@ -687,6 +797,10 @@ class Moore(Profile):
 
 
 class MooreInf(Moore, ProfileInf):
+    r"""
+    The same with Moore, but not truncated at x=c.
+    """
+
     def _p(self, K):
         def G(k):
             return mpmath.meijerg(
@@ -724,6 +838,13 @@ class MooreInf(Moore, ProfileInf):
 
 
 class Constant(Profile):
+    r"""
+    A constant density profile ``rho=rho_s``.
+
+    See documentation for :class:`Profile` for information on input parameters. This
+    model has no free parameters.
+    """
+
     def _f(self, x):
         return 1.0
 
@@ -735,6 +856,27 @@ class Constant(Profile):
 
 
 class GeneralizedNFW(Profile):
+    r"""
+    Generalized NFW profile.
+
+    This module has an extra free parameter ``alpha``.
+
+    Notes
+    -----
+    This is an empirical form which is a special case of the formula in [1]_:
+
+    .. math:: \rho(r) = \frac{\rho_s}{\big(r/R_s\big)^{\alpha}\big(1+r/R_s\big)^{3-\alpha}}
+
+    Other Parameters
+    ----------------
+    alpha: float
+        The default value is ``1``.
+
+    References
+    ----------
+    .. [1] Zhao, H., "Analytical models for galactic nuclei",
+           https://ui.adsabs.harvard.edu/abs/1996MNRAS.278..488Z.
+    """
     _defaults = {"alpha": 1}
 
     def _f(self, x):
@@ -753,6 +895,10 @@ class GeneralizedNFW(Profile):
 
 
 class GeneralizedNFWInf(GeneralizedNFW, ProfileInf):
+    r"""
+    The same with generalized NFW, but not truncated at x=c.
+    """
+
     def _p(self, K):
         def G(k):
             return mpmath.meijerg(
@@ -785,13 +931,33 @@ class GeneralizedNFWInf(GeneralizedNFW, ProfileInf):
 
 
 class Einasto(Profile):
-    """
+    r"""
     An Einasto halo profile.
+
+    It has two extra free parameters, ``alpha`` and ``use_interp``.
 
     This halo profile has no analytic Fourier Transform. The numerical FT has been
     pre-computed and is by default used to interpolate to the correct solution. If the
     full numerical calculation is preferred, set the model parameter ``use_interp`` to
     ``False``. The interpolation speeds up the calculation by at least 10 times.
+
+    Notes
+    -----
+    This is an empirical form which is a special case of the formula in [1]_:
+
+    .. math:: \rho(r) = \rho_s{\rm exp}\bigg[-\frac{2}{\alpha}\Big(\big(\frac{r}{r_s}\big)^\alpha-1\Big)\bigg]
+
+    Other Parameters
+    ----------------
+    alpha : float
+        The default value is ``0.18``.
+
+    use_interp : boolean
+        The default value is ``True``.
+    References
+    ----------
+    .. [1] Einasto , J., "Kinematics and dynamics of stellar systems",
+           Trudy Inst. Astrofiz. Alma-Ata 5, 87.
     """
 
     _defaults = {"alpha": 0.18, "use_interp": True}
@@ -847,8 +1013,24 @@ class Einasto(Profile):
 
 
 class CoredNFW(Profile):
-    """
-    A cored NFW Profile, as used in eg. Padmanabhan + Refrigier 2015
+    r"""
+    Cored NFW profile.
+
+    See documentation for :class:`Profile` for information on input parameters. This
+    model has no free parameters.
+
+    Notes
+    -----
+    This is an empirical form proposed in [1]_, with the formula
+
+    .. math:: \rho(r) = \frac{\rho_s}{\big(r/R_s+0.75\big)\big(1+r/R_s\big)^2}
+
+
+    References
+    ----------
+    .. [1] Maller, A. and Bullock, J., "Multiphase galaxy formation:high-velocity clouds and the
+    missing baryon problem ",
+    https://ui.adsabs.harvard.edu/abs/2004MNRAS.355..694M.
     """
 
     def _f(self, x):
