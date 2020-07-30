@@ -57,9 +57,13 @@ import numpy as np
 import scipy.special as sp
 from hmf import Component
 from abc import ABCMeta, abstractmethod
+from astropy.cosmology import Planck15
+from .concentration import CMRelation
+from .profiles import Profile
+from hmf.halos.mass_definitions import MassDefinition, SOMean
 
 
-class HOD(Component):
+class HOD(Component, metaclass=ABCMeta):
     """
     Halo Occupation Distribution model base class.
 
@@ -81,15 +85,25 @@ class HOD(Component):
     classes of :class:`HOD`.
     """
 
-    __metaclass__ = ABCMeta
-
     _defaults = {"M_min": 11.0}
     sharp_cut = False
     central_condition_inherent = False
 
-    def __init__(self, central=False, **model_parameters):
-
+    def __init__(
+        self,
+        central: bool = False,
+        cosmo=Planck15,
+        cm_relation: [None, CMRelation] = None,
+        profile: [None, Profile] = None,
+        mdef: [None, MassDefinition] = SOMean(),
+        **model_parameters
+    ):
         self._central = central
+        self.cosmo = cosmo
+        self.cm_relation = cm_relation
+        self.profile = profile
+        self.mdef = mdef
+
         super(HOD, self).__init__(**model_parameters)
 
     @abstractmethod
