@@ -243,7 +243,10 @@ class Profile(Component):
                 c_0 = 0 if not i else c[sort_indx[i - 1]]
                 c_1 = c[indx]
                 integral = quad(
-                    lambda x: x * self._f(x) * np.sin(k * x) / k, c_0, c_1, points=zeros
+                    lambda x: x * self._f(x) * np.sin(k * x) / k,
+                    c_0,
+                    c_1,
+                    points=zeros[c_0 < zeros < c_1],
                 )[0]
 
                 # If its not the minimum c, add it to the previous integrand.
