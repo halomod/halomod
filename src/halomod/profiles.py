@@ -242,11 +242,13 @@ class Profile(Component):
                 # Get the limits on c for this iteration.
                 c_0 = 0 if not i else c[sort_indx[i - 1]]
                 c_1 = c[indx]
+                points = zeros[(c_0 < zeros) & (zeros < c_1)]
                 integral = quad(
                     lambda x: x * self._f(x) * np.sin(k * x) / k,
                     c_0,
                     c_1,
-                    points=zeros[(c_0 < zeros) & (zeros < c_1)],
+                    points=points,
+                    limit=min(50, len(points) + 1),
                 )[0]
 
                 # If its not the minimum c, add it to the previous integrand.
