@@ -829,7 +829,7 @@ class TracerHaloModel(DMHaloModel):
         return val
 
     @parameter("param")
-    def hod_params(self, val):
+    def hod_params(self, val: dict):
         """Dictionary of parameters for the HOD model."""
         return val
 
@@ -1259,6 +1259,7 @@ class TracerHaloModel(DMHaloModel):
         if not hasattr(self.hod, "cs_pairs"):
             raise AttributeError("The HOD being used has no satellite occupation")
 
+        print("doin' this")
         rho = self.tracer_profile_rho[:, self._tm]
         integ = (
             self.dndm[self._tm]
