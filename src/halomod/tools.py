@@ -524,8 +524,12 @@ class ExtendedSpline:
     def _get_extension_func(self, fnc, x, y, match, match_x):
         if callable(fnc):
             if match:
-                norm = self._spl(match_x) / fnc(match_x)
-                return lambda xx: fnc(xx) * norm
+                ff = fnc(match_x)
+                if ff == 0:
+                    return fnc
+                else:
+                    norm = self._spl(match_x) / ff
+                    return lambda xx: fnc(xx) * norm
             else:
                 return fnc
         elif fnc == "power_law":
@@ -580,3 +584,55 @@ def _zero(x):
         return 0
     else:
         return np.zeros_like(x)
+
+
+def spline_integral(
+    x: np.ndarray,
+    f: np.ndarray,
+    xmin: [None, float] = None,
+    xmax: [None, float] = None,
+    log: bool = True,
+) -> float:
+    """
+    Perform an integral using a spline function over a vector of data.
+
+    The purpose of this function is to do robust integration when the bounds of integration
+    don't necessarily fall on a particular x co-ordinate. It falls back to integrating
+    over all ``x`` if no explicit ``xmin`` is given.
+
+    Parameters
+    ----------
+    x
+        The co-ordinates of the integral
+    f
+        The integrand at ``x`` (same shape as ``x``).
+    xmin
+        The lower bound of the integral.
+    xmax
+        The upper bound of the integral.
+    log
+        Whether to interpolate the integrand in log space.
+
+    Returns
+    -------
+    integral
+        The integral from ``xmin`` to ``xmax``.
+    """
+    if xmin and xmin < x.min():
+        warnings.warn(
+            f"Extrapolation occurs in integral! xmin={xmin} while x.min() ={x.min()}"
+        )
+    if xmax and xmax > x.max():
+        warnings.warn(
+            f"Extrapolation occurs in integral! xmax={xmax} while x.max() ={x.max()}"
+        )
+
+    if log:
+        spl = spline(np.log(x), x * f)
+        return spl.integral(
+            np.log(xmin) if xmin else np.log(x.min()),
+            np.log(xmax) if xmax else np.log(x.max()),
+        )
+    else:
+        spl = spline(x, f)
+        return spl.integral(xmin or x.min(), xmax or x.max())

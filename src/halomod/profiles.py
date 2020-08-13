@@ -248,7 +248,7 @@ class Profile(Component):
                     c_0,
                     c_1,
                     points=points,
-                    limit=min(50, len(points) + 1),
+                    limit=max(50, len(points) + 1),
                 )[0]
 
                 # If its not the minimum c, add it to the previous integrand.
