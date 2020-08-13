@@ -630,8 +630,8 @@ def spline_integral(
     if log:
         spl = spline(np.log(x), x * f)
         return spl.integral(
-            np.log(xmin) if xmin else np.log(x.min()),
-            np.log(xmax) if xmax else np.log(x.max()),
+            np.log(xmin) if xmin is not None else np.log(x.min()),
+            np.log(xmax) if xmax is not None else np.log(x.max()),
         )
     else:
         spl = spline(x, f)

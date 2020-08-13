@@ -1020,7 +1020,14 @@ class TracerHaloModel(DMHaloModel):
         carries all the way through past the mmin as unity. Setting the pixel below mmin
         to zero causes a bad spline.
         """
-        return np.ones_like(self.m) if self.hod.sharp_cut else self.central_occupation
+        return (
+            np.ones_like(self.m)
+            if (
+                self.hod.sharp_cut
+                and (self.hod._central or self.hod.central_condition_inherent)
+            )
+            else self.central_occupation
+        )
 
     @property
     def _total_occupation(self):
@@ -1029,6 +1036,22 @@ class TracerHaloModel(DMHaloModel):
         See _central_occupation for why.
         """
         return self._central_occupation + self.satellite_occupation
+
+    @property
+    def tracer_mmin(self):
+        """The minimum halo mass of integrals over the tracer population.
+
+        This is a little tricky, because HOD's which don't enforce the central condition,
+        even if they have a sharp cut at mmin, should not stop the integral at the
+        central's Mmin, but should rather continue to pick up the satellites in lower
+        mass haloes.
+        """
+        if self.hod.sharp_cut and (
+            self.hod._central or self.hod.central_condition_inherent
+        ):
+            return 10 ** self.hod.mmin
+        else:
+            return None
 
     # ===========================================================================
     # Derived HOD Quantities
@@ -1043,7 +1066,7 @@ class TracerHaloModel(DMHaloModel):
         very close to this value.
         """
         return tools.spline_integral(
-            self.m, self.dndm * self._total_occupation, xmin=self.hod.mmin
+            self.m, self.dndm * self._total_occupation, xmin=self.tracer_mmin
         )
 
     @cached_quantity
@@ -1062,7 +1085,7 @@ class TracerHaloModel(DMHaloModel):
         b = tools.spline_integral(
             self.m,
             self.dndm * self._total_occupation * self.halo_bias,
-            xmin=self.hod.mmin,
+            xmin=self.tracer_mmin,
         )
         return b / self.mean_tracer_den
 
@@ -1073,7 +1096,7 @@ class TracerHaloModel(DMHaloModel):
         """
         # Integrand is just the density of galaxies at mass m by m
         m = tools.spline_integral(
-            self.m, self.m * self.dndm * self._total_occupation, xmin=self.hod.mmin
+            self.m, self.m * self.dndm * self._total_occupation, xmin=self.tracer_mmin
         )
 
         return np.log10((m / self.mean_tracer_den))
@@ -1087,7 +1110,7 @@ class TracerHaloModel(DMHaloModel):
         if hasattr(self.hod, "satellite_occupation"):
             # Integrand is just the density of satellite galaxies at mass m
             s = tools.spline_integral(
-                self.m, self.dndm * self.satellite_occupation, xmin=self.hod.mmin
+                self.m, self.dndm * self.satellite_occupation, xmin=self.tracer_mmin
             )
             return s / self.mean_tracer_den
         else:
@@ -1157,7 +1180,7 @@ class TracerHaloModel(DMHaloModel):
 
         p = np.zeros_like(self.k)
         for i, f in enumerate(integ):
-            p[i] = tools.spline_integral(self.m, f, xmin=self.hod.mmin)
+            p[i] = tools.spline_integral(self.m, f, xmin=self.tracer_mmin)
 
         p /= self.mean_tracer_den ** 2
 
@@ -1191,7 +1214,7 @@ class TracerHaloModel(DMHaloModel):
             c = np.zeros_like(self._r_table)
             for i, lam in enumerate(self.tracer_profile_lam):
                 c[i] = tools.spline_integral(
-                    self.m, lam * self.dndm * ss_pairs, xmin=self.hod.mmin
+                    self.m, lam * self.dndm * ss_pairs, xmin=self.tracer_mmin
                 )
             c = c / self.mean_tracer_den ** 2 - 1
 
@@ -1234,7 +1257,7 @@ class TracerHaloModel(DMHaloModel):
             else:
                 mmin = self.hod.mmin
 
-            c[i] = tools.spline_integral(self.m, intg, xmin=mmin)
+            c[i] = tools.spline_integral(self.m, intg, xmin=10 ** mmin)
 
         c /= self.mean_tracer_den ** 2
 
@@ -1266,7 +1289,7 @@ class TracerHaloModel(DMHaloModel):
         cs_pairs = self.hod.cs_pairs(self.m)
         for i, rho in enumerate(self.tracer_profile_rho):
             c[i] = tools.spline_integral(
-                self.m, self.dndm * 2 * cs_pairs * rho, xmin=self.hod.mmin
+                self.m, self.dndm * 2 * cs_pairs * rho, xmin=self.tracer_mmin
             )
 
         c = c / self.mean_tracer_den ** 2 - 1
@@ -1305,7 +1328,7 @@ class TracerHaloModel(DMHaloModel):
                 else:
                     mmin = self.hod.mmin
 
-                c[i] = tools.spline_integral(self.m, intg, xmin=mmin)
+                c[i] = tools.spline_integral(self.m, intg, xmin=10 ** mmin)
 
             c /= self.mean_tracer_den ** 2
 
@@ -1338,7 +1361,7 @@ class TracerHaloModel(DMHaloModel):
                         self.dndm
                         * (ss_pairs * lam + 2 * cs_pairs * rho)
                         * (self._central_occupation if self.hod._central else 1),
-                        xmin=self.hod.mmin,
+                        xmin=self.tracer_mmin,
                     )
 
             else:
@@ -1346,7 +1369,7 @@ class TracerHaloModel(DMHaloModel):
                     c[i] = tools.spline_integral(
                         self.m,
                         self.dndm * self._total_occupation ** 2 * lam,
-                        xmin=self.hod.mmin,
+                        xmin=self.tracer_mmin,
                     )
 
             c /= self.mean_tracer_den ** 2
@@ -1532,7 +1555,7 @@ class TracerHaloModel(DMHaloModel):
                     uh * ut * self._total_occupation * self.m
                     + uh * self.satellite_occupation
                 ),
-                xmin=self.hod.mmin,
+                xmin=self.tracer_mmin,
             )
 
         p /= self.mean_tracer_den * self.mean_density
@@ -1574,7 +1597,7 @@ class TracerHaloModel(DMHaloModel):
             bt[i] = tools.spline_integral(
                 self.m,
                 self.dndm * self.halo_bias * self._total_occupation * ut,
-                xmin=self.hod.mmin,
+                xmin=self.tracer_mmin,
             )
             bm[i] = tools.spline_integral(
                 self.m, self.dndm * self.halo_bias * self.m * um
