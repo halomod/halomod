@@ -1014,12 +1014,20 @@ class TracerHaloModel(DMHaloModel):
 
     @property
     def _central_occupation(self):
-        """The central occupation to use when integrating over mass."""
+        """The central occupation to use when integrating over mass.
+
+        The reason is because if a sharp cut happens, we need to make sure the spline
+        carries all the way through past the mmin as unity. Setting the pixel below mmin
+        to zero causes a bad spline.
+        """
         return np.ones_like(self.m) if self.hod.sharp_cut else self.central_occupation
 
     @property
     def _total_occupation(self):
-        """The total occupation to use when integrating over mass"""
+        """The total occupation to use when integrating over mass.
+
+        See _central_occupation for why.
+        """
         return self._central_occupation + self.satellite_occupation
 
     # ===========================================================================
