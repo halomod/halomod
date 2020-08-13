@@ -1012,6 +1012,16 @@ class TracerHaloModel(DMHaloModel):
     def central_occupation(self):
         return self.hod.central_occupation(self.m)
 
+    @property
+    def _central_occupation(self):
+        """The central occupation to use when integrating over mass."""
+        return np.ones_like(self.m) if self.hod.sharp_cut else self.central_occupation
+
+    @property
+    def _total_occupation(self):
+        """The total occupation to use when integrating over mass"""
+        return self._central_occupation + self.satellite_occupation
+
     # ===========================================================================
     # Derived HOD Quantities
     # ===========================================================================
@@ -1025,7 +1035,7 @@ class TracerHaloModel(DMHaloModel):
         very close to this value.
         """
         return tools.spline_integral(
-            self.m, self.dndm * self.total_occupation, xmin=self.hod.mmin
+            self.m, self.dndm * self._total_occupation, xmin=self.hod.mmin
         )
 
     @cached_quantity
@@ -1043,7 +1053,7 @@ class TracerHaloModel(DMHaloModel):
         # Integrand is just the density of galaxies at mass m by bias
         b = tools.spline_integral(
             self.m,
-            self.dndm * self.total_occupation * self.halo_bias,
+            self.dndm * self._total_occupation * self.halo_bias,
             xmin=self.hod.mmin,
         )
         return b / self.mean_tracer_den
@@ -1055,7 +1065,7 @@ class TracerHaloModel(DMHaloModel):
         """
         # Integrand is just the density of galaxies at mass m by m
         m = tools.spline_integral(
-            self.m, self.m * self.dndm * self.total_occupation, xmin=self.hod.mmin
+            self.m, self.m * self.dndm * self._total_occupation, xmin=self.hod.mmin
         )
 
         return np.log10((m / self.mean_tracer_den))
@@ -1279,7 +1289,7 @@ class TracerHaloModel(DMHaloModel):
             dens_min = 4 * np.pi * self.mean_density0 * self.halo_overdensity_mean / 3
 
             for i, (k, u) in enumerate(zip(self.k, self.tracer_profile_ukm)):
-                intg = self.dndm * self.total_occupation * u ** 2
+                intg = self.dndm * self._total_occupation * u ** 2
 
                 if self.force_1halo_turnover:
                     r = np.pi / k / 10  # The 10 is a complete heuristic hack.
@@ -1319,7 +1329,7 @@ class TracerHaloModel(DMHaloModel):
                         self.m,
                         self.dndm
                         * (ss_pairs * lam + 2 * cs_pairs * rho)
-                        * (self.central_occupation if self.hod._central else 1),
+                        * (self._central_occupation if self.hod._central else 1),
                         xmin=self.hod.mmin,
                     )
 
@@ -1327,7 +1337,7 @@ class TracerHaloModel(DMHaloModel):
                 for i, lam in enumerate(self.tracer_profile_lam):
                     c[i] = tools.spline_integral(
                         self.m,
-                        self.dndm * self.total_occupation ** 2 * lam,
+                        self.dndm * self._total_occupation ** 2 * lam,
                         xmin=self.hod.mmin,
                     )
 
@@ -1511,7 +1521,7 @@ class TracerHaloModel(DMHaloModel):
                 self.m,
                 self.dndm
                 * (
-                    uh * ut * self.total_occupation * self.m
+                    uh * ut * self._total_occupation * self.m
                     + uh * self.satellite_occupation
                 ),
                 xmin=self.hod.mmin,
@@ -1555,7 +1565,7 @@ class TracerHaloModel(DMHaloModel):
         ):
             bt[i] = tools.spline_integral(
                 self.m,
-                self.dndm * self.halo_bias * self.total_occupation * ut,
+                self.dndm * self.halo_bias * self._total_occupation * ut,
                 xmin=self.hod.mmin,
             )
             bm[i] = tools.spline_integral(

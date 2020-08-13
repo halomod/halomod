@@ -269,8 +269,8 @@ class Zehavi05(HODPoisson):
         """
         Number of central galaxies at mass M
         """
-        n_c = np.zeros_like(m)
-        n_c[m >= 10 ** self.params["M_min"]] = 1
+        n_c = np.ones_like(m)
+        n_c[m < 10 ** self.params["M_min"]] = 0
 
         return n_c
 
@@ -307,21 +307,21 @@ class Zheng05(HODPoisson):
         "sig_logm": 0.26,
     }
 
-    def _central_occupation(self, M):
+    def _central_occupation(self, m):
         """
         Number of central galaxies at mass M
         """
         return 0.5 * (
-            1 + sp.erf((np.log10(M) - self.params["M_min"]) / self.params["sig_logm"])
+            1 + sp.erf((np.log10(m) - self.params["M_min"]) / self.params["sig_logm"])
         )
 
-    def _satellite_occupation(self, M):
+    def _satellite_occupation(self, m):
         """
         Number of satellite galaxies at mass M
         """
-        ns = np.zeros_like(M)
-        ns[M > 10 ** self.params["M_0"]] = (
-            (M[M > 10 ** self.params["M_0"]] - 10 ** self.params["M_0"])
+        ns = np.zeros_like(m)
+        ns[m > 10 ** self.params["M_0"]] = (
+            (m[m > 10 ** self.params["M_0"]] - 10 ** self.params["M_0"])
             / 10 ** self.params["M_1"]
         ) ** self.params["alpha"]
         return ns
