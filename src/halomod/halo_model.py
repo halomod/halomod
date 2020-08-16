@@ -176,6 +176,7 @@ class DMHaloModel(MassFunction):
     @parameter("switch")
     def hc_spectrum(self, val):
         """The spectrum with which the halo-centre power spectrum is identified.
+
            Choices are 'linear', 'nonlinear', 'filtered-lin' or 'filtered-nl'.
            'filtered' spectra are filtered with a real-space top-hat window
            function at a scale of 2 Mpc/h, which ensures that haloes

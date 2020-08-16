@@ -1,5 +1,5 @@
 r"""
-Module defining a :func:`get_halomodel` function.
+Module defining functional approaches to generating halo model quantities.
 """
 from .halo_model import HaloModel
 from hmf import get_hmf

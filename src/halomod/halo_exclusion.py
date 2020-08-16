@@ -206,7 +206,9 @@ class NoExclusion(Exclusion):
 
 class Sphere(Exclusion):
     r"""
-    Spherical halo exclusion model. Only halo pairs where the virial radius of
+    Spherical halo exclusion model.
+
+    Only halo pairs where the virial radius of
     either halo is smaller than half of the seperation, i.e.:
 
     .. math:: R_{\rm vir} \le r/2
@@ -252,7 +254,9 @@ class Sphere(Exclusion):
 
 class DblSphere(Sphere):
     r"""
-    Double Sphere model of halo exclusion. Only halo pairs for which the sum of virial radii
+    Double Sphere model of halo exclusion.
+
+    Only halo pairs for which the sum of virial radii
     is smaller than the separation, i.e.:
 
     .. math:: R_{\rm vir,1}+R_{\rm vir,2} \le r
@@ -343,7 +347,9 @@ if USE_NUMBA:
 
 class DblEllipsoid(DblSphere):
     r"""
-    Double Ellipsoid model of halo exclusion. Assuming a lognormal distribution
+    Double Ellipsoid model of halo exclusion.
+
+    Assuming a lognormal distribution
     of ellipticities for halos, the probability of halo pairs **not** excluded
     is:
 
