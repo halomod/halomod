@@ -24,17 +24,16 @@ from .halo_model import TracerHaloModel
 from hmf import Component, Framework
 from hmf._internals._framework import get_model_
 from hmf._internals._cache import parameter, cached_quantity, subframework
-from abc import ABCMeta, abstractmethod
+from abc import ABC, abstractmethod
 import numpy as np
 from scipy import integrate as intg
 from . import tools
 
 
-class HODCross(Component):
+class _HODCross(ABC, Component):
     """Provides methods necessary to compute cross-correlation pairs for HOD models."""
 
     _defaults = {}
-    __metaclass__ = ABCMeta
 
     def __init__(self, hods, **model_params):
         super().__init__(**model_params)
@@ -140,24 +139,20 @@ class HODCross(Component):
         ) * h1.sigma_satellite(m) * self.R_sc(m)
 
 
-class ConstantCorr(HODCross):
-    """A Class for constant correlation of various pairs."""
 
+class ConstantCorr(_HODCross):
+    """A Class for constant correlation of various pairs."""
     _defaults = {"R_ss": 0.0, "R_cs": 0.0, "R_sc": 0.0}
 
-    @abstractmethod
     def R_ss(self, m):
         return self.params["R_ss"]
 
-    @abstractmethod
     def R_cs(self, m):
         return self.params["R_cs"]
 
-    @abstractmethod
     def R_sc(self, m):
         return self.params["R_sc"]
 
-    @abstractmethod
     def self_pairs(self, m):
         """The expected number of cross-pairs at a separation of zero."""
         return 0
@@ -199,7 +194,7 @@ class CrossCorrelations(Framework):
 
     @parameter("model")
     def cross_hod_model(self, val):
-        if not (isinstance(val, str) or np.issubclass_(val, HODCross)):
+        if not (isinstance(val, str) or np.issubclass_(val, _HODCross)):
             raise ValueError(
                 "cross_hod_model must be a subclass of cross_correlations.HODCross"
             )

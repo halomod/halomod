@@ -874,12 +874,10 @@ class TracerHaloModel(DMHaloModel):
             return val
 
     @parameter("param")
-    def tracer_profile_params(self, val):
+    def tracer_profile_params(self, val: dict):
         """Dictionary of parameters for the tracer Profile model."""
-        if val is None:
-            return self.halo_profile_params
-        else:
-            return val
+        assert val is None or isinstance(val, dict)
+        return val
 
     @parameter("model")
     def tracer_profile_model(self, val):
@@ -912,10 +910,8 @@ class TracerHaloModel(DMHaloModel):
     @parameter("param")
     def tracer_concentration_params(self, val):
         """Dictionary of parameters for tracer concentration-mass relation."""
-        if val is None:
-            return self.halo_concentration_params
-        else:
-            return val
+        assert val is None or isinstance(val, dict)
+        return val
 
     @parameter("switch")
     def force_1halo_turnover(self, val):
@@ -968,12 +964,24 @@ class TracerHaloModel(DMHaloModel):
                 cm_relation=None, mdef=self.mdef, z=self.z, **self.halo_profile_params,
             )
         else:
+            # Need to get the tracer profile params if it wasn't given.
+            # If we have the same tracer and halo profiles, use the halo profile
+            # params. Otherwise, don't give any params.
+            if self.tracer_profile_params is None:
+                if self.tracer_profile_model == self.halo_profile_model:
+                    tr_params = self.halo_profile_params
+                else:
+                    tr_params = {}
+
             this_profile = self.tracer_profile_model(
-                cm_relation=None,
-                mdef=self.mdef,
-                z=self.z,
-                **self.tracer_profile_params,
+                cm_relation=None, mdef=self.mdef, z=self.z, **tr_params,
             )
+
+        if self.tracer_concentration_params is None:
+            if self.tracer_profile_model == self.halo_profile_model:
+                tr_params = self.halo_profile_params
+            else:
+                tr_params = {}
 
         return self.tracer_concentration_model(
             cosmo=Cosmology(self.cosmo),
@@ -982,7 +990,7 @@ class TracerHaloModel(DMHaloModel):
             delta_c=self.delta_c,
             profile=this_profile,
             mdef=self.mdef,
-            **self.tracer_concentration_params,
+            **tr_params,
         )
 
     @cached_quantity
@@ -996,17 +1004,29 @@ class TracerHaloModel(DMHaloModel):
         if self.tracer_profile_model is None:
             return self.halo_profile
 
+        if self.tracer_profile_params is None:
+            if self.tracer_profile_model == self.halo_profile_model:
+                tr_params = self.halo_profile_params
+            else:
+                tr_params = {}
+
         return self.tracer_profile_model(
             cm_relation=self.tracer_concentration,
             mdef=self.mdef,
             z=self.z,
-            **self.tracer_profile_params,
+            **tr_params,
         )
 
     @cached_quantity
     def hod(self):
-        """A class representing the HOD."""
-        return self.hod_model(**self.hod_params)
+        """A class representing the HOD"""
+        return self.hod_model(
+            cosmo=self.cosmo,
+            cm_relation=self.tracer_concentration,
+            profile=self.tracer_profile,
+            mdef=self.mdef,
+            **self.hod_params,
+        )
 
     # ===========================================================================
     # Basic HOD Quantities
