@@ -139,9 +139,9 @@ class _HODCross(ABC, Component):
         ) * h1.sigma_satellite(m) * self.R_sc(m)
 
 
-
 class ConstantCorr(_HODCross):
-    """A Class for constant correlation of various pairs."""
+    """Correlation relation for constant cross-correlation pairs"""
+
     _defaults = {"R_ss": 0.0, "R_cs": 0.0, "R_sc": 0.0}
 
     def R_ss(self, m):
