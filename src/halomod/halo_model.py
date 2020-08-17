@@ -1797,7 +1797,7 @@ class TracerHaloModel(DMHaloModel):
     def corr_mm_1h(self):
         """See :func:`corr_1h_auto_matter`."""
         warnings.warn("This method is deprecated in favour of corr_1h_auto_matter")
-        return self._corr_1h_auto_matter_table
+        return self.corr_1h_auto_matter
 
     @property
     def corr_mm_2h(self):
