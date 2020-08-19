@@ -798,4 +798,7 @@ def make_colossus_bias(model="comparat17", mdef=SOMean(), **defaults):
                 **self.params
             )
 
+    CustomColossusBias.__name__ = model.capitalize()
+    CustomColossusBias.__qualname__ = model.capitalize()
+
     return CustomColossusBias
