@@ -22,12 +22,15 @@ except ImportError:
 # UTILITIES
 # ===============================================================================
 def outer(a, b):
+    r"""
+    Calculate the outer product of two vectors.
+    """
     return np.outer(a, b).reshape(a.shape + b.shape)
 
 
 def dbltrapz(X, dx, dy=None):
     """
-    Double-integral over the last two dimensions of X using trapezoidal rule
+    Double-integral over the last two dimensions of X using trapezoidal rule.
     """
     dy = dy or dx
     out = X.copy()
@@ -56,6 +59,9 @@ def dblsimps(X, dx, dy=None):
 
 
 def makeW(nx, ny):
+    r"""
+    Return a window matrix for double-intergral.
+    """
     W = np.ones((nx, ny))
     W[1 : nx - 1 : 2, :] *= 4
     W[:, 1 : ny - 1 : 2] *= 4
@@ -69,7 +75,7 @@ if USE_NUMBA:
     @jit(nopython=True)
     def dblsimps_(X, dx, dy):
         """
-        Double-integral of X FOR SYMMETRIC FUNCTIONS
+        Double-integral of X **FOR SYMMETRIC FUNCTIONS**.
         """
         nx = X.shape[0]
         ny = X.shape[1]
@@ -92,6 +98,9 @@ if USE_NUMBA:
 
     @jit(nopython=True)
     def makeW_(nx, ny):
+        r"""
+        Return a window matrix for symmetric double-intergral.
+        """
         W = np.ones((nx, ny))
         for ix in range(1, nx - 1, 2):
             for iy in range(ny):
@@ -107,6 +116,9 @@ if USE_NUMBA:
 
     @jit(nopython=True)
     def makeH_(nx, ny):
+        """
+        Return the window matrix for trapezoidal intergral.
+        """
         H = np.ones((nx, ny))
         for ix in range(1, nx - 1):
             for iy in range(ny):
@@ -117,6 +129,9 @@ if USE_NUMBA:
 
     @jit(nopython=True)
     def dbltrapz_(X, dx, dy):
+        """
+        Double-integral of X for the trapezoidal method.
+        """
         nx = X.shape[0]
         ny = X.shape[1]
 
@@ -162,7 +177,7 @@ class Exclusion(Component):
 
     def raw_integrand(self) -> np.ndarray:
         """
-        Returns either a 2d (k,m) or 3d (r,k,m) array with the general integrand.
+        Return either a 2d (k,m) or 3d (r,k,m) array with the general integrand.
         """
         if self.bias.ndim == 1:
             return self.Ifunc * self.bias * self.m  # *m since integrating in logspace
@@ -171,6 +186,8 @@ class Exclusion(Component):
 
     def integrate(self):
         """
+        Integrate the :meth:`raw_integrand` over mass.
+
         This should pass back whatever is multiplied by P_m(k) to get the two-halo
         term. Often this will be a square of an integral, sometimes a Double-integral.
         """
@@ -178,12 +195,31 @@ class Exclusion(Component):
 
 
 class NoExclusion(Exclusion):
+    r"""
+    A model where there's no halo exclusion
+    """
+
     def integrate(self):
+        """Integrate the :meth:`raw_integrand` over mass."""
         return intg.simps(self.raw_integrand(), dx=self.dlnx) ** 2
 
 
 class Sphere(Exclusion):
+    r"""
+    Spherical halo exclusion model.
+
+    Only halo pairs where the virial radius of
+    either halo is smaller than half of the seperation, i.e.:
+
+    .. math:: R_{\rm vir} \le r/2
+
+    will be accounted for.
+    """
+
     def raw_integrand(self):
+        """
+        Return either a 2d (k,m) or 3d (r,k,m) array with the general integrand.
+        """
         if self.bias.ndim == 1:
             # *m since integrating in logspace
             return outer(np.ones_like(self.r), self.Ifunc * self.bias * self.m)
@@ -204,17 +240,33 @@ class Sphere(Exclusion):
 
     @property
     def mlim(self):
+        """The mass threshold for the mask."""
         return 4 * np.pi * (self.r / 2) ** 3 * self.mean_density * self.delta_halo / 3
 
     def integrate(self):
+        """
+        Integrate the :meth:`raw_integrand` over mass.
+        """
         integ = self.raw_integrand()  # r,k,m
         integ.transpose((1, 0, 2))[:, self.mask] = 0
         return intg.simps(integ, dx=self.dlnx) ** 2
 
 
 class DblSphere(Sphere):
+    r"""
+    Double Sphere model of halo exclusion.
+
+    Only halo pairs for which the sum of virial radii
+    is smaller than the separation, i.e.:
+
+    .. math:: R_{\rm vir,1}+R_{\rm vir,2} \le r
+
+    will be accounted for.
+    """
+
     @property
     def r_halo(self):
+        """The virial radius of the halo"""
         return (3 * self.m / (4 * np.pi * self.delta_halo * self.mean_density)) ** (
             1.0 / 3.0
         )
@@ -227,6 +279,7 @@ class DblSphere(Sphere):
 
     @cached_property
     def density_mod(self):
+        """The modified density, under new limits."""
         out = np.zeros_like(self.r)
         for i, r in enumerate(self.r):
             integrand = np.outer(self.density * self.m, np.ones_like(self.density))
@@ -235,11 +288,17 @@ class DblSphere(Sphere):
         return np.sqrt(out)
 
     def integrate(self):
+        """
+        Integrate the :meth:`raw_integrand` over mass.
+        """
         integ = self.raw_integrand()  # (r,k,m)
         return integrate_dblsphere(integ, self.mask, self.dlnx)
 
 
 def integrate_dblsphere(integ, mask, dx):
+    """
+    Integration function for double sphere model.
+    """
     out = np.zeros_like(integ[:, :, 0])
     integrand = np.zeros_like(mask, dtype=float)
     for ik in range(integ.shape[1]):
@@ -254,6 +313,9 @@ if USE_NUMBA:
 
     @jit(nopython=True)
     def integrate_dblsphere_(integ, mask, dx):
+        r"""
+        The same as :func:`integrate_dblsphere`, but uses NUMBA to speed up.
+        """
         nr = integ.shape[0]
         nk = integ.shape[1]
         nm = mask.shape[1]
@@ -273,19 +335,46 @@ if USE_NUMBA:
         return out
 
     class DblSphere_(DblSphere):
+        r"""
+        The same as :class:`DblSphere`. But uses NUMBA to speed up the integration.
+        """
+
         def integrate(self):
+            """Integrate the :meth:`raw_integrand` over mass."""
             integ = self.raw_integrand()  # (r,k,m)
             return integrate_dblsphere_(integ, self.mask, self.dlnx)
 
 
 class DblEllipsoid(DblSphere):
+    r"""
+    Double Ellipsoid model of halo exclusion.
+
+    Assuming a lognormal distribution
+    of ellipticities for halos, the probability of halo pairs **not** excluded
+    is:
+
+    .. math:: P(y) = 3 y^2 - 2 y^3 ,\; y = (x-0.8)/0.29,\; x = r/(R_{\rm vir,1}+R_{\rm vir,2})
+
+    taken from [1]_.
+
+
+
+    References
+    ----------
+    .. [1]  Tinker, J. et al., " On the Mass-to-Light Ratio of Large-Scale Structure",
+            https://ui.adsabs.harvard.edu/abs/2005ApJ...631...41T.
+    """
+
     @cached_property
     def mask(self):
-        "Unecessary for this approach"
+        "Unecessary for this approach."
         return None
 
     @cached_property
     def prob(self):
+        """
+        The probablity distribution used in calculating double integral.
+        """
         rvir = self.r_halo
         x = outer(self.r, 1 / np.add.outer(rvir, rvir))
         x = (x - 0.8) / 0.29  # this is y but we re-use the memory
@@ -294,12 +383,16 @@ class DblEllipsoid(DblSphere):
 
     @cached_property
     def density_mod(self):
+        """The modified density, under new limits."""
         integrand = self.prob * outer(
             np.ones_like(self.r), np.outer(self.density * self.m, self.density * self.m)
         )
         return np.sqrt(dbltrapz(integrand, self.dlnx))
 
     def integrate(self):
+        """
+        Integrate the :meth:`raw_integrand` over mass.
+        """
         integ = self.raw_integrand()  # (r,k,m)
         out = np.zeros_like(integ[:, :, 0])
 
@@ -317,8 +410,13 @@ class DblEllipsoid(DblSphere):
 if USE_NUMBA:
 
     class DblEllipsoid_(DblEllipsoid):
+        r"""
+        The same as :class:`DblEllipsoid`. But uses NUMBA to speed up the integration.
+        """
+
         @cached_property
         def density_mod(self):
+            """The modified density, under new limits."""
             return density_mod_(
                 self.r,
                 self.r_halo,
@@ -328,13 +426,20 @@ if USE_NUMBA:
 
         @cached_property
         def prob(self):
+            """
+            The probablity distribution used in calculating double integral
+            """
             return prob_inner_(self.r, self.r_halo)
 
         def integrate(self):
+            """
+            Integrate the :meth:`raw_integrand` over mass.
+            """
             return integrate_dblell(self.raw_integrand(), self.prob, self.dlnx)
 
     @jit(nopython=True)
     def integrate_dblell(integ, prob, dx):
+        r"""Double Integration via the trapezoidal method if using NUMBA"""
         nr = integ.shape[0]
         nk = integ.shape[1]
         nm = prob.shape[1]
@@ -354,6 +459,7 @@ if USE_NUMBA:
 
     @jit(nopython=True)
     def density_mod_(r, rvir, densitymat, dx):
+        """The modified density, under new limits."""
         d = np.zeros(len(r))
         for ir, rr in enumerate(r):
             integrand = prob_inner_r_(rr, rvir) * densitymat
@@ -382,6 +488,10 @@ if USE_NUMBA:
 
     @jit(nopython=True)
     def prob_inner_r_(r, rvir):
+        """
+        Jit-compiled version of calculating prob along one r,
+        taking advantage of symmetry.
+        """
         nrv = len(rvir)
         out = np.empty((nrv, nrv))
         for irv, rv1 in enumerate(rvir):
@@ -398,8 +508,14 @@ if USE_NUMBA:
 
 
 class NgMatched(DblEllipsoid):
+    r"""
+    A model for double ellipsoid halo exclusion, where a mask is
+    defined so that the number density of galaxies is matched.
+    """
+
     @cached_property
     def mask(self):
+        """Mask Function for matching density"""
         integrand = self.density * self.m
         # cumint = cumsimps(integrand,dx = self.dlnx)
         cumint = intg.cumtrapz(integrand, dx=self.dlnx, initial=0)  # len m
@@ -411,6 +527,9 @@ class NgMatched(DblEllipsoid):
         )
 
     def integrate(self):
+        """
+        Integrate the :meth:`raw_integrand` over mass.
+        """
         integ = self.raw_integrand()  # r,k,m
         integ.transpose((1, 0, 2))[:, self.mask] = 0
         return intg.simps(integ, dx=self.dlnx) ** 2
@@ -419,8 +538,13 @@ class NgMatched(DblEllipsoid):
 if USE_NUMBA:
 
     class NgMatched_(DblEllipsoid_):
+        r"""
+        The same as :class:`NgMatched`. But uses NUMBA to speed up the integration.
+        """
+
         @cached_property
         def mask(self):
+            """Mask Function for matching density"""
             integrand = self.density * self.m
             # cumint = cumsimps(integrand,dx = self.dlnx)
             cumint = intg.cumtrapz(integrand, dx=self.dlnx, initial=0)  # len m
@@ -432,6 +556,9 @@ if USE_NUMBA:
             )
 
         def integrate(self):
+            """
+            Integrate the :meth:`raw_integrand` over mass.
+            """
             integ = self.raw_integrand()  # r,k,m
             integ.transpose((1, 0, 2))[:, self.mask] = 0
             return intg.simps(integ, dx=self.dlnx) ** 2

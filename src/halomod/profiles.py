@@ -30,9 +30,9 @@ Use NFW profile in a halo model::
     >>> hm = HaloModel(halo_profile_model="NFW")
 
 You can also specify a different profile for tracer if you're working with
-:class:`~halomod.TracerHaloModel` ::
-    >>> from halomod.halo_model import TracerHaloModel
-    >>> hm = TracerHaloModel(halo_profile_model="NFW",tracer_profile_model="CoredNFW")
+:class:`~halomod.halo_model.TracerHaloModel` ::
+    >>> from halomod import HaloModel
+    >>> hm = HaloModel(halo_profile_model="NFW",tracer_profile_model="CoredNFW")
 
 Notice that tracer density profile density should be used only in inverse volume or dimensionless unit.
 """
@@ -618,8 +618,9 @@ class NFW(Profile):
     ----------
     .. [1] Navarro, Julio F., Frenk, Carlos S. and White, Simon D. M., "The Structure of Cold Dark
            Matter Halos", https://ui.adsabs.harvard.edu/abs/1996ApJ...462..563N.
-    .. [2] Navarro, Julio F., Frenk, Carlos S. and White, Simon D. M., "A Universal Density Profile from
-           Hierarchical Clustering", https://ui.adsabs.harvard.edu/abs/1997ApJ...490..493N.
+    .. [2] Navarro, Julio F., Frenk, Carlos S. and White, Simon D. M., "A Universal Density Profile
+           from Hierarchical Clustering",
+           https://ui.adsabs.harvard.edu/abs/1997ApJ...490..493N.
     """
 
     def _f(self, x):

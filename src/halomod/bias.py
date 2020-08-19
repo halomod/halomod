@@ -13,6 +13,13 @@ will mostly describe how to subclass :class:`Bias` to define your own model.
 
 Also provided are several models from the literature.
 
+In addition, it defines a factory function :func:`make_colossus_bias`
+which helps with integration with the ``colossus`` cosmology code. With this function,
+the user is able to easily create a ``halomod``-compatible ``Component`` model that
+transparently uses ``colossus`` the background to do the actual computation of the
+halo bias. This means it is easy to use any of the updated models
+from ``colossus`` in a native way.
+
 Most models are specified in terms of the peak-height parameter,
 though it is possible to specify them in terms of mass, and include
 cosmological parameters.
@@ -43,6 +50,13 @@ Use this bias model in a halo model::
     >>> from halomod import HaloModel
     >>> hm = HaloModel(bias_model=UnityBias)
     >>> assert np.all(hm.bias == 1)
+
+Constructing and using a colossus-based halo bias::
+
+    >>> from halomod import HaloModel
+    >>> from halomod.bias import make_colossus_bias
+    >>> comparat = bias.make_colossus_bias(model="comparat17")
+    >>> hm = HaloModel(bias_model=comparat)
 """
 from typing import Optional
 
@@ -371,7 +385,7 @@ class Seljak04Cosmo(Seljak04):
 
     .. math:: b_{\rm no cosmo} + \log_10(x) \left[a_1 (\Omega_{m,0} - 0.3 + n - 1) + a_2(\sigma_8 - 0.9 + h-0.7)\right]
 
-    with :math:`x = m/m_\star` (and :math:`m_star` the nonlinear mass -- see :class:`Bias`
+    with :math:`x = m/m_\star` (and :math:`m_{\star}` the nonlinear mass -- see :class:`Bias`
     for details). The non-cosmologically-dependent bias is that given by :class:`Seljak04`.
     ``a1`` and ``a2`` are fitted, with values given in [1]_ as
     ``(a1,a2) = (0.4, 0.3)``.
@@ -498,20 +512,19 @@ class Pillepich10(Bias):
 
 class Manera10(ST99):
     r"""
-    Peak-background split bias from Manera et al. (2010).
+    Peak-background split bias from Manera et al. (2010) [1]_.
 
     See documentation for :class:`Bias` for information on input parameters. This
     model has no free parameters.
-48)``.
 
     Other Parameters
     ----------------
     q, p : float, optional
-        The
+        The fitted parameters.
+
     Notes
     -----
-    This form from [1]_ has the same form as :class:`ST99`, but has refitted the
-    parameters with ``(q, p) = (0.709, 0.2fitted parameters.
+    .. note:: This form from [1]_ has the same form as :class:`ST99`, but has refitted the parameters with ``(q, p) = (0.709, 0.2)``.
 
     References
     ----------
@@ -780,6 +793,13 @@ class TinkerSD05(ScaleDepBias):
 
 
 def make_colossus_bias(model="comparat17", mdef=SOMean(), **defaults):
+    r"""
+    A factory function which helps with integration with the ``colossus`` cosmology code.
+    See :mod:`~halomod.bias` for an example of how to use it.
+
+    Notice that it returns a *class* :class:`CustomColossusBias` not an instance.
+    """
+
     class CustomColossusBias(Bias):
         _model_name = model
         _defaults = defaults
