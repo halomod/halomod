@@ -93,3 +93,24 @@ def test_setting_default_tracers_prof():
     )
 
     assert hm.tracer_profile.params == hm.tracer_profile._defaults
+
+
+@pytest.mark.parametrize(
+    "dep,new",
+    [
+        ("corr_gg_1h", "corr_1h_auto_tracer"),
+        ("corr_gg_2h", "corr_2h_auto_tracer"),
+        ("corr_gg", "corr_auto_tracer"),
+        ("power_gg_1h", "power_1h_auto_tracer"),
+        ("power_gg", "power_auto_tracer"),
+        ("corr_mm_1h", "corr_1h_auto_matter"),
+        ("corr_mm_2h", "corr_2h_auto_matter"),
+        ("corr_mm", "corr_auto_matter"),
+        ("power_mm_1h", "power_1h_auto_matter"),
+        ("power_mm_2h", "power_2h_auto_matter"),
+        ("power_mm", "power_auto_matter"),
+    ],
+)
+def test_deprecated(thm: TracerHaloModel, dep, new):
+    with pytest.warns(UserWarning):
+        assert np.all(getattr(thm, dep) == getattr(thm, new))
