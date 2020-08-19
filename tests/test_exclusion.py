@@ -2,7 +2,11 @@
 Various direct tests of the halo exclusion classes.
 """
 from halomod.halo_exclusion import (
+    outer,
     dblsimps,
+    dblsimps_,
+    dbltrapz,
+    dbltrapz_,
     NoExclusion,
     Sphere,
     DblSphere,
@@ -38,10 +42,23 @@ def test_no_exclusion():
 
 def test_dbl_simps():
     """Test a simple integration"""
-    arr = np.outer(np.arange(7).astype("float64"), np.arange(7).astype("float64"))
-    num = dblsimps(arr, dx=1)
+    arr1 = np.outer(np.arange(7).astype("float64"), np.arange(7).astype("float64"))
+    arr2 = np.outer(np.arange(8).astype("float64"), np.arange(8).astype("float64"))
+    num1 = dblsimps(arr1, dx=1)
+    num2 = dblsimps(arr2, dx=1)
 
-    assert np.allclose(num, 324, rtol=1e-4)
+    assert np.allclose(num1, 324, rtol=1e-4) and np.allclose(num2, 324, rtol=1e-4)
+
+
+@pytest.mark.parametrize("integ", (dblsimps_, dbltrapz_))
+def test_dbl_simps_(integ):
+    """Test a simple integration"""
+    arr1 = np.outer(np.arange(7).astype("float64"), np.arange(7).astype("float64"))
+    arr2 = np.outer(np.arange(8).astype("float64"), np.arange(8).astype("float64"))
+    num1 = integ(arr1, dx=1, dy=1)
+    num2 = integ(arr2, dx=1, dy=1)
+
+    assert np.allclose(num1, 324, rtol=1e-4) and np.allclose(num2, 600.25, rtol=1e-4)
 
 
 def test_spherical_exclusion():
@@ -77,7 +94,7 @@ def test_spherical_exclusion():
 @pytest.mark.parametrize("dbl_sphere", (DblSphere, DblSphere_))
 def test_dbl_sphere(dbl_sphere):
     """Test simple uniform integral for double-spherical exclusion."""
-    m = np.logspace(10, 15, 1000)
+    m = np.logspace(10, 15, 1001)
     integrand = np.ones((1, len(m)))  # shape (k, m)
     density = np.ones_like(m)
     bias = np.ones_like(m)
@@ -108,7 +125,14 @@ def test_dbl_sphere(dbl_sphere):
     )
 
     intg = excl.integrate().flatten()
-    assert np.isclose(intg[-1], no_excl.integrate().flatten()[-1], rtol=1e-3)
+
+    den = np.sqrt(dblsimps(np.outer(density * m, np.ones_like(density)), dx=excl.dlnx))
+
+    flag1 = np.isclose(intg[-1], no_excl.integrate().flatten()[-1], rtol=1e-3)
+
+    flag2 = np.allclose(den, excl.density_mod[-1])
+
+    assert flag1 and flag2
 
     # The following tests for r = 1, in which case some masses are masked.
     # The idea is that the integral should just be the area of a portion of a circle
@@ -146,10 +170,18 @@ def test_dbl_ellipsoid_large_r(dbl_ellipsoid):
         delta_halo=200,
         mean_density=1e11,
     )
-
-    assert np.allclose(
-        no_excl.integrate().flatten(), excl.integrate().flatten(), rtol=1e-3
+    den = np.sqrt(
+        dbltrapz(
+            outer(np.ones_like(np.array([100])), np.outer(density * m, density * m)),
+            excl.dlnx,
+        )
     )
+
+    assert (
+        np.allclose(
+            no_excl.integrate().flatten(), excl.integrate().flatten(), rtol=1e-3
+        )
+    ) and (np.allclose(den, excl.density_mod, rtol=1e-3))
 
 
 @pytest.mark.skip("Too hard to get the analytic answer")
