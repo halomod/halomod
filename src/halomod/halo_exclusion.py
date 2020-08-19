@@ -71,37 +71,58 @@ if USE_NUMBA:
         """
         Double-integral of X FOR SYMMETRIC FUNCTIONS
         """
-        nx = X.shape[0]
-        ny = X.shape[1]
+        nx = X.shape[-2]
+        ny = X.shape[-1]
 
         # Must be odd number
-        if nx % 2 == 0:
-            nx -= 1
-        if ny % 2 == 0:
-            ny -= 1
+        # if nx % 2 == 0:
+        # nx -= 1
+        # if ny % 2 == 0:
+        # ny -= 1
 
         W = makeW_(nx, ny)  # only upper
 
-        tot = 0.0
+        tot = np.zeros_like(X[..., 0, 0])
         for ix in range(nx):
-            tot += W[ix, ix] * X[ix, ix]
+            tot += W[ix, ix] * X[..., ix, ix]
             for iy in range(ix + 1, ny):
-                tot += 2 * W[ix, iy] * X[ix, iy]
+                tot += 2 * W[ix, iy] * X[..., ix, iy]
 
         return dx * dy * tot / 9.0
 
     @jit(nopython=True)
     def makeW_(nx, ny):
         W = np.ones((nx, ny))
-        for ix in range(1, nx - 1, 2):
-            for iy in range(ny):
-                W[ix, iy] *= 4
-                W[iy, ix] *= 4
+        if nx % 2 == 0:
+            for ix in range(1, nx - 2, 2):
+                W[ix, -1] *= 4
+                W[-1, ix] *= 4
+                for iy in range(ny - 1):
+                    W[ix, iy] *= 4
+                    W[iy, ix] *= 4
 
-        for ix in range(2, nx - 1, 2):
-            for iy in range(ny):
-                W[ix, iy] *= 2
-                W[iy, ix] *= 2
+            for ix in range(2, nx - 2, 2):
+                W[ix, -1] *= 2
+                W[-1, ix] *= 2
+                for iy in range(ny - 1):
+                    W[ix, iy] *= 2
+                    W[iy, ix] *= 2
+
+            for ix in range(nx):
+                W[ix, -2] *= 2.5
+                W[ix, -1] *= 1.5
+                W[-2, ix] *= 2.5
+                W[-1, ix] *= 1.5
+        else:
+            for ix in range(1, nx - 1, 2):
+                for iy in range(ny):
+                    W[ix, iy] *= 4
+                    W[iy, ix] *= 4
+
+            for ix in range(2, nx - 1, 2):
+                for iy in range(ny):
+                    W[ix, iy] *= 2
+                    W[iy, ix] *= 2
 
         return W
 
@@ -117,11 +138,11 @@ if USE_NUMBA:
 
     @jit(nopython=True)
     def dbltrapz_(X, dx, dy):
-        nx = X.shape[0]
-        ny = X.shape[1]
+        nx = X.shape[-2]
+        ny = X.shape[-1]
 
         H = makeH_(nx, ny)
-        tot = 0.0
+        tot = np.zeros_like(X[..., 0, 0])
         for ix in range(nx):
             tot += H[ix, ix] * X[ix, ix]
             for iy in range(ix + 1, ny):
@@ -195,7 +216,7 @@ class Sphere(Exclusion):
         """The modified density, under new limits."""
         density = np.outer(np.ones_like(self.r), self.density * self.m)
         density[self.mask] = 0
-        return intg.simps(density, dx=self.dlnx)
+        return intg.simps(density, dx=self.dlnx, even="first")
 
     @cached_property
     def mask(self):
@@ -209,7 +230,7 @@ class Sphere(Exclusion):
     def integrate(self):
         integ = self.raw_integrand()  # r,k,m
         integ.transpose((1, 0, 2))[:, self.mask] = 0
-        return intg.simps(integ, dx=self.dlnx) ** 2
+        return intg.simps(integ, dx=self.dlnx, even="first") ** 2
 
 
 class DblSphere(Sphere):
@@ -231,7 +252,11 @@ class DblSphere(Sphere):
         for i, r in enumerate(self.r):
             integrand = np.outer(self.density * self.m, np.ones_like(self.density))
             integrand[self.mask[i]] = 0
-            out[i] = intg.simps(intg.simps(integrand, dx=self.dlnx), dx=self.dlnx)
+            out[i] = intg.simps(
+                intg.simps(integrand, dx=self.dlnx, even="first"),
+                dx=self.dlnx,
+                even="first",
+            )
         return np.sqrt(out)
 
     def integrate(self):
@@ -246,7 +271,9 @@ def integrate_dblsphere(integ, mask, dx):
         for ir in range(mask.shape[0]):
             integrand[ir] = np.outer(integ[ir, ik, :], integ[ir, ik, :])
         integrand[mask] = 0
-        out[:, ik] = intg.simps(intg.simps(integrand, dx=dx), dx=dx)
+        out[:, ik] = intg.simps(
+            intg.simps(integrand, dx=dx, even="first"), dx=dx, even="first"
+        )
     return out
 
 

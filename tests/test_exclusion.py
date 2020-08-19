@@ -2,11 +2,15 @@
 Various direct tests of the halo exclusion classes.
 """
 from halomod.halo_exclusion import (
+    dblsimps,
     NoExclusion,
     Sphere,
     DblSphere,
+    DblSphere_,
     DblEllipsoid,
+    DblEllipsoid_,
     NgMatched,
+    NgMatched_,
 )
 import numpy as np
 import pytest
@@ -30,6 +34,14 @@ def test_no_exclusion():
     )
 
     assert np.allclose(excl.integrate(), 0.9999e20, rtol=1e-4)
+
+
+def test_dbl_simps():
+    """Test a simple integration"""
+    arr = np.outer(np.arange(7).astype("float64"), np.arange(7).astype("float64"))
+    num = dblsimps(arr, dx=1)
+
+    assert np.allclose(num, 324, rtol=1e-4)
 
 
 def test_spherical_exclusion():
@@ -62,7 +74,8 @@ def test_spherical_exclusion():
     assert np.allclose(num.flatten(), analytic, rtol=1e-3)
 
 
-def test_dbl_sphere():
+@pytest.mark.parametrize("dbl_sphere", (DblSphere, DblSphere_))
+def test_dbl_sphere(dbl_sphere):
     """Test simple uniform integral for double-spherical exclusion."""
     m = np.logspace(10, 15, 1000)
     integrand = np.ones((1, len(m)))  # shape (k, m)
@@ -73,7 +86,7 @@ def test_dbl_sphere():
 
     r = np.array([1, 100])
 
-    excl = DblSphere(
+    excl = dbl_sphere(
         m=m,
         density=density,
         Ifunc=integrand,
@@ -106,7 +119,8 @@ def test_dbl_sphere():
     # assert np.isclose(intg[0], analytic, rtol=1e-3)
 
 
-def test_dbl_ellipsoid_large_r():
+@pytest.mark.parametrize("dbl_ellipsoid", (DblEllipsoid, DblEllipsoid_))
+def test_dbl_ellipsoid_large_r(dbl_ellipsoid):
     m = np.logspace(10, 15, 200)
     integrand = np.outer(np.ones(3), (m / 1e10) ** -2)  # shape (k, m)
     density = np.ones_like(m)
@@ -123,7 +137,7 @@ def test_dbl_ellipsoid_large_r():
         mean_density=1e11,
     )
 
-    excl = DblEllipsoid(
+    excl = dbl_ellipsoid(
         m=m,
         density=density,
         Ifunc=integrand,
@@ -133,7 +147,9 @@ def test_dbl_ellipsoid_large_r():
         mean_density=1e11,
     )
 
-    assert np.allclose(no_excl.integrate().flatten(), excl.integrate().flatten())
+    assert np.allclose(
+        no_excl.integrate().flatten(), excl.integrate().flatten(), rtol=1e-3
+    )
 
 
 @pytest.mark.skip("Too hard to get the analytic answer")
@@ -161,7 +177,8 @@ def test_dbl_ellipsoid_small_r():
     excl.integrate().flatten()
 
 
-def test_ng_matched_large_r():
+@pytest.mark.parametrize("ng_matched", (NgMatched, NgMatched_))
+def test_ng_matched_large_r(ng_matched):
     m = np.logspace(10, 15, 200)
     integrand = np.outer(np.ones(3), (m / 1e10) ** -2)  # shape (k, m)
     density = np.ones_like(m)
