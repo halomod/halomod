@@ -3,7 +3,6 @@ Various direct tests of the halo exclusion classes.
 """
 from halomod.halo_exclusion import (
     outer,
-    dblsimps,
     dblsimps_,
     dbltrapz,
     dbltrapz_,
@@ -18,6 +17,7 @@ from halomod.halo_exclusion import (
 )
 import numpy as np
 import pytest
+from scipy.integrate import simps
 
 
 def test_no_exclusion():
@@ -40,16 +40,6 @@ def test_no_exclusion():
     assert np.allclose(excl.integrate(), 0.9999e20, rtol=1e-4)
 
 
-def test_dbl_simps():
-    """Test a simple integration"""
-    arr1 = np.outer(np.arange(7).astype("float64"), np.arange(7).astype("float64"))
-    arr2 = np.outer(np.arange(8).astype("float64"), np.arange(8).astype("float64"))
-    num1 = dblsimps(arr1, dx=1)
-    num2 = dblsimps(arr2, dx=1)
-
-    assert np.allclose(num1, 324, rtol=1e-4) and np.allclose(num2, 324, rtol=1e-4)
-
-
 @pytest.mark.parametrize("integ", (dblsimps_, dbltrapz_))
 def test_dbl_simps_(integ):
     """Test a simple integration"""
@@ -58,7 +48,8 @@ def test_dbl_simps_(integ):
     num1 = integ(arr1, dx=1, dy=1)
     num2 = integ(arr2, dx=1, dy=1)
 
-    assert np.allclose(num1, 324, rtol=1e-4) and np.allclose(num2, 600.25, rtol=1e-4)
+    assert np.allclose(num1, 324, rtol=1e-4)
+    assert np.allclose(num2, 600.25, rtol=1e-4)
 
 
 def test_spherical_exclusion():
@@ -126,21 +117,18 @@ def test_dbl_sphere(dbl_sphere):
 
     intg = excl.integrate().flatten()
 
-    den = np.sqrt(dblsimps(np.outer(density * m, np.ones_like(density)), dx=excl.dlnx))
+    den = np.sqrt(
+        simps(
+            simps(
+                np.outer(density * m, np.ones_like(density)), dx=excl.dlnx, even="first"
+            ),
+            dx=excl.dlnx,
+            even="first",
+        )
+    )
 
-    flag1 = np.isclose(intg[-1], no_excl.integrate().flatten()[-1], rtol=1e-3)
-
-    flag2 = np.allclose(den, excl.density_mod[-1])
-
-    assert flag1 and flag2
-
-    # The following tests for r = 1, in which case some masses are masked.
-    # The idea is that the integral should just be the area of a portion of a circle
-    # out to mlim, where the inside has perpendicular straight edges above m[0].
-    # However, this doesn't seem to work for some reason.
-    # a = 4 * np.pi * delta_h * mean_density / 3
-    # analytic = np.pi*(mlim[0]**2) / 4 - m[0]**2 - 2*(mlim[0] - m[0])*m[0]
-    # assert np.isclose(intg[0], analytic, rtol=1e-3)
+    assert np.isclose(intg[-1], no_excl.integrate().flatten()[-1], rtol=1e-3)
+    assert np.allclose(den, excl.density_mod[-1])
 
 
 @pytest.mark.parametrize("dbl_ellipsoid", (DblEllipsoid, DblEllipsoid_))
@@ -177,11 +165,10 @@ def test_dbl_ellipsoid_large_r(dbl_ellipsoid):
         )
     )
 
-    assert (
-        np.allclose(
-            no_excl.integrate().flatten(), excl.integrate().flatten(), rtol=1e-3
-        )
-    ) and (np.allclose(den, excl.density_mod, rtol=1e-3))
+    assert np.allclose(
+        no_excl.integrate().flatten(), excl.integrate().flatten(), rtol=1e-3
+    )
+    assert np.allclose(den, excl.density_mod, rtol=1e-3)
 
 
 @pytest.mark.skip("Too hard to get the analytic answer")

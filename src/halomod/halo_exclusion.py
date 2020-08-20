@@ -11,7 +11,7 @@ try:
     from numba import jit
 
     USE_NUMBA = True
-except ImportError:
+except ImportError:  # pragma: no cover
     USE_NUMBA = False
     warnings.warn(
         "Warning: Some Halo-Exclusion models have significant speedup when using Numba"
@@ -39,25 +39,6 @@ def dbltrapz(X, dx, dy=None):
     return dx * dy * np.sum(out, axis=(-2, -1)) / 4.0
 
 
-def dblsimps(X, dx, dy=None):
-    """
-    Double-integral over the last two dimensions of X.
-    """
-    if dy is None:
-        dy = dx
-
-    if X.shape[-2] % 2 == 0:
-        X = X[..., :-1, :]
-    if X.shape[-1] % 2 == 0:
-        X = X[..., :-1]
-
-    (nx, ny) = X.shape[-2:]
-
-    W = makeW(nx, ny)
-
-    return dx * dy * np.sum(W * X, axis=(-2, -1)) / 9.0
-
-
 def makeW(nx, ny):
     r"""
     Return a window matrix for double-intergral.
@@ -73,7 +54,7 @@ def makeW(nx, ny):
 if USE_NUMBA:
 
     @jit(nopython=True)
-    def dblsimps_(X, dx, dy):
+    def dblsimps_(X, dx, dy):  # pragma: no cover
         """
         Double-integral of X **FOR SYMMETRIC FUNCTIONS**.
         """
@@ -97,7 +78,7 @@ if USE_NUMBA:
         return dx * dy * tot / 9.0
 
     @jit(nopython=True)
-    def makeW_(nx, ny):
+    def makeW_(nx, ny):  # pragma: no cover
         r"""
         Return a window matrix for symmetric double-intergral.
         """
@@ -136,7 +117,7 @@ if USE_NUMBA:
         return W
 
     @jit(nopython=True)
-    def makeH_(nx, ny):
+    def makeH_(nx, ny):  # pragma: no cover
         """
         Return the window matrix for trapezoidal intergral.
         """
@@ -149,13 +130,13 @@ if USE_NUMBA:
         return H
 
     @jit(nopython=True)
-    def dbltrapz_(X, dx, dy):
+    def dbltrapz_(X, dx, dy):  # pragma: no cover
         """
         Double-integral of X for the trapezoidal method.
         """
         nx = X.shape[-2]
         ny = X.shape[-1]
-        
+
         H = makeH_(nx, ny)
         tot = np.zeros_like(X[..., 0, 0])
         for ix in range(nx):
@@ -217,7 +198,7 @@ class Exclusion(Component):
 
 class NoExclusion(Exclusion):
     r"""
-    A model where there's no halo exclusion
+    A model where there's no halo exclusion.
     """
 
     def integrate(self):
@@ -339,7 +320,7 @@ def integrate_dblsphere(integ, mask, dx):
 if USE_NUMBA:
 
     @jit(nopython=True)
-    def integrate_dblsphere_(integ, mask, dx):
+    def integrate_dblsphere_(integ, mask, dx):  # pragma: no cover
         r"""
         The same as :func:`integrate_dblsphere`, but uses NUMBA to speed up.
         """
@@ -361,7 +342,7 @@ if USE_NUMBA:
                 out[ir, ik] = dblsimps_(integrand, dx, dx)
         return out
 
-    class DblSphere_(DblSphere):
+    class DblSphere_(DblSphere):  # pragma: no cover
         r"""
         The same as :class:`DblSphere`. But uses NUMBA to speed up the integration.
         """
@@ -436,13 +417,13 @@ class DblEllipsoid(DblSphere):
 
 if USE_NUMBA:
 
-    class DblEllipsoid_(DblEllipsoid):
+    class DblEllipsoid_(DblEllipsoid):  # pragma: no cover
         r"""
         The same as :class:`DblEllipsoid`. But uses NUMBA to speed up the integration.
         """
 
         @cached_property
-        def density_mod(self):
+        def density_mod(self):  # pragma: no cover
             """The modified density, under new limits."""
             return density_mod_(
                 self.r,
@@ -452,20 +433,20 @@ if USE_NUMBA:
             )
 
         @cached_property
-        def prob(self):
+        def prob(self):  # pragma: no cover
             """
             The probablity distribution used in calculating double integral
             """
             return prob_inner_(self.r, self.r_halo)
 
-        def integrate(self):
+        def integrate(self):  # pragma: no cover
             """
             Integrate the :meth:`raw_integrand` over mass.
             """
             return integrate_dblell(self.raw_integrand(), self.prob, self.dlnx)
 
     @jit(nopython=True)
-    def integrate_dblell(integ, prob, dx):
+    def integrate_dblell(integ, prob, dx):  # pragma: no cover
         r"""Double Integration via the trapezoidal method if using NUMBA"""
         nr = integ.shape[0]
         nk = integ.shape[1]
@@ -485,7 +466,7 @@ if USE_NUMBA:
         return out
 
     @jit(nopython=True)
-    def density_mod_(r, rvir, densitymat, dx):
+    def density_mod_(r, rvir, densitymat, dx):  # pragma: no cover
         """The modified density, under new limits."""
         d = np.zeros(len(r))
         for ir, rr in enumerate(r):
@@ -494,7 +475,7 @@ if USE_NUMBA:
         return np.sqrt(d)
 
     @jit(nopython=True)
-    def prob_inner_(r, rvir):
+    def prob_inner_(r, rvir):  # pragma: no cover
         """
         Jit-compiled version of calculating prob, taking advantage of symmetry.
         """
@@ -514,7 +495,7 @@ if USE_NUMBA:
         return out
 
     @jit(nopython=True)
-    def prob_inner_r_(r, rvir):
+    def prob_inner_r_(r, rvir):  # pragma: no cover
         """
         Jit-compiled version of calculating prob along one r,
         taking advantage of symmetry.
@@ -564,7 +545,7 @@ class NgMatched(DblEllipsoid):
 
 if USE_NUMBA:
 
-    class NgMatched_(DblEllipsoid_):
+    class NgMatched_(DblEllipsoid_):  # pragma: no cover
         r"""
         The same as :class:`NgMatched`. But uses NUMBA to speed up the integration.
         """
