@@ -12,3 +12,5 @@ with ``halomod``, and use it efficiently.
     examples/getting_started
     examples/component-showcase
     examples/wdm
+    examples/parameter
+    examples/extension
