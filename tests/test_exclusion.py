@@ -2,6 +2,7 @@
 Various direct tests of the halo exclusion classes.
 """
 from halomod.halo_exclusion import (
+    makeW,
     outer,
     dblsimps_,
     dbltrapz,
@@ -14,10 +15,21 @@ from halomod.halo_exclusion import (
     DblEllipsoid_,
     NgMatched,
     NgMatched_,
+    cumsimps,
 )
 import numpy as np
 import pytest
 from scipy.integrate import simps
+
+
+def test_makeW():
+    arr = np.array([[1.0, 4.0, 1.0], [4.0, 16.0, 4.0], [1.0, 4.0, 1.0]])
+    assert np.all(makeW(3, 3) == arr)
+
+
+def test_cumsimps():
+    y = np.array([1, 2, 3])
+    assert isinstance(cumsimps(y, 0.001), np.ndarray)
 
 
 def test_no_exclusion():
