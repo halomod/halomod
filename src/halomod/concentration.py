@@ -206,6 +206,9 @@ def make_colossus_cm(model="diemer15", **defaults):
                 **self.params,
             )
 
+    CustomColossusCM.__name__ = model.capitalize()
+    CustomColossusCM.__qualname__ = model.capitalize()
+
     return CustomColossusCM
 
 

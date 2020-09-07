@@ -10,6 +10,7 @@ with ``halomod``, and use it efficiently.
     :maxdepth: 2
 
     examples/getting_started
+    examples/component-showcase
     examples/wdm
     examples/parameter
     examples/extension
