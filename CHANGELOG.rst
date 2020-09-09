@@ -17,7 +17,7 @@ Features
 * Much more documentation
 * Addition of CoredNFW profile
 * Added ``mean_tracer_den_unit`` -- the mean density of whatever tracer you use.
-* Now uses COLOSSUS components natively to do some of the grunt work.
+* Interfaces with COLOSSUS for concentration and bias.
 
 Changes
 +++++++
