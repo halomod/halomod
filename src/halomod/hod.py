@@ -122,12 +122,12 @@ class HOD(Component, metaclass=ABCMeta):
 
     @abstractmethod
     def _central_occupation(self, m):
-        """The occupation function of the tracer."""
+        """The central occupation function of the tracer."""
         pass
 
     @abstractmethod
     def _satellite_occupation(self, m):
-        """The occupation function of the tracer."""
+        """The satellite occupation function of the tracer."""
         pass
 
     @abstractmethod
@@ -142,12 +142,12 @@ class HOD(Component, metaclass=ABCMeta):
 
     @abstractmethod
     def sigma_satellite(self, m):
-        """The standard deviation of the total tracer amount in haloes of mass m."""
+        """The standard deviation of the satellite tracer amount in haloes of mass m."""
         pass
 
     @abstractmethod
     def sigma_central(self, m):
-        """The standard deviation of the total tracer amount in haloes of mass m."""
+        """The standard deviation of the central tracer amount in haloes of mass m."""
         pass
 
     def central_occupation(self, m):
@@ -187,15 +187,19 @@ class HODNoCentral(HOD):
         self._central = False
 
     def nc(self, m):
+        """Density of Central Tracer"""
         return 0
 
     def cs_pairs(self, m):
+        """The average amount of the tracer coupled with itself in haloes of mass m, <T_s T_c>."""
         return 0
 
     def _central_occupation(self, m):
+        """The occupation function of the central component."""
         return 0
 
     def sigma_central(self, m):
+        """The standard deviation of the central tracer amount in haloes of mass m."""
         return 0
 
 
@@ -203,9 +207,11 @@ class HODBulk(HODNoCentral):
     """Base class for HODs with no discrete tracers, just an assignment of tracer to the halo."""
 
     def ns(self, m):
+        """Density of Satellite Tracer"""
         return 0
 
     def ss_pairs(self, m):
+        """The average amount of the tracer coupled with itself in haloes of mass m, <T_s T_s>."""
         return self.satellite_occupation(m) ** 2
 
 
@@ -220,37 +226,45 @@ class HODPoisson(HOD):
     """
 
     def nc(self, m):
+        """Amplitude of central tracer per tracer source"""
         return self.central_occupation(m) / self._tracer_per_central(m)
 
     def ns(self, m):
+        """Amplitude of satellite tracer per tracer source"""
         return self.satellite_occupation(m) / self._tracer_per_satellite(m)
 
     def _tracer_per_central(self, m):
+        """Number of tracer per central tracer source"""
         return 1
 
     def _tracer_per_satellite(self, m):
+        """Number of tracer per satellite tracer source"""
         return self._tracer_per_central(m)
 
     def ss_pairs(self, m):
+        """The average amount of the tracer coupled with itself in haloes of mass m, <T_s T_s>."""
         return self.satellite_occupation(m) ** 2
 
     def cs_pairs(self, m):
+        """The average amount of the tracer coupled with itself in haloes of mass m, <T_c T_s>."""
         if self._central:
             return self.satellite_occupation(m) * self._tracer_per_central(m)
         else:
             return self.central_occupation(m) * self.satellite_occupation(m)
 
     def sigma_central(self, m):
+        """The standard deviation of the central tracer amount in haloes of mass m."""
         co = self.central_occupation(m)
         return np.sqrt(co * (1 - co))
 
     def sigma_satellite(self, m):
+        """The standard deviation of the satellite tracer amount in haloes of mass m."""
         return np.sqrt(self.satellite_occupation(m))
 
 
 class Zehavi05(HODPoisson):
-    """
-    Three-parameter model of Zehavi (2005)
+    r"""
+    Three-parameter model of Zehavi (2005) [1]_.
 
     Parameters
     ----------
@@ -260,6 +274,12 @@ class Zehavi05(HODPoisson):
         Mass of a halo which on average contains 1 satellite
     alpha : float, default = 1.049
         Index of power law for satellite galaxies
+
+    References
+    ----------
+    .. [1] Zehavi, I. et al., "The Luminosity and Color Dependence of the Galaxy Correlation
+           Function ", https://ui.adsabs.harvard.edu/abs/2005ApJ...630....1Z.
+
     """
 
     _defaults = {"M_min": 11.6222, "M_1": 12.851, "alpha": 1.049}
@@ -267,7 +287,7 @@ class Zehavi05(HODPoisson):
 
     def _central_occupation(self, m):
         """
-        Number of central galaxies at mass M
+        Amplitude of central tracer at mass M
         """
         n_c = np.ones_like(m)
         n_c[m < 10 ** self.params["M_min"]] = 0
@@ -276,7 +296,7 @@ class Zehavi05(HODPoisson):
 
     def _satellite_occupation(self, m):
         """
-        Number of satellite galaxies at mass M
+        Amplitude of satellite tracer at mass M
         """
         return (m / 10 ** self.params["M_1"]) ** self.params["alpha"]
 
@@ -297,6 +317,13 @@ class Zheng05(HODPoisson):
         Width of smoothed cutoff
     M_0 : float, default = 11.5047
         Minimum mass of halo containing satellites
+
+    References
+    ----------
+    .. [1] Zheng, Z. et al., "Theoretical Models of the Halo Occupation Distribution:
+           Separating Central and Satellite Galaxies ",
+           https://ui.adsabs.harvard.edu/abs/2005ApJ...633..791Z.
+
     """
 
     _defaults = {
@@ -309,7 +336,7 @@ class Zheng05(HODPoisson):
 
     def _central_occupation(self, m):
         """
-        Number of central galaxies at mass M
+        Amplitude of central tracer at mass M
         """
         return 0.5 * (
             1 + sp.erf((np.log10(m) - self.params["M_min"]) / self.params["sig_logm"])
@@ -317,7 +344,7 @@ class Zheng05(HODPoisson):
 
     def _satellite_occupation(self, m):
         """
-        Number of satellite galaxies at mass M
+        Amplitude of satellite tracer at mass M
         """
         ns = np.zeros_like(m)
         ns[m > 10 ** self.params["M_0"]] = (
@@ -328,12 +355,13 @@ class Zheng05(HODPoisson):
 
     @property
     def mmin(self):
+        """Minimum turnover mass for tracer"""
         return self.params["M_min"] - 5 * self.params["sig_logm"]
 
 
 class Contreras13(HODPoisson):
     """
-    Nine-parameter model of Contreras (2013)
+    Nine-parameter model of Contreras (2013) [1]_.
 
     Parameters
     ----------
@@ -357,6 +385,13 @@ class Contreras13(HODPoisson):
         delta
     x : float, default = 1
         x
+
+    References
+    ----------
+    .. [1] Contreras, C. et al., "The WiggleZ Dark Energy Survey:
+           measuring the cosmicgrowth rate with the two-point galaxy correlation function",
+           https://ui.adsabs.harvard.edu/abs/2013MNRAS.430..924C.
+
     """
 
     _defaults = {
@@ -374,7 +409,7 @@ class Contreras13(HODPoisson):
 
     def _central_occupation(self, m):
         """
-        Number of central galaxies at mass M
+        Amplitude of central tracer at mass M
         """
         return self.params["fcb"] * (1 - self.params["fca"]) * np.exp(
             -np.log10(m / 10 ** self.params["M_min"]) ** 2
@@ -390,7 +425,7 @@ class Contreras13(HODPoisson):
 
     def _satellite_occupation(self, m):
         """
-        Number of satellite galaxies at mass M
+        Amplitude of satellite tracer at mass M
         """
         return (
             self.params["fs"]
@@ -404,21 +439,38 @@ class Contreras13(HODPoisson):
 
 class Geach12(Contreras13):
     """
-    8-parameter model of Geach et. al. (2012).
+    8-parameter model of Geach et. al. (2012) [1]_.
 
-    This is identical to `Contreras13`, but with `x==1`.
+    This is identical to :class:`Contreras13`, but with `x==1`.
+
+    References
+    ----------https://ui.adsabs.harvard.edu/abs/2005ApJ...631...41T
+    .. [1] Geach, J. E. et al., "The clustering of Hα emitters at z=2.23 from HiZELS ",
+           https://ui.adsabs.harvard.edu/abs/2012MNRAS.426..679G.
+
     """
 
     pass
 
 
 class Tinker05(Zehavi05):
-    """3-parameter model of Tinker et. al. (2005)."""
+    """
+    3-parameter model of Tinker et. al. (2005) [1]_.
+
+    References
+    ----------
+    .. [1] Tinker, J. L. et al., "On the Mass-to-Light Ratio of Large-Scale Structure",
+           https://ui.adsabs.harvard.edu/abs/2005ApJ...631...41T.
+
+    """
 
     _defaults = {"M_min": 11.6222, "M_1": 12.851, "M_cut": 12.0}
     central_condition_inherent = True
 
     def _satellite_occupation(self, m):
+        """
+        Amplitude of satellite tracer at mass M
+        """
         out = self.central_occupation(m)
         return (
             out
@@ -439,7 +491,7 @@ class Zehavi05WithMax(Zehavi05):
 
     def _central_occupation(self, m):
         """
-        Number of central galaxies at mass M
+        Amplitude of central tracer at mass M
         """
         n_c = np.zeros_like(m)
         n_c[
@@ -452,7 +504,7 @@ class Zehavi05WithMax(Zehavi05):
 
     def _satellite_occupation(self, m):
         """
-        Number of satellite galaxies at mass M
+        Amplitude of satellite tracer at mass M
         """
         return (m / 10 ** self.params["M_1"]) ** self.params["alpha"]
 
@@ -473,18 +525,26 @@ class Zehavi05Marked(Zehavi05WithMax):
     }
 
     def sigma_central(self, m):
+        """The standard deviation of the central tracer amount in haloes of mass m."""
         co = super(Zehavi05Marked, self)._central_occupation(m)
         return np.sqrt(self._tracer_per_central(m) * co * (1 - co))
 
     def _tracer_per_central(self, m):
+        """Number of tracer per central tracer source"""
         return 10 ** self.params["logA"]
 
     def _central_occupation(self, m):
+        """
+        Amplitude of central tracer at mass M
+        """
         return super(Zehavi05Marked, self)._central_occupation(
             m
         ) * self._tracer_per_central(m)
 
     def _satellite_occupation(self, m):
+        """
+        Amplitude of satellite tracer at mass M
+        """
         return super(Zehavi05Marked, self)._satellite_occupation(
             m
         ) * self._tracer_per_satellite(m)
@@ -506,6 +566,9 @@ class ContinuousPowerLaw(HODBulk):
     sharp_cut = True
 
     def _satellite_occupation(self, m):
+        """
+        Amplitude of satellite tracer at mass M
+        """
         alpha = self.params["alpha"]
         M_1 = 10 ** self.params["M_1"]
         A = 10 ** self.params["logA"]
@@ -517,6 +580,7 @@ class ContinuousPowerLaw(HODBulk):
         )
 
     def sigma_satellite(self, m):
+        """The standard deviation of the satellite tracer amount in haloes of mass m."""
         return np.ones_like(m) * self.params["sigma_A"]
 
 
@@ -526,7 +590,11 @@ class Constant(HODBulk):
     _defaults = {"logA": 0, "M_min": 11.0, "sigma_A": 0}
 
     def _satellite_occupation(self, m):
+        """
+        Amplitude of satellite tracer at mass M
+        """
         return np.where(m > 10 ** self.params["M_min"], 10 ** self.params["logA"], 0)
 
     def sigma_satellite(self, m):
+        """The standard deviation of the satellite tracer amount in haloes of mass m."""
         return np.ones_like(m) * self.params["sigma_A"]

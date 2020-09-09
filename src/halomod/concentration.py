@@ -1,5 +1,5 @@
 """
-Concentration-mass relations.
+Module defining oncentration-mass relations.
 
 This module defines a base :class:`CMRelation` component class, and a number of specific
 concentration-mass relations. In addition, it defines a factory function :func:`make_colossus_cm`
@@ -13,22 +13,29 @@ Examples
 --------
 A simple example of using a native concentration-mass relation::
 
+>>> from halomod.concentration import Duffy08
 >>> duffy = Duffy08()
 >>> m = np.logspace(10, 15, 100)
 >>> plt.plot(m, duffy.cm(m, z=0))
 
+You can also specify a different concentration-mass relation for tracer
+if you're working with :class:`~halomod.halo_model.TracerHaloModel` ::
+    >>> from halomod import HaloModel
+    >>> hm = HaloModel(halo_concentration_model='Ludlow16',
+    >>>                tracer_concentration_model='Duffy08')
+
 Constructing and using a colossus-based relation::
 
+>>> from halomod.concentration import make_colossus_cm
 >>> diemer = make_colossus_cm(model='diemer15', statistic='median')()
 >>> plt.plot(m, diemer.cm(m, z=1))
 
-Note the extra function call on the first line here -- :func:`make_colossus_cm` returns
+Note the extra function call on the second line here -- :func:`make_colossus_cm` returns
 a *class*, not an instance. Under the hood, any parameters passed to the function other
 than ``model`` are set as "defaults", and can be modified like standard model params.
 For instance, using such a model in a broader :class:`~HaloModel` framework::
 
 >>> diemer19_cls = make_colossus_cm(model='diemer19', ps_args={})
->>> from halomod import HaloModel
 >>> hm = HaloModel(
 >>>     halo_concentration_model=diemer19_cls,
 >>>     halo_concentration_params={'ps_args': {'model': 'eisenstein98'}}
@@ -155,10 +162,27 @@ class CMRelation(Component):
             return 0
 
     def cm(self, m, z=0):
+        """
+        Return concentration parameter for mass m at z.
+
+        Parameters
+        ----------
+        z : float
+            Redshift. Must not be an array.
+        m : float
+            Halo Mass.
+        """
         pass
 
 
 def make_colossus_cm(model="diemer15", **defaults):
+    r"""
+    A factory function which helps with integration with the ``colossus`` cosmology code.
+    See :mod:`~halomod.concentration` for an example of how to use it.
+
+    Notice that it returns a *class* :class:`CustomColossusCM` not an instance.
+    """
+
     class CustomColossusCM(CMRelation):
         _model_name = model
         _defaults = defaults
@@ -182,10 +206,38 @@ def make_colossus_cm(model="diemer15", **defaults):
                 **self.params,
             )
 
+    CustomColossusCM.__name__ = model.capitalize()
+    CustomColossusCM.__qualname__ = model.capitalize()
+
     return CustomColossusCM
 
 
 class Bullock01(CMRelation):
+    r"""
+    Concentration-Mass relation of Bullock et al.(2001) [1]_.
+
+    See documentation for :class:`Bias` for information on input parameters. This
+    model has two model parameters.
+
+    Notes
+    -----
+    The form of the concentration is
+
+    .. math:: c_{\rm vir} = K a/a_c = K (1+z_c)/(1+z)
+
+    The detailed description of the model can be found in [1]_.
+
+    Other Parameters
+    ----------------`
+    F, K : float
+        Default value is ``F=0.01`` and ``K=0.34``
+
+    References
+    ----------
+    .. [1] Bullock, J.S. et al., " Profiles of dark haloes:
+           evolution, scatter and environment ",
+           https://ui.adsabs.harvard.edu/abs/1996MNRAS.282..347M.
+    """
     _defaults = {"F": 0.01, "K": 3.4}
     native_mdefs = (SOCritical(),)
 
@@ -202,6 +254,34 @@ class Bullock01(CMRelation):
 
 
 class Bullock01Power(CMRelation):
+    r"""
+    Extended Concentration-Mass relation of Bullock et al.(2001) [1]_.
+
+    See documentation for :class:`Bias` for information on input parameters. This
+    model has three model parameters.
+
+    Notes
+    -----
+    The form of the concentration is
+
+    ..math:: c_{\rm vir} = a/(1+z)^c\big(\frac{m}{m_s}\big)^b
+
+    where a,b,c,ms are model parameters.
+
+    Other Parameters
+    ----------------`
+    a, b, c: float
+        Default value is ``a=9.0``, ``b=-0.13`` and ``c=1.0``.
+
+    ms: float
+        Default value is ``None``, where it's set to be the non-linear mass at z.
+
+    References
+    ----------
+    .. [1] Bullock, J.S. et al., " Profiles of dark haloes:
+           evolution, scatter and environment ",
+           https://ui.adsabs.harvard.edu/abs/1996MNRAS.282..347M.
+    """
     _defaults = {"a": 9.0, "b": -0.13, "c": 1.0, "ms": None}
     native_mdefs = (SOCritical(),)
 
@@ -214,19 +294,38 @@ class Bullock01Power(CMRelation):
 
 
 class Duffy08(Bullock01Power):
-    """Concentration-mass relation from Duffy+2008.
+    r"""
+    Concentration-mass relation from Duffy et al.(2008) [1]_.
+
+    It has the same fomulae as :class:`Bullock01Power`,
+    but with parameter values refitted.
+
+    See documentation for :class:`Bias` for information on input parameters. This
+    model has five model parameters.
 
     Notes
     -----
 
     .. note:: Only "NFW" parameters are implemented by default here. Of course, you can
-              always pass your own parameters from Table 1 of Duffy+2008.
+              always pass your own parameters from Table 1 of [1]_.
 
     Other Parameters
     ----------------
+    a, b, c: float
+        Default is "NFW" parameters in [1]_.
+
+    ms: float
+        Default value is ``2e12``.
+
     sample : str
-        Either "relaxed" or "full". Specifies which set of parameters to take as
-        default parameters, from Table 1 of Duffy 2008.
+        Either "relaxed"(default) or "full". Specifies which set of parameters to take as
+        default parameters, from Table 1 of [1]_.
+
+    References
+    ----------
+    .. [1] Duffy, A. R. et al., "Dark matter halo concentrations in the
+           Wilkinson Microwave Anisotropy Probe year 5 cosmology ",
+           https://ui.adsabs.harvard.edu/abs/2008MNRAS.390L..64D.
     """
 
     _defaults = {"a": None, "b": None, "c": None, "ms": 2e12, "sample": "relaxed"}
@@ -259,10 +358,51 @@ class Duffy08(Bullock01Power):
 
 
 class Zehavi11(Bullock01Power):
+    r"""
+    Concentration-mass relation from Duffy et al.(2008) [1]_.
+
+    It has the same fomulae as :class:`Bullock01Power`,
+    but with parameter values refitted.
+
+    See documentation for :class:`Bias` for information on input parameters. This
+    model has four model parameters.
+
+    Other Parameters
+    ----------------
+    a, b, c, ms: float
+        Default is ``(11.0,-0.13,1.0,2.26e12)``.
+
+    References
+    ----------
+    .. [1] Zehavi, I. et al., "Galaxy Clustering in the Completed SDSS Redshift Survey:
+           The Dependence on Color and Luminosity",
+           https://ui.adsabs.harvard.edu/abs/2011ApJ...736...59Z.
+    """
     _defaults = {"a": 11.0, "b": -0.13, "c": 1.0, "ms": 2.26e12}
 
 
 class Ludlow16(CMRelation):
+    r"""
+    Analytical Concentration-Mass relation of Ludlow et al.(2016) [1]_.
+
+    See documentation for :class:`Bias` for information on input parameters. This
+    model has two model parameters.
+
+    Notes
+    -----
+    .. note:: The form of the concentration is described by eq(6) and eq(7) in [1]_.
+
+    Other Parameters
+    ----------------`
+    f, C : float
+        Default value is ``f=0.02`` and ``C=650``
+
+    References
+    ----------
+    .. [1]  Ludlow, A. D. et al., "The mass-concentration-redshift relation
+            of cold and warm dark matter haloes ",
+            https://ui.adsabs.harvard.edu/abs/2016MNRAS.460.1214L.
+    """
     # Note: only defined for NFW for now.
     _defaults = {
         "f": 0.02,  # Fraction of mass assembled at "formation"
@@ -341,6 +481,28 @@ class Ludlow16(CMRelation):
 
 
 class Ludlow16Empirical(CMRelation):
+    r"""
+    Empirical Concentration-Mass relation of Ludlow et al.(2016) [1]_
+    for Planck-like cosmology.
+
+    See documentation for :class:`Bias` for information on input parameters. This
+    model has eight model parameters.
+
+    Notes
+    -----
+    .. note:: The form of the concentration is described by eq(C1-C6) in [1]_::
+
+    Other Parameters
+    ----------------`
+    c0_0, c0_z, beta_0, beta_z, gamma1_0, gamma1_z, gamma2_0, gamma2_z: float
+        Default value is ``(3.395,-0.215,0.307,0.54,0.628,-0.047,0.317,-0.893)``.
+
+    References
+    ----------
+    .. [1]  Ludlow, A. D. et al., "The mass-concentration-redshift relation
+            of cold and warm dark matter haloes ",
+            https://ui.adsabs.harvard.edu/abs/2016MNRAS.460.1214L.
+    """
     _defaults = {
         "c0_0": 3.395,
         "c0_z": -0.215,
@@ -395,6 +557,8 @@ class Ludlow16Empirical(CMRelation):
 
 
 class Ludlow2016(Ludlow16):
+    "This class is deprecated -- use :class:`Ludlow16` instead."
+
     def __init__(self, *args, **kwargs):
         warnings.warn(
             "This class is deprecated -- use Ludlow16 instead.",
@@ -404,6 +568,8 @@ class Ludlow2016(Ludlow16):
 
 
 class Ludlow2016Empirical(Ludlow16Empirical):
+    "This class is deprecated -- use :class:`Ludlow16Empirical` instead."
+
     def __init__(self, *args, **kwargs):
         warnings.warn(
             "This class is deprecated -- use Ludlow16Empirical instead.",
