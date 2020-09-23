@@ -11,7 +11,7 @@ from halomod import DMHaloModel
 @pytest.fixture(scope="module")
 def hmf():
     """Simple hmf object that gives us reasonable defaults for the bias."""
-    return MassFunction()
+    return MassFunction(transfer_model="EH")
 
 
 @pytest.mark.parametrize("bias_model", list(bias.Bias._models.values()))

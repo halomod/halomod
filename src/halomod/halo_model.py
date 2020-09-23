@@ -1104,17 +1104,14 @@ class TracerHaloModel(DMHaloModel):
 
         Note: this may not exist for every kind of tracer.
         """
-        if hasattr(self.hod, "satellite_occupation"):
-            # Integrand is just the density of satellite galaxies at mass m
-            integrand = (
-                self.m[self._tm]
-                * self.dndm[self._tm]
-                * self.hod.satellite_occupation(self.m[self._tm])
-            )
-            s = intg.trapz(integrand, dx=np.log(self.m[1] / self.m[0]))
-            return s / self.mean_tracer_den
-        else:
-            raise AttributeError("This HOD has no concept of a satellite")
+        # Integrand is just the density of satellite galaxies at mass m
+        integrand = (
+            self.m[self._tm]
+            * self.dndm[self._tm]
+            * self.hod.satellite_occupation(self.m[self._tm])
+        )
+        s = intg.trapz(integrand, dx=np.log(self.m[1] / self.m[0]))
+        return s / self.mean_tracer_den
 
     @cached_quantity
     def central_fraction(self):
@@ -1164,9 +1161,6 @@ class TracerHaloModel(DMHaloModel):
 
         Note: May not exist for every kind of tracer.
         """
-        if not hasattr(self.hod, "ss_pairs"):
-            raise AttributeError("The HOD being used has no satellite occupation")
-
         u = self.tracer_profile_ukm[:, self._tm]
         integ = (
             u ** 2
@@ -1210,8 +1204,6 @@ class TracerHaloModel(DMHaloModel):
 
         Note: May not exist for every kind of tracer.
         """
-        if not hasattr(self.hod, "ss_pairs"):
-            raise AttributeError("The HOD being used has no satellite occupation")
 
         if self.tracer_profile.has_lam:
             lam = self.tracer_profile_lam
@@ -1250,9 +1242,6 @@ class TracerHaloModel(DMHaloModel):
 
         Note: May not exist for every kind of tracer.
         """
-        if not hasattr(self.hod, "cs_pairs"):
-            raise AttributeError("The HOD being used has no satellite occupation")
-
         u = self.tracer_profile_ukm[:, self._tm]
         integ = (
             self.dndm[self._tm]
@@ -1295,9 +1284,6 @@ class TracerHaloModel(DMHaloModel):
 
         Note: May not exist for every kind of tracer.
         """
-        if not hasattr(self.hod, "cs_pairs"):
-            raise AttributeError("The HOD being used has no satellite occupation")
-
         rho = self.tracer_profile_rho[:, self._tm]
         integ = (
             self.dndm[self._tm]
