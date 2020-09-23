@@ -15,3 +15,4 @@ docs/_autosummary/*
 .coverage
 .ipynb_checkpoints
 docs/examples/*.h5
+docs/examples/*.npy
