@@ -13,6 +13,7 @@ def test_cmz_wdm():
         halo_concentration_model="Duffy08WDM",
         wdm_mass=3.3,
         Mmin=7.0,
+        transfer_model="EH",
     )
     cdm = DMHaloModel(
         hmf_model="SMT",
@@ -22,6 +23,7 @@ def test_cmz_wdm():
         filter_params={"c": 2.5},
         halo_concentration_model="Duffy08",
         Mmin=7.0,
+        transfer_model="EH",
     )
 
     assert np.all(
@@ -41,6 +43,7 @@ def test_ludlow_cmz_wdm():
         halo_profile_model="Einasto",
         wdm_mass=3.3,
         Mmin=7.0,
+        transfer_model="EH",
     )
     cdm = DMHaloModel(
         hmf_model="SMT",
@@ -51,6 +54,7 @@ def test_ludlow_cmz_wdm():
         halo_profile_model="Einasto",
         Mmin=7.0,
         mdef_model="SOCritical",
+        transfer_model="EH",
     )
 
     assert np.all(

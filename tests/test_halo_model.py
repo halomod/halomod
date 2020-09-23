@@ -20,12 +20,12 @@ def test_default_actually_inits(model):
 
 @pytest.fixture(scope="module")
 def dmhm():
-    return DMHaloModel()
+    return DMHaloModel(transfer_model="EH")
 
 
 @pytest.fixture(scope="module")
 def thm():
-    return TracerHaloModel(rmin=0.01, rmax=50, rnum=20)
+    return TracerHaloModel(rmin=0.01, rmax=50, rnum=20, transfer_model="EH")
 
 
 def test_dm_model_instances(dmhm):
@@ -77,6 +77,7 @@ def test_setting_default_tracers_conc():
         halo_concentration_model="Ludlow16",
         tracer_concentration_model="Duffy08",
         halo_concentration_params={"f": 0.02, "C": 650,},
+        transfer_model="EH",
     )
 
     assert hm.tracer_concentration.params == hm.tracer_concentration._defaults
@@ -90,6 +91,7 @@ def test_setting_default_tracers_prof():
         halo_concentration_model="Ludlow16",
         tracer_concentration_model="Duffy08",
         halo_profile_params={"alpha": 1.1},
+        transfer_model="EH",
     )
 
     assert hm.tracer_profile.params == hm.tracer_profile._defaults
