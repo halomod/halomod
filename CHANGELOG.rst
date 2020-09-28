@@ -1,7 +1,7 @@
 Releases
 ========
 
-2.0.0dev
+2.0.0rc1
 --------
 
 Features
@@ -18,6 +18,8 @@ Features
 * Addition of CoredNFW profile
 * Added ``mean_tracer_den_unit`` -- the mean density of whatever tracer you use.
 * Interfaces with COLOSSUS for concentration and bias.
+* New CLI interface ``halomod run``
+* New examples, including an example of parameter fitting with ``halomod`` and ``emcee`.
 
 Changes
 +++++++
@@ -30,6 +32,7 @@ Bugfixes
 * Fix for ``DblSphere`` halo exclusion model.
 * Fix for when no tracer profile/concentration params are given. Now use the halo params
   iff the tracer model is equal to the halo one.
+* Fix for halo profile numerical FT.
 
 v1.4.5
 ------

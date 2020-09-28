@@ -21,7 +21,7 @@ def test_duffy(mass, mdef):
 @pytest.mark.parametrize("lu16", [cm.Ludlow2016, cm.Ludlow2016Empirical])
 def test_ludlow_vs_colossus(lu16):
     """Test the Ludlow relation between native and colossus implementations."""
-    mf = MassFunction()
+    mf = MassFunction(transfer_model="EH")
 
     L16Colossus = cm.make_colossus_cm(model="ludlow16")
 
