@@ -1,8 +1,8 @@
 Releases
 ========
 
-2.0.0dev
---------
+2.0.0
+-----
 
 Features
 ++++++++
@@ -18,6 +18,8 @@ Features
 * Addition of CoredNFW profile
 * Added ``mean_tracer_den_unit`` -- the mean density of whatever tracer you use.
 * Interfaces with COLOSSUS for concentration and bias.
+* New CLI interface ``halomod run``
+* New examples, including an example of parameter fitting with ``halomod`` and ``emcee`.
 
 Changes
 +++++++
