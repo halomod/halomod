@@ -1195,13 +1195,7 @@ class TracerHaloModel(DMHaloModel):
 
         Note: May not exist for every kind of tracer.
         """
-        u = self.tracer_profile_ukm[:, self._tm]
-        integ = (
-            u ** 2
-            * self.dndm[self._tm]
-            * self.m[self._tm]
-            * self.hod.ss_pairs(self.m[self._tm])
-        )
+        integ = self.tracer_profile_ukm ** 2 * self.dndm * self.hod.ss_pairs(self.m)
 
         if self.force_1halo_turnover:
             r = np.pi / self.k / 10  # The 10 is a complete heuristic hack.
@@ -1277,15 +1271,6 @@ class TracerHaloModel(DMHaloModel):
         """
         c = np.zeros_like(self.k)
         dens_min = 4 * np.pi * self.mean_density0 * self.halo_overdensity_mean / 3
-
-        u = self.tracer_profile_ukm[:, self._tm]
-        integ = (
-            self.dndm[self._tm]
-            * 2
-            * self.hod.cs_pairs(self.m[self._tm])
-            * u
-            * self.m[self._tm]
-        )
 
         cs_pairs = self.hod.cs_pairs(self.m)
         for i, (k, u) in enumerate(zip(self.k, self.tracer_profile_ukm)):
