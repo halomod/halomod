@@ -34,8 +34,7 @@ Features
 * Several derived quantities (eg. effective bias, satellite fraction).
 * All models/components specifically written to be easily extendable.
 * Simple routine for populating a halo catalogue with galaxies via a HOD.
-* Built-in routines for efficient fitting of arbitrary parameters to data. **BETA**
-* CLI scripts both for producing any quantity included, or fitting any quantity. **BETA**
+* CLI script for producing any quantity included.
 
 Usage
 -----
@@ -78,6 +77,19 @@ Within the constructed object, the actual model is instantiated and saved as
 ``<component>``, so that this object can be accessed, and several internal methods can
 be called. *Some* of these are exposed directly by the ``HaloModel`` class (eg. one can
 call ``hm.n_sat`` directly, which itself calls a method of the ``hm.hod`` component).
+
+Using the CLI
+~~~~~~~~~~~~~
+You can also run ``halomod`` from the command-line. For basic usage, do::
+
+    halomod run --help
+
+Configuration for the run can be specified on the CLI or via a TOML file (recommended).
+An example TOML file can be found in `examples/example_run_config.toml <examples/example_run_config>`_.
+Any parameter specifiable in the TOML file can alternatively be specified on the commmand
+line after an isolated double-dash, eg.::
+
+    halomod run -- z=1.0 hmf_model='SMT01' bias_model='Tinker10'
 
 Acknowledgments
 ---------------

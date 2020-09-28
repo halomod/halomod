@@ -414,7 +414,7 @@ class DMHaloModel(MassFunction):
             return None
         else:
             return self.sd_bias_model(
-                self._corr_mm_base_fnc(self._r_table), **self.sd_bias_params
+                self.corr_auto_matter_fnc(self._r_table), **self.sd_bias_params
             )
 
     @cached_quantity
@@ -859,7 +859,7 @@ class TracerHaloModel(DMHaloModel):
         return val
 
     @parameter("param")
-    def hod_params(self, val):
+    def hod_params(self, val: dict):
         """Dictionary of parameters for the HOD model."""
         return val
 
@@ -1046,6 +1046,47 @@ class TracerHaloModel(DMHaloModel):
         """The mean central occupation of the tracer as a function of halo mass."""
         return self.hod.central_occupation(self.m)
 
+    @property
+    def _central_occupation(self):
+        """The central occupation to use when integrating over mass.
+
+        The reason is because if a sharp cut happens, we need to make sure the spline
+        carries all the way through past the mmin as unity. Setting the pixel below mmin
+        to zero causes a bad spline.
+        """
+        return (
+            np.ones_like(self.m)
+            if (
+                self.hod.sharp_cut
+                and (self.hod._central or self.hod.central_condition_inherent)
+            )
+            else self.central_occupation
+        )
+
+    @property
+    def _total_occupation(self):
+        """The total occupation to use when integrating over mass.
+
+        See _central_occupation for why.
+        """
+        return self._central_occupation + self.satellite_occupation
+
+    @property
+    def tracer_mmin(self):
+        """The minimum halo mass of integrals over the tracer population.
+
+        This is a little tricky, because HOD's which don't enforce the central condition,
+        even if they have a sharp cut at mmin, should not stop the integral at the
+        central's Mmin, but should rather continue to pick up the satellites in lower
+        mass haloes.
+        """
+        if self.hod.sharp_cut and (
+            self.hod._central or self.hod.central_condition_inherent
+        ):
+            return 10 ** self.hod.mmin
+        else:
+            return None
+
     # ===========================================================================
     # Derived HOD Quantities
     # ===========================================================================
@@ -1058,8 +1099,9 @@ class TracerHaloModel(DMHaloModel):
         constructor, that value can be found as :meth:`.tracer_density`. It should be
         very close to this value.
         """
-        integrand = self.dndm[self._tm] * self.total_occupation[self._tm]
-        return intg.simps(integrand, self.m[self._tm])
+        return tools.spline_integral(
+            self.m, self.dndm * self._total_occupation, xmin=self.tracer_mmin
+        )
 
     @cached_quantity
     def mean_tracer_den_unit(self):
@@ -1074,13 +1116,11 @@ class TracerHaloModel(DMHaloModel):
         The tracer occupation-weighted halo bias factor (Tinker 2005).
         """
         # Integrand is just the density of galaxies at mass m by bias
-        integrand = (
-            self.m[self._tm]
-            * self.dndm[self._tm]
-            * self.total_occupation[self._tm]
-            * self.halo_bias[self._tm]
+        b = tools.spline_integral(
+            self.m,
+            self.dndm * self._total_occupation * self.halo_bias,
+            xmin=self.tracer_mmin,
         )
-        b = intg.trapz(integrand, dx=np.log(self.m[1] / self.m[0]))
         return b / self.mean_tracer_den
 
     @cached_quantity
@@ -1089,13 +1129,10 @@ class TracerHaloModel(DMHaloModel):
         Average host-halo mass (in log10 units).
         """
         # Integrand is just the density of galaxies at mass m by m
-        integrand = (
-            self.m[self._tm] ** 2
-            * self.dndm[self._tm]
-            * self.total_occupation[self._tm]
+        m = tools.spline_integral(
+            self.m, self.m * self.dndm * self._total_occupation, xmin=self.tracer_mmin
         )
 
-        m = intg.trapz(integrand, dx=np.log(self.m[1] / self.m[0]))
         return np.log10((m / self.mean_tracer_den))
 
     @cached_quantity
@@ -1105,12 +1142,9 @@ class TracerHaloModel(DMHaloModel):
         Note: this may not exist for every kind of tracer.
         """
         # Integrand is just the density of satellite galaxies at mass m
-        integrand = (
-            self.m[self._tm]
-            * self.dndm[self._tm]
-            * self.hod.satellite_occupation(self.m[self._tm])
+        s = tools.spline_integral(
+            self.m, self.dndm * self.satellite_occupation, xmin=self.tracer_mmin
         )
-        s = intg.trapz(integrand, dx=np.log(self.m[1] / self.m[0]))
         return s / self.mean_tracer_den
 
     @cached_quantity
@@ -1161,23 +1195,19 @@ class TracerHaloModel(DMHaloModel):
 
         Note: May not exist for every kind of tracer.
         """
-        u = self.tracer_profile_ukm[:, self._tm]
-        integ = (
-            u ** 2
-            * self.dndm[self._tm]
-            * self.m[self._tm]
-            * self.hod.ss_pairs(self.m[self._tm])
-        )
+        integ = self.tracer_profile_ukm ** 2 * self.dndm * self.hod.ss_pairs(self.m)
 
         if self.force_1halo_turnover:
             r = np.pi / self.k / 10  # The 10 is a complete heuristic hack.
             mmin = (
                 4 * np.pi * r ** 3 * self.mean_density0 * self.halo_overdensity_mean / 3
             )
-            mask = np.outer(self.m[self._tm], np.ones_like(self.k)) < mmin
+            mask = np.outer(self.m, np.ones_like(self.k)) < mmin
             integ[mask.T] = 0
 
-        p = intg.trapz(integ, dx=self.dlog10m * np.log(10))
+        p = np.zeros_like(self.k)
+        for i, f in enumerate(integ):
+            p[i] = tools.spline_integral(self.m, f, xmin=self.tracer_mmin)
 
         p /= self.mean_tracer_den ** 2
 
@@ -1205,16 +1235,13 @@ class TracerHaloModel(DMHaloModel):
         Note: May not exist for every kind of tracer.
         """
 
+        ss_pairs = self.hod.ss_pairs(self.m)
         if self.tracer_profile.has_lam:
-            lam = self.tracer_profile_lam
-            integ = (
-                self.m[self._tm]
-                * self.dndm[self._tm]
-                * self.hod.ss_pairs(self.m[self._tm])
-                * lam[:, self._tm]
-            )
-
-            c = intg.trapz(integ, dx=self.dlog10m * np.log(10))
+            c = np.zeros_like(self._r_table)
+            for i, lam in enumerate(self.tracer_profile_lam):
+                c[i] = tools.spline_integral(
+                    self.m, lam * self.dndm * ss_pairs, xmin=self.tracer_mmin
+                )
             c = c / self.mean_tracer_den ** 2 - 1
 
         else:
@@ -1242,24 +1269,21 @@ class TracerHaloModel(DMHaloModel):
 
         Note: May not exist for every kind of tracer.
         """
-        u = self.tracer_profile_ukm[:, self._tm]
-        integ = (
-            self.dndm[self._tm]
-            * 2
-            * self.hod.cs_pairs(self.m[self._tm])
-            * u
-            * self.m[self._tm]
-        )
+        c = np.zeros_like(self.k)
+        dens_min = 4 * np.pi * self.mean_density0 * self.halo_overdensity_mean / 3
 
-        if self.force_1halo_turnover:
-            r = np.pi / self.k / 10  # The 10 is a complete heuristic hack.
-            mmin = (
-                4 * np.pi * r ** 3 * self.mean_density0 * self.halo_overdensity_mean / 3
-            )
-            mask = np.outer(self.m[self._tm], np.ones_like(self.k)) < mmin
-            integ[mask.T] = 0
+        cs_pairs = self.hod.cs_pairs(self.m)
+        for i, (k, u) in enumerate(zip(self.k, self.tracer_profile_ukm)):
+            intg = self.dndm * 2 * cs_pairs * u
 
-        c = intg.trapz(integ, dx=self.dlog10m * np.log(10))
+            if self.force_1halo_turnover:
+                r = np.pi / k / 10  # The 10 is a complete heuristic hack.
+                mmin = max(self.hod.mmin, dens_min * r ** 3)
+            else:
+                mmin = self.hod.mmin
+
+            c[i] = tools.spline_integral(self.m, intg, xmin=10 ** mmin)
+
         c /= self.mean_tracer_den ** 2
 
         return tools.ExtendedSpline(
@@ -1284,15 +1308,12 @@ class TracerHaloModel(DMHaloModel):
 
         Note: May not exist for every kind of tracer.
         """
-        rho = self.tracer_profile_rho[:, self._tm]
-        integ = (
-            self.dndm[self._tm]
-            * 2
-            * self.hod.cs_pairs(self.m)[self._tm]
-            * rho
-            * self.m[self._tm]
-        )
-        c = intg.trapz(integ, dx=self.dlog10m * np.log(10))
+        c = np.zeros_like(self._r_table)
+        cs_pairs = self.hod.cs_pairs(self.m)
+        for i, rho in enumerate(self.tracer_profile_rho):
+            c[i] = tools.spline_integral(
+                self.m, self.dndm * 2 * cs_pairs * rho, xmin=self.tracer_mmin
+            )
 
         c = c / self.mean_tracer_den ** 2 - 1
 
@@ -1313,35 +1334,9 @@ class TracerHaloModel(DMHaloModel):
         """
         A callable returning the total 1-halo term of the tracer auto power spectrum.
         """
-        try:
-            return lambda k: self.power_1h_cs_auto_tracer_fnc(
-                k
-            ) + self.power_1h_ss_auto_tracer_fnc(k)
-        except AttributeError:
-            u = self.tracer_profile_ukm[:, self._tm]
-            integ = u ** 2 * self.dndm[self._tm] * self.total_occupation[self._tm] ** 2
-
-            if self.force_1halo_turnover:
-                r = np.pi / self.k / 10  # The 10 is a complete heuristic hack.
-                mmin = (
-                    4
-                    * np.pi
-                    * r ** 3
-                    * self.mean_density0
-                    * self.halo_overdensity_mean
-                    / 3
-                )
-                mask = np.outer(self.m[self._tm], np.ones_like(self.k)) < mmin
-                integ[mask.T] = 0
-
-            p = intg.simps(integ, self.m[self._tm]) / self.mean_tracer_den ** 2
-
-            return tools.ExtendedSpline(
-                self.k,
-                p,
-                lower_func=tools._zero if self.force_1halo_turnover else "boundary",
-                upper_func=tools._zero,
-            )
+        return lambda k: (
+            self.power_1h_cs_auto_tracer_fnc(k) + self.power_1h_ss_auto_tracer_fnc(k)
+        )
 
     @property
     def power_1h_auto_tracer(self):
@@ -1352,27 +1347,20 @@ class TracerHaloModel(DMHaloModel):
     def corr_1h_auto_tracer_fnc(self):
         """A callable returning the 1-halo term of the tracer auto correlations."""
         if self.tracer_profile.has_lam:
-            lam = self.tracer_profile_lam[:, self._tm]
-            if hasattr(self.hod, "ss_pairs"):
-                rho = self.tracer_profile_rho[:, self._tm]
-                integ = (
-                    self.m[self._tm]
-                    * self.dndm[self._tm]
-                    * (
-                        self.hod.ss_pairs(self.m[self._tm]) * lam
-                        + 2 * self.hod.cs_pairs(self.m[self._tm]) * rho
-                    )
-                )
-                if self.hod._central:
-                    integ *= self.central_occupation[self._tm]
+            c = np.zeros_like(self._r_table)
 
-            else:
-                integ = (
-                    self.m[self._tm]
-                    * self.dndm[self._tm]
-                    * (self.total_occupation[self._tm] ** 2 * lam)
+            ss_pairs = self.hod.ss_pairs(self.m)
+            cs_pairs = self.hod.cs_pairs(self.m)
+            for i, (rho, lam) in enumerate(
+                zip(self.tracer_profile_rho, self.tracer_profile_lam)
+            ):
+                c[i] = tools.spline_integral(
+                    self.m,
+                    self.dndm
+                    * (ss_pairs * lam + 2 * cs_pairs * rho)
+                    * (self._central_occupation if self.hod._central else 1),
+                    xmin=self.tracer_mmin,
                 )
-            c = intg.trapz(integ, dx=self.dlog10m * np.log(10))
 
             c /= self.mean_tracer_den ** 2
 
@@ -1436,23 +1424,21 @@ class TracerHaloModel(DMHaloModel):
         phh = self._power_halo_centres_fnc(self.k)
 
         if intg.ndim == 2:
-            p = []
-            for i, x in enumerate(intg):
-
-                p.append(
-                    tools.ExtendedSpline(
-                        self.k,
-                        x * phh,
-                        lower_func=self.linear_power_fnc,
-                        match_lower=True,
-                        upper_func="power_law"
-                        if (
-                            self.exclusion_model == NoExclusion
-                            and "filtered" not in self.hc_spectrum
-                        )
-                        else tools._zero,
+            p = [
+                tools.ExtendedSpline(
+                    self.k,
+                    x * phh,
+                    lower_func=self.linear_power_fnc,
+                    match_lower=True,
+                    upper_func="power_law"
+                    if (
+                        self.exclusion_model == NoExclusion
+                        and "filtered" not in self.hc_spectrum
                     )
+                    else tools._zero,
                 )
+                for i, x in enumerate(intg)
+            ]
         else:
             p = tools.ExtendedSpline(
                 self.k,
@@ -1549,16 +1535,19 @@ class TracerHaloModel(DMHaloModel):
         A callable returning the total 1-halo cross-power spectrum
         between tracer and matter.
         """
-        ut = self.tracer_profile_ukm[:, self._tm]
-        uh = self.halo_profile_ukm[:, self._tm]
-
-        m = self.m[self._tm]
-
-        integ = self.dndm[self._tm] * (
-            uh * ut * m * self.total_occupation[self._tm]
-            + uh * self.hod.satellite_occupation(m)
-        )
-        p = intg.simps(integ, m)
+        p = np.zeros_like(self.k)
+        for i, (ut, uh) in enumerate(
+            zip(self.tracer_profile_ukm, self.halo_profile_ukm)
+        ):
+            p[i] = tools.spline_integral(
+                self.m,
+                self.dndm
+                * (
+                    uh * ut * self._total_occupation * self.m
+                    + uh * self.satellite_occupation
+                ),
+                xmin=self.tracer_mmin,
+            )
 
         p /= self.mean_tracer_den * self.mean_density
         return tools.ExtendedSpline(
@@ -1593,20 +1582,20 @@ class TracerHaloModel(DMHaloModel):
     def power_2h_cross_tracer_matter_fnc(self):
         """A callable returning the 2-halo term of the cross-power spectrum
         between tracer and matter."""
-        ut = self.tracer_profile_ukm[:, self._tm]
-        um = self.halo_profile_ukm
-
-        # if self.sd_bias_model is not None:
-        #     bias = np.outer(self.sd_bias.bias_scale(), self.bias)[:, self._tm]
-        # else:
-        bias = self.halo_bias
-
         # Do this the simple way for now
-        bt = intg.simps(
-            self.dndm[self._tm] * bias[self._tm] * self.total_occupation[self._tm] * ut,
-            self.m[self._tm],
-        )
-        bm = intg.simps(self.dndm * bias * self.m * um, self.m)
+        bt = np.zeros_like(self.k)
+        bm = np.zeros_like(self.k)
+        for i, (ut, um) in enumerate(
+            zip(self.tracer_profile_ukm, self.halo_profile_ukm)
+        ):
+            bt[i] = tools.spline_integral(
+                self.m,
+                self.dndm * self.halo_bias * self._total_occupation * ut,
+                xmin=self.tracer_mmin,
+            )
+            bm[i] = tools.spline_integral(
+                self.m, self.dndm * self.halo_bias * self.m * um
+            )
 
         power = (
             bt
@@ -1623,21 +1612,6 @@ class TracerHaloModel(DMHaloModel):
             if "filtered" not in self.hc_spectrum
             else tools._zero,
         )
-
-        # inst = self.exclusion_model(m=self.m[self._tm],
-        #                             density=self.total_occupation[self._tm] * self.dndm[self._tm],
-        #                             I=self.total_occupation[self._tm] * self.dndm[
-        #                                 self._tm] * u / self.mean_tracer_den,
-        #                             bias=bias, r=self.r, delta_halo=self.delta_halo,
-        #                             mean_density=self.mean_density0,
-        #                             **self.exclusion_params)
-
-        # if hasattr(inst, "density_mod"):
-        #     self.__density_mod = inst.density_mod
-        # else:
-        #     self.__density_mod = np.ones_like(self.r) * self.mean_tracer_den
-
-        # return inst.integrate() * self._power_halo_centres
 
     @property
     def power_2h_cross_tracer_matter(self):
@@ -1698,15 +1672,14 @@ class TracerHaloModel(DMHaloModel):
         """
 
         self.power  # This just makes sure the power is gotten and copied
-        c = deepcopy(self)
-        c.update(hod_params={"M_min": self.Mmin}, dlog10m=0.01)
+        c = self.clone(hod_params={"M_min": self.Mmin}, dlog10m=0.01)
 
         integrand = c.m[c._tm] * c.dndm[c._tm] * c.total_occupation[c._tm]
 
         density_message = (
             f"Maximum mean galaxy density exceeded. User input required density of {ng}, "
             "but maximum density (with HOD M_min == DM Mmin) is {}. "
-            f"Consider decreasing Mmin,or checking tracer_density."
+            "Consider decreasing Mmin,or checking tracer_density."
         )
         if self.hod.sharp_cut:
             integral = intg.cumtrapz(integrand[::-1], dx=np.log(c.m[1] / c.m[0]))
