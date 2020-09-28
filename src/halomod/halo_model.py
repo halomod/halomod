@@ -1334,33 +1334,9 @@ class TracerHaloModel(DMHaloModel):
         """
         A callable returning the total 1-halo term of the tracer auto power spectrum.
         """
-        try:
-            return lambda k: self.power_1h_cs_auto_tracer_fnc(
-                k
-            ) + self.power_1h_ss_auto_tracer_fnc(k)
-        except AttributeError:
-            c = np.zeros_like(self.k)
-            dens_min = 4 * np.pi * self.mean_density0 * self.halo_overdensity_mean / 3
-
-            for i, (k, u) in enumerate(zip(self.k, self.tracer_profile_ukm)):
-                intg = self.dndm * self._total_occupation * u ** 2
-
-                if self.force_1halo_turnover:
-                    r = np.pi / k / 10  # The 10 is a complete heuristic hack.
-                    mmin = max(self.hod.mmin, dens_min * r ** 3)
-                else:
-                    mmin = self.hod.mmin
-
-                c[i] = tools.spline_integral(self.m, intg, xmin=10 ** mmin)
-
-            c /= self.mean_tracer_den ** 2
-
-            return tools.ExtendedSpline(
-                self.k,
-                c,
-                lower_func=tools._zero if self.force_1halo_turnover else "boundary",
-                upper_func=tools._zero,
-            )
+        return lambda k: (
+            self.power_1h_cs_auto_tracer_fnc(k) + self.power_1h_ss_auto_tracer_fnc(k)
+        )
 
     @property
     def power_1h_auto_tracer(self):
@@ -1373,27 +1349,18 @@ class TracerHaloModel(DMHaloModel):
         if self.tracer_profile.has_lam:
             c = np.zeros_like(self._r_table)
 
-            if hasattr(self.hod, "ss_pairs"):
-                ss_pairs = self.hod.ss_pairs(self.m)
-                cs_pairs = self.hod.cs_pairs(self.m)
-                for i, (rho, lam) in enumerate(
-                    zip(self.tracer_profile_rho, self.tracer_profile_lam)
-                ):
-                    c[i] = tools.spline_integral(
-                        self.m,
-                        self.dndm
-                        * (ss_pairs * lam + 2 * cs_pairs * rho)
-                        * (self._central_occupation if self.hod._central else 1),
-                        xmin=self.tracer_mmin,
-                    )
-
-            else:
-                for i, lam in enumerate(self.tracer_profile_lam):
-                    c[i] = tools.spline_integral(
-                        self.m,
-                        self.dndm * self._total_occupation ** 2 * lam,
-                        xmin=self.tracer_mmin,
-                    )
+            ss_pairs = self.hod.ss_pairs(self.m)
+            cs_pairs = self.hod.cs_pairs(self.m)
+            for i, (rho, lam) in enumerate(
+                zip(self.tracer_profile_rho, self.tracer_profile_lam)
+            ):
+                c[i] = tools.spline_integral(
+                    self.m,
+                    self.dndm
+                    * (ss_pairs * lam + 2 * cs_pairs * rho)
+                    * (self._central_occupation if self.hod._central else 1),
+                    xmin=self.tracer_mmin,
+                )
 
             c /= self.mean_tracer_den ** 2
 
