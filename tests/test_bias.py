@@ -14,6 +14,39 @@ def hmf():
     return MassFunction(transfer_model="EH")
 
 
+def test_Jing98(hmf: MassFunction):
+    """Just to see if it works."""
+    b = bias.Jing98(
+        nu=hmf.nu,
+        n=hmf.n,
+        n_eff=2.89,
+        delta_c=hmf.delta_c,
+        m=hmf.m,
+        mstar=hmf.mass_nonlinear,
+        cosmo=hmf.cosmo,
+        sigma_8=hmf.sigma_8,
+        delta_halo=200,
+        z=hmf.z,
+    )
+    assert isinstance(b.bias(), np.ndarray)
+
+
+def test_PBSplit(hmf: MassFunction):
+    """Test if interpolation of parameters works."""
+    b = bias.Tinker10PBSplit(
+        nu=hmf.nu,
+        n=hmf.n,
+        delta_c=hmf.delta_c,
+        m=hmf.m,
+        mstar=hmf.mass_nonlinear,
+        cosmo=hmf.cosmo,
+        sigma_8=hmf.sigma_8,
+        delta_halo=250,
+        z=hmf.z,
+    )
+    assert isinstance(b.bias(), np.ndarray)
+
+
 @pytest.mark.parametrize("bias_model", list(bias.Bias._models.values()))
 def test_monotonic_bias(bias_model, hmf: MassFunction):
     if bias_model.__name__ in ["Jing98", "Seljak04"]:

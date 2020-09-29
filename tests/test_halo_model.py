@@ -104,6 +104,7 @@ def test_setting_default_tracers_prof():
         ("corr_gg_2h", "corr_2h_auto_tracer"),
         ("corr_gg", "corr_auto_tracer"),
         ("power_gg_1h", "power_1h_auto_tracer"),
+        ("power_gg_2h", "power_2h_auto_tracer"),
         ("power_gg", "power_auto_tracer"),
         ("corr_mm_1h", "corr_1h_auto_matter"),
         ("corr_mm_2h", "corr_2h_auto_matter"),
@@ -116,3 +117,22 @@ def test_setting_default_tracers_prof():
 def test_deprecated(thm: TracerHaloModel, dep, new):
     with pytest.warns(UserWarning):
         assert np.all(getattr(thm, dep) == getattr(thm, new))
+
+
+@pytest.mark.parametrize(
+    "attr",
+    [
+        ("halo_concentration_model"),
+        ("bias_model"),
+        ("hc_spectrum"),
+        ("halo_profile_model"),
+        ("sd_bias_model"),
+        ("hod_model"),
+        ("tracer_profile_model"),
+        ("tracer_concentration_model"),
+    ],
+)
+def test_raiseerror(thm: TracerHaloModel, attr):
+    fakemodel = 1
+    with pytest.raises(ValueError):
+        setattr(thm, attr, fakemodel)
