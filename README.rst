@@ -13,7 +13,11 @@ halomod
     :target: https://github.com/psf/black
 
 ``halomod`` is a python application that provides a flexible and simple interface for
-dealing with the Halo Model of Dark Matter Halos, built on `hmf <https://github.com/steven-murray/hmf>`_.
+dealing with the Halo Model of Dark Matter Halos, built on
+`hmf <https://github.com/steven-murray/hmf>`_.
+
+It also has a full-feature web application at https://thehalomod.app -- check it out!
+
 
 Full Documentation
 ------------------
