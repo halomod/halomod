@@ -18,6 +18,10 @@ dealing with the Halo Model of Dark Matter Halos, built on
 
 It also has a full-feature web application at https://thehalomod.app -- check it out!
 
+HI Branch
+---------
+This branch introduces new model based on Chen, Wolz, Spinelli and Murray.
+For the HI model used and how to make your own extension, see https://halomod.readthedocs.io/en/latest/examples/extension.html
 
 Full Documentation
 ------------------
