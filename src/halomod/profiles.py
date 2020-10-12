@@ -526,7 +526,7 @@ class ProfileInf(Profile):
 
         return self._reduce(rho)
 
-    def u(self, k, m, norm=None, c=None, coord="k"):
+    def u(self, k, m, norm="m", c=None, coord="k"):
         """
         The fourier-transform of the density halo_profile
 
