@@ -61,6 +61,8 @@ from astropy.cosmology import Planck15
 from .concentration import CMRelation
 from .profiles import Profile
 from hmf.halos.mass_definitions import MassDefinition, SOMean
+import scipy.constants as const
+import astropy.constants as astroconst
 
 
 class HOD(Component, metaclass=ABCMeta):
@@ -598,3 +600,98 @@ class Constant(HODBulk):
     def sigma_satellite(self, m):
         """The standard deviation of the satellite tracer amount in haloes of mass m."""
         return np.ones_like(m) * self.params["sigma_A"]
+
+
+class Spinelli19(HODPoisson):
+    """
+    Six-parameter model of Spinelli et al. (2019)
+    Default is taken to be z=1(need to set it up manually via hm.update)
+    """
+
+    _defaults = {
+        "a1": 0.0016,  # gives HI mass amplitude of the power law
+        "a2": 0.00011,  # gives HI mass amplitude of the power law
+        "alpha": 0.56,  # slop of exponential break
+        "beta": 0.43,  # slop of mass
+        "M_min": 9,  # Truncation Mass
+        "M_break": 11.86,  # Characteristic Mass
+        "M_1": -2.99,  # mass of exponential cutoff
+        "sigma_A": 0,  # The (constant) standard deviation of the tracer
+        "M_max": 18,  # Truncation mass
+        "M_0": 8.31,  # Amplitude of satellite HOD
+        "M_break_sat": 11.4,  # characteristic mass for satellite HOD
+        "alpha_sat": 0.84,  # slop of exponential cut-off for satellite
+        "beta_sat": 1.10,  # slop of mass for satellite
+        "M_1_counts": 12.851,
+        "alpha_counts": 1.049,
+        "M_min_counts": 11,  # Truncation Mass
+        "M_max_counts": 15,  # Truncation Mass
+        "a": 0.049,
+        "b": 2.248,
+        "eta": 1.0,
+    }
+    sharp_cut = False
+    central_condition_inherent = True
+
+    def _central_occupation(self, m):
+
+        alpha = self.params["alpha"]
+        beta = self.params["beta"]
+        m_1 = 10 ** self.params["M_1"]
+        a1 = self.params["a1"]
+        a2 = self.params["a2"]
+        m_break = 10 ** self.params["M_break"]
+
+        out = (
+            m
+            * (a1 * (m / 1e10) ** beta * np.exp(-((m / m_break) ** alpha)) + a2)
+            * np.exp(-((m_1 / m) ** 0.5))
+        )
+        return out
+
+    def _satellite_occupation(self, m):
+        alpha = self.params["alpha_sat"]
+        beta = self.params["beta_sat"]
+        amp = 10 ** self.params["M_0"]
+        m1 = 10 ** self.params["M_break_sat"]
+        array = np.zeros_like(m)
+        array[m >= 10 ** 11] = 1
+
+        return amp * (m / m1) ** beta * np.exp(-((m1 / m) ** alpha)) * array
+        # return 10**8
+
+    def unit_conversion(self, cosmo, z):
+        "A factor (potentially with astropy units) to convert the total occupation to a desired unit."
+        A12 = 2.869e-15
+        nu21cm = 1.42e9
+        Const = (3.0 * A12 * const.h * const.c ** 3.0) / (
+            32.0 * np.pi * (const.m_p + const.m_e) * const.Boltzmann * nu21cm ** 2
+        )
+        Mpcoverh_3 = ((astroconst.kpc.value * 1e3) / (cosmo.H0.value / 100.0)) ** 3
+        hubble = cosmo.H0.value * cosmo.efunc(z) * 1.0e3 / (astroconst.kpc.value * 1e3)
+        temp_conv = Const * ((1.0 + z) ** 2 / hubble)
+        # convert to Mpc^3, solar mass
+        temp_conv = temp_conv / Mpcoverh_3 * astroconst.M_sun.value
+        return temp_conv
+
+    def cn(self, M):
+        n_c = np.zeros_like(M)
+        n_c[
+            np.logical_and(
+                M >= 10 ** self.params["M_min_counts"],
+                M <= 10 ** self.params["M_max_counts"],
+            )
+        ] = 1
+        return n_c
+
+    def sn(self, M):
+        n_s = np.zeros_like(M)
+        index = np.logical_and(
+            M >= 10 ** self.params["M_min_counts"],
+            M <= 10 ** self.params["M_max_counts"],
+        )
+        n_s[index] = (M[index] / 10 ** self.params["M_1_counts"]) ** self.params[
+            "alpha_counts"
+        ]
+
+        return n_s

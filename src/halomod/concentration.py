@@ -293,6 +293,24 @@ class Bullock01Power(CMRelation):
         return self._cm(m, ms, self.params["a"], self.params["b"], self.params["c"], z)
 
 
+class Maccio07(CMRelation):
+    """
+    HI concentration-mass relation based on Maccio et al.(2007).
+    Default value taken from 1611.06235
+    """
+
+    _defaults = {"c_0": 28.65, "gamma": 1.45}
+    native_mdefs = (SOMean(),)
+
+    def cm(self, m, z):
+        return (
+            self.params["c_0"]
+            * (m * 10 ** (-11)) ** (-0.109)
+            * 4
+            / (1 + z) ** self.params["gamma"]
+        )
+
+
 class Duffy08(Bullock01Power):
     r"""
     Concentration-mass relation from Duffy et al.(2008) [1]_.
