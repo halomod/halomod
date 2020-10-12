@@ -21,7 +21,24 @@ It also has a full-feature web application at https://thehalomod.app -- check it
 HI Branch
 ---------
 This branch introduces new model based on Chen, Wolz, Spinelli and Murray.
-For the HI model used and how to make your own extension, see https://halomod.readthedocs.io/en/latest/examples/extension.html
+For the HI model used and how to make your own extension, see https://halomod.readthedocs.io/en/latest/examples/extension.html .
+
+To use our model, simply:
+
+>>> from halomod import TracerHaloModel
+>>> hm=TracerHaloModel(hod_model="Spinelli19",
+>>>                    tracer_concentration_model="Maccio07",
+>>>                    tracer_profile_model="PowerlawInf_largecutoff"
+>>>                   )
+
+
+To calculate the HI power spectrum:
+
+>>> ps_hi = hm.power_auto_tracer
+
+To calculate the temperature power spectrum:
+
+>>> ps_t = hm.power_auto_tracer*hm.mean_tracer_den_unit**2
 
 Full Documentation
 ------------------
