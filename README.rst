@@ -28,7 +28,8 @@ To use our model, simply:
 >>> from halomod import TracerHaloModel
 >>> hm=TracerHaloModel(hod_model="Spinelli19",
 >>>                    tracer_concentration_model="Maccio07",
->>>                    tracer_profile_model="PowerlawInf_largecutoff"
+>>>                    tracer_profile_model="PowerlawInf_largecutoff",
+>>>                    z=1 #for default value of hod parameters
 >>>                   )
 
 
