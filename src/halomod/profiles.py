@@ -1063,3 +1063,34 @@ class CoredNFW(Profile):
             )
 
         return antideriv(K, c) - antideriv(K, 0)
+
+
+class PowerLawWithExpCut(ProfileInf):
+    """
+    A simple power law with exponential cut-off,
+    assuming f(x)=1/x**b * exp[-ax].
+    """
+
+    _defaults = {"a": 0.049, "b": 2.248}
+
+    def _f(self, x):
+        return 1.0 / (x ** self.params["b"]) * np.exp(-self.params["a"] * x)
+
+    def _h(self, c=None):
+        return gamma(3 - self.params["b"]) * self.params["a"] ** (self.params["b"] - 3)
+
+    def _p(self, K, c=None):
+        b = self.params["b"]
+        a = self.params["a"]
+        if b == 2:
+            return np.arctan(K / a) / K
+        else:
+            return (
+                -1
+                / K
+                * (
+                    (a ** 2 + K ** 2) ** (b / 2 - 1)
+                    * gamma(2 - b)
+                    * np.sin((b - 2) * np.arctan(K / a))
+                )
+            )
