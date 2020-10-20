@@ -33,6 +33,7 @@ Bugfixes
 * Fix for when no tracer profile/concentration params are given. Now use the halo params
   iff the tracer model is equal to the halo one.
 * Fix for halo profile numerical FT.
+* Fix #59 -- can't have non-dict ``model_params``.
 
 v1.4.5
 ------
