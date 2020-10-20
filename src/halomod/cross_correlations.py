@@ -195,7 +195,7 @@ class CrossCorrelations(Framework):
 
     @parameter("model")
     def cross_hod_model(self, val):
-        return get_mdl(val, "HODCross")
+        return get_mdl(val, "_HODCross")
 
     @parameter("param")
     def cross_hod_params(self, val):
