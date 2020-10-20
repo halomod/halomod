@@ -61,8 +61,10 @@ from astropy.cosmology import Planck15
 from .concentration import CMRelation
 from .profiles import Profile
 from hmf.halos.mass_definitions import MassDefinition, SOMean
+from hmf._internals import pluggable
 
 
+@pluggable
 class HOD(Component, metaclass=ABCMeta):
     """
     Halo Occupation Distribution model base class.
@@ -179,7 +181,7 @@ class HOD(Component, metaclass=ABCMeta):
         return self.params["M_min"]
 
 
-class HODNoCentral(HOD):
+class HODNoCentral(HOD, abstract=True):
     """Base class for all HODs which have no concept of a central/satellite split."""
 
     def __init__(self, **model_parameters):
@@ -203,7 +205,7 @@ class HODNoCentral(HOD):
         return 0
 
 
-class HODBulk(HODNoCentral):
+class HODBulk(HODNoCentral, abstract=True):
     """Base class for HODs with no discrete tracers, just an assignment of tracer to the halo."""
 
     def ns(self, m):
@@ -215,7 +217,7 @@ class HODBulk(HODNoCentral):
         return self.satellite_occupation(m) ** 2
 
 
-class HODPoisson(HOD):
+class HODPoisson(HOD, abstract=True):
     """
     Base class for discrete HOD's with poisson-distributed satellite population.
 

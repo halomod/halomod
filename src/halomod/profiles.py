@@ -51,6 +51,7 @@ from hmf.halos.mass_definitions import SOMean
 from astropy.cosmology import Planck15
 import hankel
 from scipy.integrate import quad
+from hmf._internals import pluggable
 
 
 def ginc(a, x):
@@ -60,6 +61,7 @@ def ginc(a, x):
     return gamma(a) * gammainc(a, x)
 
 
+@pluggable
 class Profile(Component):
     """
     Halo radial density profiles.
@@ -496,7 +498,7 @@ class Profile(Component):
         return pos.T + centre
 
 
-class ProfileInf(Profile):
+class ProfileInf(Profile, abstract=True):
     """
     An extended halo_profile (not truncated at x=c)
     """

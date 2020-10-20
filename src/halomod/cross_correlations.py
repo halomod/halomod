@@ -22,7 +22,7 @@ Cross-correlating the same galaxy samples in different redshifts::
 
 from .halo_model import TracerHaloModel
 from hmf import Component, Framework
-from hmf._internals._framework import get_model_
+from hmf._internals._framework import get_mdl, pluggable
 from hmf._internals._cache import parameter, cached_quantity, subframework
 from abc import ABC, abstractmethod
 import numpy as np
@@ -30,6 +30,7 @@ from scipy import integrate as intg
 from . import tools
 
 
+@pluggable
 class _HODCross(ABC, Component):
     """Provides methods necessary to compute cross-correlation pairs for HOD models."""
 
@@ -194,14 +195,7 @@ class CrossCorrelations(Framework):
 
     @parameter("model")
     def cross_hod_model(self, val):
-        if not (isinstance(val, str) or np.issubclass_(val, _HODCross)):
-            raise ValueError(
-                "cross_hod_model must be a subclass of cross_correlations.HODCross"
-            )
-        elif isinstance(val, str):
-            return get_model_(val, "")
-        else:
-            return val
+        return get_mdl(val, "HODCross")
 
     @parameter("param")
     def cross_hod_params(self, val):

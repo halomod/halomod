@@ -18,16 +18,13 @@ from hmf import MassFunction, cached_quantity, parameter, Cosmology
 
 # import hmf.tools as ht
 from . import tools
-from . import hod
 from .concentration import CMRelation
-from .halo_exclusion import Exclusion, NoExclusion
+from .halo_exclusion import NoExclusion
 
 
-from copy import copy, deepcopy
-from numpy import issubclass_
-from hmf._internals._framework import get_model_
-from . import profiles
-from . import bias
+from copy import copy
+from hmf._internals import get_mdl
+
 from hmf.density_field.filters import TopHat
 import warnings
 
@@ -161,12 +158,7 @@ class DMHaloModel(MassFunction):
     @parameter("model")
     def bias_model(self, val):
         """Bias Model."""
-        if not (isinstance(val, str) or issubclass_(val, bias.Bias)):
-            raise ValueError("bias_model must be a subclass of bias.Bias")
-        elif isinstance(val, str):
-            return get_model_(val, "halomod.bias")
-        else:
-            return val
+        return get_mdl(val, "Bias")
 
     @parameter("param")
     def bias_params(self, val):
@@ -191,14 +183,7 @@ class DMHaloModel(MassFunction):
     @parameter("model")
     def halo_profile_model(self, val):
         """The halo density halo_profile model."""
-        if not (isinstance(val, str) or issubclass_(val, profiles.Profile)):
-            raise ValueError(
-                "halo_profile_model must be a subclass of profiles.Profile"
-            )
-        elif isinstance(val, str):
-            return get_model_(val, "halomod.profiles")
-        else:
-            return val
+        return get_mdl(val, "Profile")
 
     @parameter("param")
     def halo_profile_params(self, val):
@@ -208,14 +193,7 @@ class DMHaloModel(MassFunction):
     @parameter("model")
     def halo_concentration_model(self, val):
         """A halo_concentration-mass relation"""
-        if not (isinstance(val, str) or issubclass_(val, CMRelation)):
-            raise ValueError(
-                "halo_concentration_model must be a subclass of halo_concentration.CMRelation"
-            )
-        elif isinstance(val, str):
-            return get_model_(val, "halomod.concentration")
-        else:
-            return val
+        return get_mdl(val, CMRelation)
 
     @parameter("param")
     def halo_concentration_params(self, val):
@@ -270,23 +248,10 @@ class DMHaloModel(MassFunction):
     @parameter("model")
     def sd_bias_model(self, val):
         """Model of Scale Dependant Bias."""
-        if (
-            not isinstance(val, str)
-            and not issubclass_(val, bias.ScaleDepBias)
-            and val is not None
-        ):
-            raise ValueError(
-                "scale_dependenent_bias must be a subclass of bias.ScaleDepBias"
-            )
-        elif isinstance(val, str):
-            model = get_model_(val, "halomod.bias")
-            if not issubclass_(model, bias.ScaleDepBias):
-                raise ValueError(
-                    "scale_dependenent_bias must be a subclass of bias.ScaleDepBias"
-                )
-            return model
+        if val is None:
+            return None
         else:
-            return val
+            return get_mdl(val, "ScaleDepBias")
 
     @parameter("param")
     def sd_bias_params(self, val):
@@ -303,11 +268,7 @@ class DMHaloModel(MassFunction):
         """A string identifier for the type of halo exclusion used (or None)."""
         if val is None:
             val = "NoExclusion"
-
-        if issubclass_(val, Exclusion):
-            return val
-        else:
-            return get_model_(val, "halomod.halo_exclusion")
+        return get_mdl(val, "Exclusion")
 
     @parameter("param")
     def colossus_params(self, val):
@@ -866,12 +827,7 @@ class TracerHaloModel(DMHaloModel):
     @parameter("model")
     def hod_model(self, val):
         """:class:`~hod.HOD` class."""
-        if not (isinstance(val, str) or issubclass_(val, hod.HOD)):
-            raise ValueError("hod_model must be a subclass of hod.HOD")
-        elif isinstance(val, str):
-            return get_model_(val, "halomod.hod")
-        else:
-            return val
+        return get_mdl(val, "HOD")
 
     @parameter("param")
     def tracer_profile_params(self, val: dict):
@@ -884,28 +840,14 @@ class TracerHaloModel(DMHaloModel):
         """The tracer density halo_profile model."""
         if val is None:
             return val
-        if not (isinstance(val, str) or issubclass_(val, profiles.Profile)):
-            raise ValueError(
-                "halo_profile_model must be a subclass of profiles.Profile"
-            )
-        if isinstance(val, str):
-            return get_model_(val, "halomod.profiles")
-        else:
-            return val
+        return get_mdl(val, "Profile")
 
     @parameter("model")
     def tracer_concentration_model(self, val):
         """The tracer concentration-mass relation."""
         if val is None:
             return val
-        if not (isinstance(val, str) or issubclass_(val, CMRelation)):
-            raise ValueError(
-                "halo_concentration_model must be a subclass of concentration.CMRelation"
-            )
-        elif isinstance(val, str):
-            return get_model_(val, "halomod.concentration")
-        else:
-            return val
+        return get_mdl(val, CMRelation)
 
     @parameter("param")
     def tracer_concentration_params(self, val):

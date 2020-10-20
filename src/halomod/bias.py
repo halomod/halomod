@@ -67,8 +67,10 @@ from hmf.cosmology.cosmo import astropy_to_colossus
 from colossus.lss.bias import haloBiasFromNu
 from astropy.cosmology import FLRW, Planck15
 from hmf.halos.mass_definitions import SOMean
+from hmf._internals import pluggable
 
 
+@pluggable
 class Bias(Component):
     r"""
     The base Bias component.
@@ -742,6 +744,7 @@ class Tinker10PBSplit(Bias):
         )
 
 
+@pluggable
 class ScaleDepBias(Component):
     r"""Base class for scale-dependent bias models.
 
