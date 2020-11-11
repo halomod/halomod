@@ -69,6 +69,12 @@ def test_monotonic_dec(thm: TracerHaloModel, quantity):
     assert np.all(np.diff(getattr(thm, quantity)) <= 1e-5)
 
 
+def test_halo_power():
+    """Tests the halo centre power spectrum"""
+    hm = TracerHaloModel(bias_model="UnityBias")
+    assert np.allclose(hm.power_hh(hm.k_hm), hm.power_mm_2h, rtol=1e-2)
+
+
 def test_setting_default_tracers_conc():
     """Tests setting default tracer parameters based on halo parameters"""
     hm = TracerHaloModel(
