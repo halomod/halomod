@@ -1,5 +1,7 @@
 from halomod.hod import Zehavi05, Zehavi05Marked, Zehavi05WithMax, ContinuousPowerLaw
+from halomod import hod, TracerHaloModel
 import numpy as np
+import pytest
 
 
 def test_zehavi_marked():
@@ -24,3 +26,16 @@ def test_zehavi_max():
     assert np.allclose(z05.ns(m), z05m.ns(m))
     assert np.allclose(z05.total_occupation(m), z05m.total_occupation(m))
     assert np.allclose(z05.total_pair_function(m), z05m.total_pair_function(m))
+
+
+@pytest.mark.parametrize(
+    "hodr", (hod.Spinelli19,),
+)
+def test_positive_hod(hodr):
+    hm = TracerHaloModel(hod_model=hodr)
+    m = np.logspace(10, 15, 100)
+    assert np.all(hm.hod.central_occupation(m) >= 0)
+    assert np.all(hm.hod.satellite_occupation(m) >= 0)
+    assert np.all(hm.hod._tracer_per_central(m) >= 0)
+    assert np.all(hm.hod._tracer_per_satellite(m) >= 0)
+    assert hm.mean_tracer_den_unit >= 0
