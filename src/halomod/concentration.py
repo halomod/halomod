@@ -295,8 +295,18 @@ class Bullock01Power(CMRelation):
 
 class Maccio07(CMRelation):
     """
-    HI concentration-mass relation based on Maccio et al.(2007).
-    Default value taken from 1611.06235
+    Concentration-Mass relation based on Maccio et al.(2007) [1]_.
+    Default value taken from Padmanabhan et al.(2017) [2]_.
+
+    References
+    ----------
+    .. [1] Maccio, A. V. et al., "Concentration, spin and shape of dark matter haloes:
+           scatter and the dependence on mass and environment",
+           https://ui.adsabs.harvard.edu/abs/2007MNRAS.378...55M.
+
+    .. [2] Padmanabhan, H. et al., "A halo model for cosmological neutral hydrogen :
+           abundances and clustering ",
+           https://ui.adsabs.harvard.edu/abs/2017MNRAS.469.2323P/abstract.
     """
 
     _defaults = {"c_0": 28.65, "gamma": 1.45}

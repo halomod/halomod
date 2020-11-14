@@ -604,8 +604,15 @@ class Constant(HODBulk):
 
 class Spinelli19(HODPoisson):
     """
-    Six-parameter model of Spinelli et al. (2019)
-    Default is taken to be z=1(need to set it up manually via hm.update)
+    Six-parameter model of Spinelli et al. (2019) [1]_.
+
+    Default is taken to be the z=1 case, however you should manually set `hm.z=1`.
+
+    References
+    ----------
+    .. [1] Spinelli, M. et al.,
+           "The atomic hydrogen content of the post-reionization Universe",
+           https://ui.adsabs.harvard.edu/abs/2020MNRAS.493.5434S/abstract.
     """
 
     _defaults = {
@@ -634,7 +641,9 @@ class Spinelli19(HODPoisson):
     central_condition_inherent = False
 
     def _central_occupation(self, m):
-
+        """
+        Amplitude of central tracer at mass M
+        """
         alpha = self.params["alpha"]
         beta = self.params["beta"]
         m_1 = 10 ** self.params["M_1"]
@@ -650,6 +659,9 @@ class Spinelli19(HODPoisson):
         return out
 
     def _satellite_occupation(self, m):
+        """
+        Amplitude of satellite tracer at mass M
+        """
         alpha = self.params["alpha_sat"]
         beta = self.params["beta_sat"]
         amp = 10 ** self.params["M_0"]
@@ -674,7 +686,8 @@ class Spinelli19(HODPoisson):
         temp_conv = temp_conv / Mpcoverh_3 * astroconst.M_sun.value
         return temp_conv
 
-    def nc(self, M):
+    def _tracer_per_central(self, M):
+        """Number of tracer per central tracer source"""
         n_c = np.zeros_like(M)
         n_c[
             np.logical_and(
@@ -684,7 +697,8 @@ class Spinelli19(HODPoisson):
         ] = 1
         return n_c
 
-    def ns(self, M):
+    def _tracer_per_satellite(self, M):
+        """Number of tracer per satellite tracer source"""
         n_s = np.zeros_like(M)
         index = np.logical_and(
             M >= 10 ** self.params["M_min_counts"],

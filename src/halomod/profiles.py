@@ -1066,9 +1066,24 @@ class CoredNFW(Profile):
 
 
 class PowerLawWithExpCut(ProfileInf):
-    """
-    A simple power law with exponential cut-off,
-    assuming f(x)=1/x**b * exp[-ax].
+    r"""
+    A simple power law with exponential cut-off.
+
+    Default is taken to be the `z=1` case of [1]_.
+
+
+    Notes
+    -----
+    This is an empirical form proposed with the formula
+
+    .. math:: \rho(r) = \rho_s * R_s^b / r^b * e^{-ar/R_s}
+
+
+    References
+    ----------
+    .. [1] Spinelli, M. et al.,
+           "The atomic hydrogen content of the post-reionization Universe",
+           https://ui.adsabs.harvard.edu/abs/2020MNRAS.493.5434S/abstract.
     """
 
     _defaults = {"a": 0.049, "b": 2.248}
@@ -1077,7 +1092,11 @@ class PowerLawWithExpCut(ProfileInf):
         return 1.0 / (x ** self.params["b"]) * np.exp(-self.params["a"] * x)
 
     def _h(self, c=None):
-        return gamma(3 - self.params["b"]) * self.params["a"] ** (self.params["b"] - 3)
+        return (
+            gamma(3 - self.params["b"])
+            * self.params["a"] ** (self.params["b"] - 3)
+            * np.ones_like(c)
+        )
 
     def _p(self, K, c=None):
         b = self.params["b"]
