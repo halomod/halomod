@@ -587,7 +587,7 @@ class DMHaloModel(MassFunction):
             else:
                 mask = np.logical_and(self.m >= 10 ** mn, self.m <= 10 ** mx)
                 b = intg.simps(
-                    self.bias[mask] * self.dndm[mask], self.m[mask]
+                    self.halo_bias[mask] * self.dndm[mask], self.m[mask]
                 ) / intg.simps(self.dndm[mask], self.m[mask])
             return b
 
