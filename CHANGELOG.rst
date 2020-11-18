@@ -34,6 +34,7 @@ Bugfixes
   iff the tracer model is equal to the halo one.
 * Fix for halo profile numerical FT.
 * Fix #59 -- can't have non-dict ``model_params``.
+* Fix for calculation of halo centre power spectrum
 
 v1.4.5
 ------
