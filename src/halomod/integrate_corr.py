@@ -45,7 +45,7 @@ class ProjectedCF(HaloModel):
 
     @parameter("option")
     def rp_log(self, val):
-        """If projected radius bins are logarithmetically distributed."""
+        """If projected radius bins are logarithmically distributed."""
         return bool(val)
 
     @parameter("res")
@@ -320,7 +320,7 @@ class AngularCF(HaloModel):
 
     @parameter("res")
     def theta_log(self, val):
-        """If angular seperations are logarithmetically distributed."""
+        """If angular separations are logarithmically distributed."""
         return val
 
     @parameter("param")
