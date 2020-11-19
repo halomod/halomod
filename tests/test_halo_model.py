@@ -103,6 +103,20 @@ def test_setting_default_tracers_prof():
     assert hm.tracer_profile.params == hm.tracer_profile._defaults
 
 
+def test_setting_default_tracers_same_model():
+    hm = TracerHaloModel(
+        halo_profile_model="NFW",
+        tracer_profile_model="NFW",
+        halo_concentration_model="Ludlow16",
+        tracer_concentration_model="Ludlow16",
+        #        halo_profile_params={"alpha": 1.1},
+        transfer_model="EH",
+    )
+
+    assert hm.tracer_profile.params == hm.halo_profile.params
+    assert hm.halo_concentration.params == hm.tracer_concentration.params
+
+
 @pytest.mark.parametrize(
     "dep,new",
     [
