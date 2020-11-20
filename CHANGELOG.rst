@@ -20,6 +20,7 @@ Features
 * Interfaces with COLOSSUS for concentration and bias.
 * New CLI interface ``halomod run``
 * New examples, including an example of parameter fitting with ``halomod`` and ``emcee`.
+* New hod, density profile and concentration model, with new example, for HI.
 
 Changes
 +++++++
@@ -34,6 +35,7 @@ Bugfixes
   iff the tracer model is equal to the halo one.
 * Fix for halo profile numerical FT.
 * Fix for calculation of halo centre power spectrum
+* Fix for tracer params initialisation.
 
 v1.4.5
 ------
