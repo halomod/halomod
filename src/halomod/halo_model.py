@@ -820,11 +820,11 @@ class TracerHaloModel(DMHaloModel):
         self.hod_model = hod_model
         self.tracer_profile_model, self.tracer_profile_params = (
             tracer_profile_model,
-            tracer_profile_params,
+            tracer_profile_params or {},
         )
         self.tracer_concentration_model, self.tracer_concentration_params = (
             tracer_concentration_model,
-            tracer_concentration_params,
+            tracer_concentration_params or {},
         )
 
         self.force_1halo_turnover = force_1halo_turnover
@@ -967,21 +967,25 @@ class TracerHaloModel(DMHaloModel):
             # Need to get the tracer profile params if it wasn't given.
             # If we have the same tracer and halo profiles, use the halo profile
             # params. Otherwise, don't give any params.
-            if self.tracer_profile_params is None:
-                if self.tracer_profile_model == self.halo_profile_model:
-                    tr_params = self.halo_profile_params
-                else:
-                    tr_params = {}
+            if (
+                self.tracer_profile_params == {}
+                and self.tracer_profile_model == self.halo_profile_model
+            ):
+                tr_params = self.halo_profile_params
+            else:
+                tr_params = self.tracer_profile_params
 
             this_profile = self.tracer_profile_model(
                 cm_relation=None, mdef=self.mdef, z=self.z, **tr_params,
             )
 
-        if self.tracer_concentration_params is None:
-            if self.tracer_profile_model == self.halo_profile_model:
-                tr_params = self.halo_profile_params
-            else:
-                tr_params = {}
+        if (
+            self.tracer_concentration_params == {}
+            and self.tracer_concentration_model == self.halo_concentration_model
+        ):
+            tr_params = self.halo_concentration_params
+        else:
+            tr_params = self.tracer_concentration_params
 
         return self.tracer_concentration_model(
             cosmo=Cosmology(self.cosmo),
@@ -1004,11 +1008,13 @@ class TracerHaloModel(DMHaloModel):
         if self.tracer_profile_model is None:
             return self.halo_profile
 
-        if self.tracer_profile_params is None:
-            if self.tracer_profile_model == self.halo_profile_model:
-                tr_params = self.halo_profile_params
-            else:
-                tr_params = {}
+        if (
+            self.tracer_profile_params == {}
+            and self.tracer_profile_model == self.halo_profile_model
+        ):
+            tr_params = self.halo_profile_params
+        else:
+            tr_params = self.tracer_profile_params
 
         return self.tracer_profile_model(
             cm_relation=self.tracer_concentration,
