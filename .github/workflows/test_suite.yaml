@@ -10,6 +10,7 @@ on:
   pull_request:
     branches:
       - 'master'
+      - 'dev'
 
 jobs:
   tests:
@@ -18,7 +19,6 @@ jobs:
       PYTHON: ${{ matrix.python-version }}
       OS: ${{ matrix.os }}
     name: Testing
-    #    needs: [linter]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
