@@ -820,11 +820,11 @@ class TracerHaloModel(DMHaloModel):
         self.hod_model = hod_model
         self.tracer_profile_model, self.tracer_profile_params = (
             tracer_profile_model,
-            tracer_profile_params,
+            tracer_profile_params or {},
         )
         self.tracer_concentration_model, self.tracer_concentration_params = (
             tracer_concentration_model,
-            tracer_concentration_params,
+            tracer_concentration_params or {},
         )
 
         self.force_1halo_turnover = force_1halo_turnover
@@ -971,7 +971,6 @@ class TracerHaloModel(DMHaloModel):
             # Need to get the tracer profile params if it wasn't given.
             # If we have the same tracer and halo profiles, use the halo profile
             # params. Otherwise, don't give any params.
-            # Note that tracer_profile_params *always* has to be a dict.
             if (
                 not self.tracer_profile_params
                 and self.tracer_profile_model == self.halo_profile_model

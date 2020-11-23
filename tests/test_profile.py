@@ -48,6 +48,7 @@ def thmnum():
         pf.Hernquist,
         pf.Moore,
         pf.MooreInf,
+        pf.PowerLawWithExpCut,
     ),
 )
 def test_decreasing_profile(profile):
@@ -67,6 +68,7 @@ def test_decreasing_profile(profile):
         pf.Hernquist,
         pf.Moore,
         pf.MooreInf,
+        pf.PowerLawWithExpCut,
     ),
 )
 def test_increasing_cdf(profile):
@@ -86,6 +88,7 @@ def test_increasing_cdf(profile):
         pf.Hernquist,
         pf.Moore,
         pf.MooreInf,
+        # pf.PowerLawWithExpCut,
     ),
 )
 def test_decreasing_convolution(profile):
