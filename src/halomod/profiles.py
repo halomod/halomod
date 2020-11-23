@@ -137,6 +137,30 @@ class Profile(Component):
         r = self.halo_mass_to_radius(m, at_z=at_z)
         return r / c
 
+    def scale_radius(
+        self, m: [float, np.ndarray], at_z: bool = False
+    ) -> [float, np.ndarray]:
+        """
+        Return the scale radius for a halo of mass m.
+
+        The scale radius is defined as :math:`r_s = r_vir(m) / c(m).
+
+        Parameters
+        ----------
+        m
+            Mass of the halo(s), in units of M_sun / h.
+        at_z
+            If true, return the redshift-dependent configuration-space scale radius of
+            the halo. Otherwise, return the redshift-independent Lagrangian-space scale
+            radius (based on an initial density patch).
+
+        Returns
+        -------
+        r_s
+            The scale radius, same type as ``m``.
+        """
+        return self._rs_from_m(m=m, at_z=at_z)
+
     def virial_velocity(self, m=None, r=None):
         """
         Return the virial velocity for a halo of mass ``m``.
