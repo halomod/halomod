@@ -18,7 +18,6 @@ dealing with the Halo Model of Dark Matter Halos, built on
 
 It also has a full-feature web application at https://thehalomod.app -- check it out!
 
-
 Full Documentation
 ------------------
 `Read the docs. <https://halomod.readthedocs.io>`_

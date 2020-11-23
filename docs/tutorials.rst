@@ -15,3 +15,4 @@ with ``halomod``, and use it efficiently.
     examples/fitting
     examples/parameter
     examples/extension
+    examples/beyond_galaxy
