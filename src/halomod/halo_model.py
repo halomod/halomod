@@ -877,6 +877,8 @@ class TracerHaloModel(DMHaloModel):
     def tracer_profile_params(self, val: dict):
         """Dictionary of parameters for the tracer Profile model."""
         assert val is None or isinstance(val, dict)
+        if val is None:
+            val = {}
         return val
 
     @parameter("model")
@@ -911,6 +913,8 @@ class TracerHaloModel(DMHaloModel):
     def tracer_concentration_params(self, val):
         """Dictionary of parameters for tracer concentration-mass relation."""
         assert val is None or isinstance(val, dict)
+        if val is None:
+            val = {}
         return val
 
     @parameter("switch")
@@ -968,7 +972,7 @@ class TracerHaloModel(DMHaloModel):
             # If we have the same tracer and halo profiles, use the halo profile
             # params. Otherwise, don't give any params.
             if (
-                self.tracer_profile_params == {}
+                not self.tracer_profile_params
                 and self.tracer_profile_model == self.halo_profile_model
             ):
                 tr_params = self.halo_profile_params
@@ -980,7 +984,7 @@ class TracerHaloModel(DMHaloModel):
             )
 
         if (
-            self.tracer_concentration_params == {}
+            not self.tracer_concentration_params
             and self.tracer_concentration_model == self.halo_concentration_model
         ):
             tr_params = self.halo_concentration_params
@@ -1009,7 +1013,7 @@ class TracerHaloModel(DMHaloModel):
             return self.halo_profile
 
         if (
-            self.tracer_profile_params == {}
+            not self.tracer_profile_params
             and self.tracer_profile_model == self.halo_profile_model
         ):
             tr_params = self.halo_profile_params
