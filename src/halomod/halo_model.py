@@ -978,7 +978,7 @@ class TracerHaloModel(DMHaloModel):
             ):
                 tr_params = self.halo_profile_params
             else:
-                tr_params = {}
+                tr_params = self.tracer_profile_params
 
             this_profile = self.tracer_profile_model(
                 cm_relation=None, mdef=self.mdef, z=self.z, **tr_params,
@@ -986,11 +986,11 @@ class TracerHaloModel(DMHaloModel):
 
         if (
             not self.tracer_concentration_params
-            and self.tracer_profile_model == self.halo_profile_model
+            and self.tracer_concentration_model == self.halo_concentration_model
         ):
-            tr_params = self.halo_profile_params
+            tr_params = self.halo_concentration_params
         else:
-            tr_params = {}
+            tr_params = self.tracer_concentration_params
 
         return self.tracer_concentration_model(
             cosmo=Cosmology(self.cosmo),
@@ -1019,7 +1019,7 @@ class TracerHaloModel(DMHaloModel):
         ):
             tr_params = self.halo_profile_params
         else:
-            tr_params = {}
+            tr_params = self.tracer_profile_params
 
         return self.tracer_profile_model(
             cm_relation=self.tracer_concentration,
