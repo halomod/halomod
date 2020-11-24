@@ -68,7 +68,7 @@ class Profile(Component):
 
     This class provides basic building blocks for all kinds of fun with halo
     radial density profiles. It is modeled on the system described in
-    XXXX.XXXX (paper yet to be published). This means that subclasses providing
+    arXiv:2009.14066. This means that subclasses providing
     specific profiles shapes, f(x) must provide very minimal other information
     for a range of products to be available.
 

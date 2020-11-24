@@ -15,14 +15,27 @@ import warnings
 class ProjectedCF(HaloModel):
     r"""
     Class for calculating projected correlation function.
+
+    Parameters
+    ----------
+    rp_min
+        Minimum projected scale to calculate (Mpc/h)
+    rp_max
+        Maximum projected scale to calculate (Mpc/h)
+    rp_num
+        Number of bins in projected scale
+    rp_log
+        Whether the projected scale vector should be log-spaced.
+    proj_limit
+        The largest non-projected scale up to which to integrate.
     """
 
     def __init__(
         self,
-        rp_min=0.01,
-        rp_max=50.0,
-        rp_num=30,
-        rp_log=True,
+        rp_min: float = 0.01,
+        rp_max: float = 50.0,
+        rp_num: float = 30,
+        rp_log: bool = True,
         proj_limit=None,
         **kwargs
     ):
@@ -62,7 +75,7 @@ class ProjectedCF(HaloModel):
 
     @parameter("switch")
     def proj_limit(self, val):
-        """Upper limits for projected raius. Can be ``None``."""
+        """Upper limits for projected radius. Can be ``None``."""
         return val
 
     @cached_quantity
@@ -82,16 +95,15 @@ class ProjectedCF(HaloModel):
 
     @cached_quantity
     def rlim(self):
-        """Upper limits for projected raius. Either manually set or taken to be some large value."""
-        if self.proj_limit is None:
-            rlim = max(80.0, 5 * self.rp.max())
-        else:
-            rlim = self.proj_limit
-        return rlim
+        """Upper limits for projected radius.
+
+        Either manually set or taken to be some large value.
+        """
+        return self.proj_limit or max(80.0, 5 * self.rp.max())
 
     @cached_quantity
     def r(self):
-        """Logarithematically distributed rp array."""
+        """Logarithmically distributed rp array."""
         return np.logspace(np.log10(self.rp.min()), np.log10(self.rlim), self.rnum)
 
     @cached_quantity
