@@ -160,10 +160,6 @@ class Bias(Component):
         """
         return np.ones_like(self.nu)
 
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        cls._models[cls.__name__] = cls
-
 
 class UnityBias(Bias):
     """A toy bias model which is exactly unity for all mass.

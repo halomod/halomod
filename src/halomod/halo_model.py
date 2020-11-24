@@ -832,9 +832,8 @@ class TracerHaloModel(DMHaloModel):
     @parameter("param")
     def tracer_profile_params(self, val: dict):
         """Dictionary of parameters for the tracer Profile model."""
-        assert val is None or isinstance(val, dict)
-        if val is None:
-            val = {}
+        val = val or {}
+        assert isinstance(val, dict)
         return val
 
     @parameter("model")
@@ -854,9 +853,8 @@ class TracerHaloModel(DMHaloModel):
     @parameter("param")
     def tracer_concentration_params(self, val):
         """Dictionary of parameters for tracer concentration-mass relation."""
-        assert val is None or isinstance(val, dict)
-        if val is None:
-            val = {}
+        val = val or {}
+        assert isinstance(val, dict)
         return val
 
     @parameter("switch")
