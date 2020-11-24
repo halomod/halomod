@@ -6,6 +6,7 @@ from hmf import Component
 from cached_property import cached_property
 from scipy import integrate as intg
 import warnings
+from hmf._internals import pluggable
 
 try:
     from numba import jit
@@ -150,6 +151,7 @@ if USE_NUMBA:
 # ===============================================================================
 # Halo-Exclusion Models
 # ===============================================================================
+@pluggable
 class Exclusion(Component):
     """
     Base class for exclusion models.

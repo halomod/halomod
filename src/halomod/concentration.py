@@ -70,8 +70,10 @@ from hmf.halos.mass_definitions import (
     SOCritical,
     from_colossus_name,
 )
+from hmf._internals import pluggable
 
 
+@pluggable
 class CMRelation(Component):
     r"""
     Base-class for Concentration-Mass relations
