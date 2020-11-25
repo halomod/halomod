@@ -37,6 +37,9 @@ Bugfixes
 * Fix #59 -- can't have non-dict ``model_params``.
 * Fix for calculation of halo centre power spectrum
 * Fix for tracer params initialisation.
+* Fix amplitude of ``angular_corr_gal`` when using ``p_of_z=True``
+  (`Issue #63 <https://github.com/steven-murray/halomod/issues/63>`_,
+   `PR #72 <https://github.com/steven-murray/halomod/pull/72>`_)
 
 v1.4.5
 ------
