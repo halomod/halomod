@@ -424,14 +424,9 @@ class AngularCF(HaloModel):
                 with photometric redshifts",
                 https://ui.adsabs.harvard.edu/abs/2008MNRAS.385.1257B.
         """
-
-        def xi(r):
-            s = _spline(self.r, self.corr_gg)
-            return s(r)
-
         return angular_corr_gal(
             self.theta,
-            xi,
+            self.corr_auto_tracer_fnc,
             self.p1,
             self.zmin,
             self.zmax,
@@ -459,14 +454,9 @@ class AngularCF(HaloModel):
                 with photometric redshifts",
                 https://ui.adsabs.harvard.edu/abs/2008MNRAS.385.1257B.
         """
-
-        def xi(r):
-            s = _spline(self.r, self.corr_mm)
-            return s(r)
-
         return angular_corr_gal(
             self.theta,
-            xi,
+            self.corr_auto_matter_fnc,
             self.p1,
             self.zmin,
             self.zmax,
@@ -587,7 +577,7 @@ def angular_corr_gal(
     elif check_p_norm:
         p2 = _check_p(p2, z if p_of_z else x)
 
-    p_integ = p1(z) * p2(z) / dxdz(z, cosmo) if p_of_z else p1(x) * p2(x)
+    p_integ = p1(z) * p2(z) / dxdz(z, cosmo) ** 2 if p_of_z else p1(x) * p2(x)
     R = np.sqrt(np.add.outer(np.outer(theta ** 2, x ** 2), u ** 2)).flatten()
 
     integrand = np.einsum(
