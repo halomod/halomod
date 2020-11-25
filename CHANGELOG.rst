@@ -1,8 +1,11 @@
 Releases
 ========
 
-2.0.0rc1
---------
+2.0.0 [25th Nov 2020]
+---------------------
+This is a **major** new release that brings halomod into the properly
+Python 3 world, and tightens up a lot of issues. It also corresponds to the
+submission of `Murray, Diemer and Chen (2020) <https://arxiv.org/abs/2009.14066>`_.
 
 Features
 ++++++++
@@ -11,11 +14,11 @@ Features
 * ExtendedSpline class which does better (and more customized) extrapolation on splines.
 * Added ability to change the underlying distribution of satellite and central counts.
 * Python 3!
-* New UnityBias component
+* New ``UnityBias`` component
 * Ability to do cross-correlations between one tracer and another
 * Delineation between DM and halos in power spectra
 * Much more documentation
-* Addition of CoredNFW profile
+* Addition of ``CoredNFW`` profile
 * Added ``mean_tracer_den_unit`` -- the mean density of whatever tracer you use.
 * Interfaces with COLOSSUS for concentration and bias.
 * New CLI interface ``halomod run``
@@ -26,6 +29,7 @@ Changes
 +++++++
 
 * Removed dynamic ``mmin``.
+* No more support for Python 2.
 
 Bugfixes
 ++++++++
