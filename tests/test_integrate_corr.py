@@ -4,7 +4,7 @@ Simple tests for the integration scheme for ProjectedCF.
 import numpy as np
 from halomod import ProjectedCF
 from halomod import projected_corr_gal
-from halomod.integrate_corr import angular_corr_gal
+from halomod.integrate_corr import angular_corr_gal, AngularCF
 from mpmath import hyp2f1
 from scipy.special import gamma
 import pytest
@@ -120,3 +120,26 @@ class TestAngularCF:
         anl = self.power_law_solution(theta, r0, gamma)
 
         assert np.allclose(num, anl, rtol=5e-2)
+
+    def test_against_blake(self):
+        """Simple order-of-magnitude test of ACF against Blake+08 (Fig 4)"""
+        acf = AngularCF(
+            z=0.475,
+            zmin=0.45,
+            zmax=0.5,
+            transfer_model="EH",
+            hod_model="Zheng05",
+            hod_params={
+                "M_min": 12.98,
+                "M_0": -10,
+                "M_1": 14.09,
+                "sig_logm": 0.21,
+                "alpha": 1.57,
+            },
+            theta_min=1e-3 * np.pi / 180.0,
+            theta_max=np.pi / 180.0,
+            theta_num=2,
+        )
+
+        assert 10 < acf.angular_corr_gal[0] < 100
+        assert 0.01 < acf.angular_corr_gal[1] < 0.1

@@ -6,6 +6,7 @@ from hmf import Component
 from cached_property import cached_property
 from scipy import integrate as intg
 import warnings
+from hmf._internals import pluggable
 
 try:
     from numba import jit
@@ -61,12 +62,6 @@ if USE_NUMBA:
         nx = X.shape[-2]
         ny = X.shape[-1]
 
-        # Must be odd number
-        # if nx % 2 == 0:
-        # nx -= 1
-        # if ny % 2 == 0:
-        # ny -= 1
-
         W = makeW_(nx, ny)  # only upper
 
         tot = np.zeros_like(X[..., 0, 0])
@@ -118,9 +113,7 @@ if USE_NUMBA:
 
     @jit(nopython=True)
     def makeH_(nx, ny):  # pragma: no cover
-        """
-        Return the window matrix for trapezoidal intergral.
-        """
+        """Return the window matrix for trapezoidal intergral."""
         H = np.ones((nx, ny))
         for ix in range(1, nx - 1):
             for iy in range(ny):
@@ -131,9 +124,7 @@ if USE_NUMBA:
 
     @jit(nopython=True)
     def dbltrapz_(X, dx, dy):  # pragma: no cover
-        """
-        Double-integral of X for the trapezoidal method.
-        """
+        """Double-integral of X for the trapezoidal method."""
         nx = X.shape[-2]
         ny = X.shape[-1]
 
@@ -150,6 +141,7 @@ if USE_NUMBA:
 # ===============================================================================
 # Halo-Exclusion Models
 # ===============================================================================
+@pluggable
 class Exclusion(Component):
     """
     Base class for exclusion models.
@@ -197,9 +189,7 @@ class Exclusion(Component):
 
 
 class NoExclusion(Exclusion):
-    r"""
-    A model where there's no halo exclusion.
-    """
+    r"""A model where there's no halo exclusion."""
 
     def integrate(self):
         """Integrate the :meth:`raw_integrand` over mass."""
@@ -207,8 +197,7 @@ class NoExclusion(Exclusion):
 
 
 class Sphere(Exclusion):
-    r"""
-    Spherical halo exclusion model.
+    r"""Spherical halo exclusion model.
 
     Only halo pairs where the virial radius of
     either halo is smaller than half of the seperation, i.e.:
@@ -255,8 +244,7 @@ class Sphere(Exclusion):
 
 
 class DblSphere(Sphere):
-    r"""
-    Double Sphere model of halo exclusion.
+    r"""Double Sphere model of halo exclusion.
 
     Only halo pairs for which the sum of virial radii
     is smaller than the separation, i.e.:

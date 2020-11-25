@@ -3,6 +3,7 @@ from halomod import concentration as cm
 import numpy as np
 from hmf import MassFunction
 from hmf.halos.mass_definitions import SOCritical, SOVirial, SOMean
+from halomod import TracerHaloModel
 
 
 @pytest.fixture(scope="function")
@@ -49,3 +50,21 @@ def test_lud16_scalarm():
     l16c = L16Colossus(filter0=mf.normalised_filter)
 
     assert np.allclose(l16.cm(1e12), l16c.cm(1e12), rtol=0.2)
+
+
+@pytest.mark.parametrize(
+    "cmr",
+    (
+        cm.Bullock01,
+        cm.Bullock01Power,
+        cm.Maccio07,
+        cm.Duffy08,
+        cm.Zehavi11,
+        cm.Ludlow16,
+        cm.Ludlow16Empirical,
+    ),
+)
+def test_decreasing_cm(cmr):
+    hm = TracerHaloModel(halo_concentration_model=cmr)
+    m = np.logspace(10, 15, 100)
+    assert np.all(np.diff(hm.halo_concentration.cm(m, z=0)) <= 0)

@@ -9,7 +9,7 @@ from hmf.alternatives.wdm import MassFunctionWDM
 import sys
 from .integrate_corr import ProjectedCF
 from .concentration import CMRelation
-from hmf._internals._framework import get_model_
+from hmf._internals._framework import get_mdl
 from numpy import issubclass_
 
 # ===============================================================================
@@ -120,18 +120,9 @@ class HaloModelWDM(DMHaloModel, MassFunctionWDM):
     @parameter("model")
     def halo_concentration_model(self, val):
         """A halo_concentration-mass relation"""
-        if not (isinstance(val, str) or issubclass_(val, CMRelation)):
-            raise ValueError(
-                "halo_concentration_model must be a subclass of halo_concentration.CMRelation"
-            )
-
-        if isinstance(val, str):
-            if val.endswith("WDM"):
-                return CMRelationWDMRescaled(val)
-            else:
-                return get_model_(val, "halomod.concentration")
-        else:
-            return val
+        if isinstance(val, str) and val.endswith("WDM"):
+            return CMRelationWDMRescaled(val)
+        return get_mdl(val, "CMRelation")
 
     @cached_quantity
     def halo_concentration(self):

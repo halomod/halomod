@@ -70,8 +70,10 @@ from hmf.halos.mass_definitions import (
     SOCritical,
     from_colossus_name,
 )
+from hmf._internals import pluggable
 
 
+@pluggable
 class CMRelation(Component):
     r"""
     Base-class for Concentration-Mass relations
@@ -291,6 +293,34 @@ class Bullock01Power(CMRelation):
     def cm(self, m, z=0):
         ms = self.params["ms"] or self.mass_nonlinear(z)
         return self._cm(m, ms, self.params["a"], self.params["b"], self.params["c"], z)
+
+
+class Maccio07(CMRelation):
+    """
+    Concentration-Mass relation based on Maccio et al.(2007) [1]_.
+    Default value taken from Padmanabhan et al.(2017) [2]_.
+
+    References
+    ----------
+    .. [1] Maccio, A. V. et al., "Concentration, spin and shape of dark matter haloes:
+           scatter and the dependence on mass and environment",
+           https://ui.adsabs.harvard.edu/abs/2007MNRAS.378...55M.
+
+    .. [2] Padmanabhan, H. et al., "A halo model for cosmological neutral hydrogen :
+           abundances and clustering ",
+           https://ui.adsabs.harvard.edu/abs/2017MNRAS.469.2323P/abstract.
+    """
+
+    _defaults = {"c_0": 28.65, "gamma": 1.45}
+    native_mdefs = (SOMean(),)
+
+    def cm(self, m, z):
+        return (
+            self.params["c_0"]
+            * (m * 10 ** (-11)) ** (-0.109)
+            * 4
+            / (1 + z) ** self.params["gamma"]
+        )
 
 
 class Duffy08(Bullock01Power):

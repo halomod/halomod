@@ -2,7 +2,8 @@ r"""
 Module defining functional approaches to generating halo model quantities.
 """
 from .halo_model import HaloModel
-from hmf import get_hmf
+from hmf import get_hmf, Framework
+from typing import List
 
 
 def get_halomodel(
@@ -25,10 +26,11 @@ def get_halomodel(
         "hod_model": "Zehavi05",
     },
     **kwargs
-):
+) -> List[Framework]:
     r"""
     Yield framework instances for all combinations of parameters supplied.
-    It returns a :func:`~hmf.helpers.functional.get_hmf`, with `framework =`
+
+    Returns a :func:`~hmf.helpers.functional.get_hmf`, with `framework =`
     :class:`~halomod.halo_model.HaloModel`. See
     :func:`~hmf.helpers.functional.get_hmf` for input parameters and yields.
     """

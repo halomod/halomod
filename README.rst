@@ -18,7 +18,6 @@ dealing with the Halo Model of Dark Matter Halos, built on
 
 It also has a full-feature web application at https://thehalomod.app -- check it out!
 
-
 Full Documentation
 ------------------
 `Read the docs. <https://halomod.readthedocs.io>`_
@@ -29,10 +28,10 @@ Features
   efficient caching etc.)
 * Extended components for halo model:
 
-  * 10 **halo bias** models, plus scale-dependent bias from Tinker (2005).
-  * 3 basic **concentration-mass-redshift relations**, including the analytic Bullock (2001) model
+  * 10+ **halo bias** models, plus scale-dependent bias from Tinker (2005).
+  * 3+ basic **concentration-mass-redshift relations**, including the analytic Bullock (2001) model
   * Several plug-and-play **halo-exclusion** models (including ng-matched from Tinker+2005).
-  * 5 built-in **HOD parametrisations**.
+  * 5+ built-in **HOD parametrisations**.
   * Many built-in **halo profiles**, including NFW, generalised NFW, Hernquist etc.
   * Support for **WDM models**.
 

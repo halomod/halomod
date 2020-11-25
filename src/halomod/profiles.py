@@ -51,6 +51,7 @@ from hmf.halos.mass_definitions import SOMean
 from astropy.cosmology import Planck15
 import hankel
 from scipy.integrate import quad
+from hmf._internals import pluggable
 
 
 def ginc(a, x):
@@ -60,13 +61,14 @@ def ginc(a, x):
     return gamma(a) * gammainc(a, x)
 
 
+@pluggable
 class Profile(Component):
     """
     Halo radial density profiles.
 
     This class provides basic building blocks for all kinds of fun with halo
     radial density profiles. It is modeled on the system described in
-    XXXX.XXXX (paper yet to be published). This means that subclasses providing
+    arXiv:2009.14066. This means that subclasses providing
     specific profiles shapes, f(x) must provide very minimal other information
     for a range of products to be available.
 
@@ -136,6 +138,30 @@ class Profile(Component):
             c = self.cm_relation(m)
         r = self.halo_mass_to_radius(m, at_z=at_z)
         return r / c
+
+    def scale_radius(
+        self, m: [float, np.ndarray], at_z: bool = False
+    ) -> [float, np.ndarray]:
+        """
+        Return the scale radius for a halo of mass m.
+
+        The scale radius is defined as :math:`r_s = r_vir(m) / c(m).
+
+        Parameters
+        ----------
+        m
+            Mass of the halo(s), in units of M_sun / h.
+        at_z
+            If true, return the redshift-dependent configuration-space scale radius of
+            the halo. Otherwise, return the redshift-independent Lagrangian-space scale
+            radius (based on an initial density patch).
+
+        Returns
+        -------
+        r_s
+            The scale radius, same type as ``m``.
+        """
+        return self._rs_from_m(m=m, at_z=at_z)
 
     def virial_velocity(self, m=None, r=None):
         """
@@ -496,7 +522,7 @@ class Profile(Component):
         return pos.T + centre
 
 
-class ProfileInf(Profile):
+class ProfileInf(Profile, abstract=True):
     """
     An extended halo_profile (not truncated at x=c)
     """
@@ -1063,3 +1089,53 @@ class CoredNFW(Profile):
             )
 
         return antideriv(K, c) - antideriv(K, 0)
+
+
+class PowerLawWithExpCut(ProfileInf):
+    r"""
+    A simple power law with exponential cut-off.
+
+    Default is taken to be the `z=1` case of [1]_.
+
+
+    Notes
+    -----
+    This is an empirical form proposed with the formula
+
+    .. math:: \rho(r) = \rho_s * R_s^b / r^b * e^{-ar/R_s}
+
+
+    References
+    ----------
+    .. [1] Spinelli, M. et al.,
+           "The atomic hydrogen content of the post-reionization Universe",
+           https://ui.adsabs.harvard.edu/abs/2020MNRAS.493.5434S/abstract.
+    """
+
+    _defaults = {"a": 0.049, "b": 2.248}
+
+    def _f(self, x):
+        return 1.0 / (x ** self.params["b"]) * np.exp(-self.params["a"] * x)
+
+    def _h(self, c=None):
+        return (
+            gamma(3 - self.params["b"])
+            * self.params["a"] ** (self.params["b"] - 3)
+            * np.ones_like(c)
+        )
+
+    def _p(self, K, c=None):
+        b = self.params["b"]
+        a = self.params["a"]
+        if b == 2:
+            return np.arctan(K / a) / K
+        else:
+            return (
+                -1
+                / K
+                * (
+                    (a ** 2 + K ** 2) ** (b / 2 - 1)
+                    * gamma(2 - b)
+                    * np.sin((b - 2) * np.arctan(K / a))
+                )
+            )
