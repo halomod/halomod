@@ -22,7 +22,7 @@ Features
 * Added ``mean_tracer_den_unit`` -- the mean density of whatever tracer you use.
 * Interfaces with COLOSSUS for concentration and bias.
 * New CLI interface ``halomod run``
-* New examples, including an example of parameter fitting with ``halomod`` and ``emcee`.
+* New examples, including an example of parameter fitting with ``halomod`` and ``emcee``.
 * New hod, density profile and concentration model, with new example, for HI.
 
 Changes
@@ -30,6 +30,7 @@ Changes
 
 * Removed dynamic ``mmin``.
 * No more support for Python 2.
+* Update tutorial to match the current version.
 
 Bugfixes
 ++++++++
