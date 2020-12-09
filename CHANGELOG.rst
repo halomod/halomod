@@ -1,6 +1,13 @@
 Releases
 ========
 
+dev-version
+-----------
+
+Changes
++++++++
+* Update tutorial to match the current version.
+
 2.0.0 [25th Nov 2020]
 ---------------------
 This is a **major** new release that brings halomod into the properly
@@ -30,7 +37,6 @@ Changes
 
 * Removed dynamic ``mmin``.
 * No more support for Python 2.
-* Update tutorial to match the current version.
 
 Bugfixes
 ++++++++
