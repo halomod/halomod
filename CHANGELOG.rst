@@ -7,6 +7,8 @@ dev-version
 Changes
 +++++++
 * Update tutorial to match the current version.
+* new ``validation()`` method from ``hmf v3.3.4`` is used to check validity
+  of simple inputs, like ``k_hm`` and ``r``.
 
 2.0.0 [25th Nov 2020]
 ---------------------
