@@ -155,6 +155,15 @@ class DMHaloModel(MassFunction):
     # ===============================================================================
     # Parameters
     # ===============================================================================
+    def validate(self):
+        super().validate()
+        assert self.rmin < self.rmax, f"rmin >= rmax: {self.rmin}, {self.rmax}"
+        assert len(self.r) > 0, "r has length zero!"
+        assert (
+            self.hm_logk_min < self.hm_logk_max
+        ), f"hm_logk_min >= hm_logk_max: {self.hm_logk_min}, {self.hm_logk_max}"
+        assert len(self.k_hm) > 0, "k_hm has length zero!"
+
     @parameter("model")
     def bias_model(self, val):
         """Bias Model."""
@@ -814,6 +823,12 @@ class TracerHaloModel(DMHaloModel):
     # ===============================================================================
     # Parameters
     # ===============================================================================
+    def validate(self):
+        super().validate()
+        assert (
+            np.sum(self._tm) > 1
+        ), "the HOD model you've supplied masks out all given masses!"
+
     @parameter("param")
     def tracer_density(self, val):
         """Mean density of the tracer, ONLY if passed directly."""

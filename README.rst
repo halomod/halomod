@@ -47,7 +47,7 @@ Usage
 or in a script.
 To use interactively, in ``ipython`` do something like the following::
 
-    >>> from src.halomod import HaloModel
+    >>> from halomod import HaloModel
     >>> hm = HaloModel()  # Construct the object
     >>> help(hm)          # Lists many of the available quantities.
     >>> galcorr = hm.corr_auto_tracer
