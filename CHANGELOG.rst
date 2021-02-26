@@ -1,6 +1,24 @@
 Releases
 ========
 
+dev-version
+-----------
+
+v2.0.1 [26 Feb 2021]
+----------------------
+
+v2.0.3 [26 Feb 2021]
+----------------------
+
+v2.0.2 [26 Feb 2021]
+----------------------
+
+Changes
++++++++
+* Update tutorial to match the current version.
+* new ``validation()`` method from ``hmf v3.3.4`` is used to check validity
+  of simple inputs, like ``k_hm`` and ``r``.
+
 2.0.0 [25th Nov 2020]
 ---------------------
 This is a **major** new release that brings halomod into the properly
@@ -22,7 +40,7 @@ Features
 * Added ``mean_tracer_den_unit`` -- the mean density of whatever tracer you use.
 * Interfaces with COLOSSUS for concentration and bias.
 * New CLI interface ``halomod run``
-* New examples, including an example of parameter fitting with ``halomod`` and ``emcee`.
+* New examples, including an example of parameter fitting with ``halomod`` and ``emcee``.
 * New hod, density profile and concentration model, with new example, for HI.
 
 Changes
