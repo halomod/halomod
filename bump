@@ -15,4 +15,4 @@ python changethelog.py ${NEWVERSION}
 
 # Now commit
 git add .
-git commit -m "Bump Version: ${OLDVERSION} -> ${NEWVERSION}"
+git commit --no-verify -m "Bump Version: ${OLDVERSION} -> ${NEWVERSION}"
