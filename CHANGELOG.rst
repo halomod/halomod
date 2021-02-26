@@ -4,6 +4,9 @@ Releases
 dev-version
 -----------
 
+v2.0.2 [26 Feb 2021]
+----------------------
+
 Changes
 +++++++
 * Update tutorial to match the current version.
