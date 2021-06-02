@@ -25,7 +25,9 @@ def dmhm():
 
 @pytest.fixture(scope="module")
 def thm():
-    return TracerHaloModel(rmin=0.01, rmax=50, rnum=20, transfer_model="EH")
+    return TracerHaloModel(
+        rmin=0.01, rmax=50, rnum=20, transfer_model="EH", hc_spectrum="nonlinear"
+    )
 
 
 def test_dm_model_instances(dmhm):
@@ -66,7 +68,7 @@ def test_tr_model_instances(thm):
 )
 def test_monotonic_dec(thm: TracerHaloModel, quantity):
     # Ensure it's going down (or potentially 1e-5 level numerical noise going up)
-    assert np.all(np.diff(getattr(thm, quantity)) <= 1e-5)
+    assert np.all((np.diff(getattr(thm, quantity))) <= 1e-5)
 
 
 def test_halo_power():
