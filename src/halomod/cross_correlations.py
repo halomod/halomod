@@ -14,10 +14,12 @@ Examples
 Cross-correlating the same galaxy samples in different redshifts::
 
     >>> from halomod import HaloModel
-    >>> from halomod.cross_correlations import CrossCorrelations, HODCross
+    >>> from halomod.cross_correlations import CrossCorrelations, ConstantCorr
     >>> cross = CrossCorrelations(cross_hod_model=ConstantCorr, halo_model_1_params=dict(z=1.0),
     >>>                           halo_model_2_params=dict(z=0.0))
     >>> pkcorr = cross.power_cross
+
+The output corresponds to the cross power spectrum at `cross.halo_model_1.k_hm`.
 """
 
 from .halo_model import TracerHaloModel
