@@ -453,8 +453,8 @@ class DMHaloModel(MassFunction):
             return self.linear_power_fnc
         elif self.hc_spectrum == "nonlinear":
             warnings.warn(
-                "Warning: using halofit for tracer stats is only valid up to"+
-                 " quasi-linear scales k<~1 (h/Mpc)."
+                "Warning: using halofit for tracer stats is only valid up to"
+                + " quasi-linear scales k<~1 (h/Mpc)."
             )
             return self.nonlinear_power_fnc
         else:
