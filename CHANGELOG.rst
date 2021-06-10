@@ -4,11 +4,11 @@ Releases
 dev-version
 -----------
 
-v2.0.1 [26 Feb 2021]
-----------------------
+Bugfixes
+++++++++
 
-v2.0.3 [26 Feb 2021]
-----------------------
+* Scale-dependent bias uses linear matter correlation function (as per Tinker+2005).
+  Previously was using non-linear halo model matter-matter correlation function.
 
 v2.0.2 [26 Feb 2021]
 ----------------------
