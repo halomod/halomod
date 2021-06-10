@@ -384,7 +384,7 @@ class DMHaloModel(MassFunction):
             return None
         else:
             return self.sd_bias_model(
-                self.corr_linear_mm_fnc(self._r_table), **self.sd_bias_params
+                self.corr_halofit_mm_fnc(self._r_table), **self.sd_bias_params
             )
 
     @cached_quantity
@@ -493,7 +493,7 @@ class DMHaloModel(MassFunction):
 
     @cached_quantity
     def corr_halofit_mm_fnc(self):
-        """A callable returning the linear auto-correlation function of dark matter."""
+        """A callable returning the nonlinear auto-correlation function of dark matter."""
         corr = tools.hankel_transform(self.nonlinear_power_fnc, self._r_table, "r")
         return tools.ExtendedSpline(
             self._r_table,

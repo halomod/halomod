@@ -7,8 +7,8 @@ dev-version
 Bugfixes
 ++++++++
 
-* Scale-dependent bias uses linear matter correlation function (as per Tinker+2005).
-  Previously was using non-linear halo model matter-matter correlation function.
+* Scale-dependent bias uses nonlinear (halofit) matter correlation function (as per Tinker+2005).
+  Previously was using halo model matter-matter correlation function.
 
 v2.0.2 [26 Feb 2021]
 ----------------------
