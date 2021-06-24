@@ -16,3 +16,4 @@ with ``halomod``, and use it efficiently.
     examples/parameter
     examples/extension
     examples/beyond_galaxy
+    examples/cross_correlation

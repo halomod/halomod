@@ -19,7 +19,7 @@ Cross-correlating the same galaxy samples in different redshifts::
     >>>                           halo_model_2_params=dict(z=0.0))
     >>> pkcorr = cross.power_cross
 
-The output corresponds to the cross power spectrum at `cross.halo_model_1.k_hm`.
+`pkcorr` corresponds to the cross-power at `cross.halo_model_1.k_hm`.
 """
 
 from .halo_model import TracerHaloModel
