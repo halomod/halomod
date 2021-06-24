@@ -3,6 +3,10 @@ Releases
 
 dev-version
 -----------
+Features
+++++++++
+* A new example of doing cross-correlation with ``halomod``
+
 
 Bugfixes
 ++++++++
