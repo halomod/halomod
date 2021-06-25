@@ -24,6 +24,7 @@ Changed
 Fixed
 +++++
 
+* ``force_1halo_turnover`` now actually works for DM correlations.
 * Input matter correlation function for the scale-dependent bias is now that from halofit.
 
 v2.0.1 [26 Feb 2021]
