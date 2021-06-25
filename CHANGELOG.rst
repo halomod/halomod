@@ -7,9 +7,16 @@ Features
 ++++++++
 * A new example of doing cross-correlation with ``halomod``
 
+Changed
++++++++
 
-Bugfixes
-++++++++
+* Default for ``hc_spectrum`` is now "linear". The previous default -- "nonlinear" --
+  does not play well with dark matter statistics in general, and adds spurious 1-halo
+  structure to the 2-halo term. These can be undone to some degree by clever use of halo
+  exclusion and filters, but it was deemed not suitable as a default.
+
+v2.0.1 [26 Feb 2021]
+----------------------
 
 * Scale-dependent bias uses nonlinear (halofit) matter correlation function (as per Tinker+2005).
   Previously was using halo model matter-matter correlation function.
