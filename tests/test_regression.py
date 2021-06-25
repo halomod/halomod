@@ -34,6 +34,7 @@ test_matrix = [(t[0][0], t[0][1], t[1]) for t in test_matrix]
 
 @pytest.mark.parametrize("z,params,quantity", test_matrix)
 def test_regression_quantity_tracerhm(tr, z, params, quantity):
+    print("Testing for params = ", params)
     tr.update(z=z, **params)
 
     hsh = get_hash(z, params)

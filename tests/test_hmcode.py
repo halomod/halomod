@@ -63,15 +63,29 @@ hm = DMHaloModel(
 
 
 @pytest.mark.parametrize("iz", range(16))
-def test_hmcode(hmcode_data, iz):
+def test_hmcode(hmcode_data, iz, plt):
     z = hmcode_data["z"][iz]
 
+    fac = hmcode_data["k"] ** 3 / (2 * np.pi ** 2)
     hm.update(z=z)
+    halomod = hm.power_auto_matter_fnc(hmcode_data["k"]) * fac
 
-    halomod = (
-        hm.power_auto_matter_fnc(hmcode_data["k"])
-        * hmcode_data["k"] ** 3
-        / (2 * np.pi ** 2)
+    plt.plot(hmcode_data["k"], hmcode_data["p"][:, iz])
+    plt.plot(hmcode_data["k"], halomod, ls="--")
+    plt.plot(
+        hmcode_data["k"],
+        fac * hm.power_1h_auto_matter_fnc(hmcode_data["k"]),
+        color="r",
+        ls="--",
     )
+    plt.plot(
+        hmcode_data["k"],
+        fac * hm.power_2h_auto_matter_fnc(hmcode_data["k"]),
+        color="g",
+        ls="--",
+    )
+    plt.xscale("log")
+    plt.yscale("log")
+    plt.title(f"z={z}")
 
     assert np.allclose(halomod, hmcode_data["p"][:, iz], rtol=3e-2)

@@ -18,6 +18,9 @@ base_options = {
     "dr_table": 0.1,
     "dlnk": 0.1,
     "dlog10m": 0.1,
+    "bias_model": "Tinker10",
+    "hmf_model": "Tinker08",
+    "force_unity_dm_bias": False,
 }
 
 tested_params = (

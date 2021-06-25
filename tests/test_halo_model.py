@@ -72,7 +72,9 @@ def test_monotonic_dec(thm: TracerHaloModel, quantity):
 def test_halo_power():
     """Tests the halo centre power spectrum"""
     hm = TracerHaloModel(bias_model="UnityBias")
-    assert np.allclose(hm.power_hh(hm.k_hm), hm.power_mm_2h, rtol=1e-2)
+    assert np.allclose(
+        hm.power_hh(hm.k_hm[:10]), hm.power_2h_auto_matter[:10], rtol=1e-2
+    )
 
 
 def test_setting_default_tracers_conc():
@@ -170,3 +172,27 @@ def test_raiseerror(thm: TracerHaloModel, attr):
     fakemodel = 1
     with pytest.raises(ValueError):
         setattr(thm, attr, fakemodel)
+
+
+def test_large_scale_bias(dmhm):
+
+    # First do the easiest case of a peak-background split
+    dm2 = dmhm.clone(
+        hc_spectrum="linear",
+        force_unity_dm_bias=True,
+        exclusion_model="NoExclusion",
+        bias_model="Tinker10PBSplit",
+        hmf_model="Tinker10",
+    )
+
+    print(dm2.halo_profile.u(dm2.k_hm[0], dm2.m, c=dm2.cmz_relation))
+    assert np.isclose(
+        dm2.power_2h_auto_matter[0], dm2.linear_power_fnc(dm2.k_hm[0]), rtol=1e-4
+    )
+
+    # Now do a non-pb split
+    dm2.bias_model = "Tinker10"
+    print(dm2.halo_profile.u(dm2.k_hm[0], dm2.m, c=dm2.cmz_relation))
+    assert np.isclose(
+        dm2.power_2h_auto_matter[0], dm2.linear_power_fnc(dm2.k_hm[0]), rtol=1e-4
+    )
