@@ -9,6 +9,8 @@ Features
 * New ``pair_hmf`` attribute of Bias classes that indicates the peak-background split
   HMF pair for each model.
 * Warnings emitted when the bias model and HMF do not match and computing DM statistics.
+* A new example of doing cross-correlation with ``halomod``
+
 
 Changed
 +++++++
@@ -24,14 +26,18 @@ Fixed
 +++++
 
 * Input matter correlation function for the scale-dependent bias is now that from halofit.
-
-v2.0.1 [26 Feb 2021]
-----------------------
+* Default for ``hc_spectrum`` is now "linear". The previous default -- "nonlinear" --
+  does not play well with dark matter statistics in general, and adds spurious 1-halo
+  structure to the 2-halo term. These can be undone to some degree by clever use of halo
+  exclusion and filters, but it was deemed not suitable as a default.
 
 v2.0.3 [26 Feb 2021]
 ----------------------
 
 v2.0.2 [26 Feb 2021]
+----------------------
+
+v2.0.1 [26 Feb 2021]
 ----------------------
 
 Changes

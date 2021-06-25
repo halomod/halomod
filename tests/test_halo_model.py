@@ -25,7 +25,9 @@ def dmhm():
 
 @pytest.fixture(scope="module")
 def thm():
-    return TracerHaloModel(rmin=0.01, rmax=50, rnum=20, transfer_model="EH")
+    return TracerHaloModel(
+        rmin=0.01, rmax=50, rnum=20, transfer_model="EH", hc_spectrum="nonlinear"
+    )
 
 
 def test_dm_model_instances(dmhm):
