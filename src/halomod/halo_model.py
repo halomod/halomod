@@ -611,19 +611,36 @@ class DMHaloModel(MassFunction):
     # ===========================================================================
     # 2-point DM statistics
     # ===========================================================================
+    def _do_1halo_integral(self, max_mmin, integrand, mean_dens):
+        """Do the 1-halo integral for some quantity, doing the turnover trick."""
+
+        dens_min = 4 * np.pi * self.mean_density0 * self.halo_overdensity_mean / 3
+        p = np.zeros_like(self.k)
+        for i, (k, integ) in enumerate(zip(self.k, integrand)):
+            if self.force_1halo_turnover:
+                r = np.pi / k / 10  # The 10 is a complete heuristic hack.
+                mmin = max(max_mmin, dens_min * r ** 3)
+            else:
+                mmin = max_mmin
+
+            p[i] = tools.spline_integral(self.m, integ, xmin=mmin)
+
+        return p / mean_dens ** 2
+
     @cached_quantity
     def power_1h_auto_matter_fnc(self):
         """A callable returning the halo model 1-halo DM auto-power spectrum."""
-        u = self.halo_profile_ukm
-        integrand = self.dndm * self.m ** 3 * u ** 2
-
-        p = (
-            intg.trapz(integrand, dx=np.log(10) * self.dlog10m)
-            / self.mean_density0 ** 2
+        p = self._do_1halo_integral(
+            max_mmin=self.m[0],
+            integrand=self.dndm * self.m ** 2 * self.halo_profile_ukm ** 2,
+            mean_dens=self.mean_density0,
         )
 
         return tools.ExtendedSpline(
-            self.k, p, lower_func="power_law", upper_func="power_law"
+            self.k,
+            p,
+            lower_func=tools._zero if self.force_1halo_turnover else "boundary",
+            upper_func="power_law",
         )
 
     @property
@@ -1336,21 +1353,13 @@ class TracerHaloModel(DMHaloModel):
 
         Note: May not exist for every kind of tracer.
         """
-        integ = self.tracer_profile_ukm ** 2 * self.dndm * self.hod.ss_pairs(self.m)
-
-        if self.force_1halo_turnover:
-            r = np.pi / self.k / 10  # The 10 is a complete heuristic hack.
-            mmin = (
-                4 * np.pi * r ** 3 * self.mean_density0 * self.halo_overdensity_mean / 3
-            )
-            mask = np.outer(self.m, np.ones_like(self.k)) < mmin
-            integ[mask.T] = 0
-
-        p = np.zeros_like(self.k)
-        for i, f in enumerate(integ):
-            p[i] = tools.spline_integral(self.m, f, xmin=self.tracer_mmin)
-
-        p /= self.mean_tracer_den ** 2
+        p = self._do_1halo_integral(
+            max_mmin=self.hod.mmin,
+            integrand=self.tracer_profile_ukm ** 2
+            * self.dndm
+            * self.hod.ss_pairs(self.m),
+            mean_dens=self.mean_tracer_den,
+        )
 
         return tools.ExtendedSpline(
             self.k,
@@ -1410,28 +1419,20 @@ class TracerHaloModel(DMHaloModel):
 
         Note: May not exist for every kind of tracer.
         """
-        c = np.zeros_like(self.k)
-        dens_min = 4 * np.pi * self.mean_density0 * self.halo_overdensity_mean / 3
-
-        cs_pairs = self.hod.cs_pairs(self.m)
-        for i, (k, u) in enumerate(zip(self.k, self.tracer_profile_ukm)):
-            intg = self.dndm * 2 * cs_pairs * u
-
-            if self.force_1halo_turnover:
-                r = np.pi / k / 10  # The 10 is a complete heuristic hack.
-                mmin = max(self.hod.mmin, dens_min * r ** 3)
-            else:
-                mmin = self.hod.mmin
-
-            c[i] = tools.spline_integral(self.m, intg, xmin=10 ** mmin)
-
-        c /= self.mean_tracer_den ** 2
+        p = self._do_1halo_integral(
+            max_mmin=self.hod.mmin,
+            integrand=self.dndm
+            * 2
+            * self.hod.cs_pairs(self.m)
+            * self.tracer_profile_ukm,
+            mean_dens=self.mean_tracer_den,
+        )
 
         return tools.ExtendedSpline(
             self.k,
-            c,
+            p,
             lower_func=tools._zero if self.force_1halo_turnover else "boundary",
-            upper_func="power_law" if np.all(c[-10:] > 0) else tools._zero,
+            upper_func="power_law" if np.all(p[-10:] > 0) else tools._zero,
         )
 
     @property
