@@ -326,14 +326,11 @@ class DMHaloModel(MassFunction):
         Scales at which correlation functions are computed [Mpc/h].
         """
         if hasattr(self.rmin, "__len__"):
-            r = np.array(self.rmin)
+            return np.array(self.rmin)
+        elif self.rlog:
+            return np.exp(np.linspace(np.log(self.rmin), np.log(self.rmax), self.rnum))
         else:
-            if self.rlog:
-                r = np.exp(np.linspace(np.log(self.rmin), np.log(self.rmax), self.rnum))
-            else:
-                r = np.linspace(self.rmin, self.rmax, self.rnum)
-
-        return r
+            return np.linspace(self.rmin, self.rmax, self.rnum)
 
     @cached_quantity
     def bias(self):
@@ -387,7 +384,7 @@ class DMHaloModel(MassFunction):
             return None
         else:
             return self.sd_bias_model(
-                self.corr_auto_matter_fnc(self._r_table), **self.sd_bias_params
+                self.corr_halofit_mm_fnc(self._r_table), **self.sd_bias_params
             )
 
     @cached_quantity
@@ -500,7 +497,7 @@ class DMHaloModel(MassFunction):
 
     @cached_quantity
     def corr_halofit_mm_fnc(self):
-        """A callable returning the linear auto-correlation function of dark matter."""
+        """A callable returning the nonlinear auto-correlation function of dark matter."""
         corr = tools.hankel_transform(self.nonlinear_power_fnc, self._r_table, "r")
         return tools.ExtendedSpline(
             self._r_table,

@@ -7,7 +7,6 @@ Features
 ++++++++
 * A new example of doing cross-correlation with ``halomod``
 
-
 Changed
 +++++++
 
@@ -19,8 +18,8 @@ Changed
 v2.0.1 [26 Feb 2021]
 ----------------------
 
-v2.0.3 [26 Feb 2021]
-----------------------
+* Scale-dependent bias uses nonlinear (halofit) matter correlation function (as per Tinker+2005).
+  Previously was using halo model matter-matter correlation function.
 
 v2.0.2 [26 Feb 2021]
 ----------------------

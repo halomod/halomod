@@ -336,7 +336,8 @@ class Duffy08(Bullock01Power):
     Notes
     -----
 
-    .. note:: Only "NFW" parameters are implemented by default here. Of course, you can
+    .. note:: Only "NFW" parameters are implemented by default here. Furthermore,
+              only the z=0-2 sample parameters are implemented. Of course, you can
               always pass your own parameters from Table 1 of [1]_.
 
     Other Parameters
@@ -348,8 +349,8 @@ class Duffy08(Bullock01Power):
         Default value is ``2e12``.
 
     sample : str
-        Either "relaxed"(default) or "full". Specifies which set of parameters to take as
-        default parameters, from Table 1 of [1]_.
+        Either "relaxed" (default) or "full". Specifies which set of parameters to take
+        as default parameters, from Table 1 of [1]_.
 
     References
     ----------
