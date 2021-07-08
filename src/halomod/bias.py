@@ -58,17 +58,19 @@ Constructing and using a colossus-based halo bias::
     >>> comparat = bias.make_colossus_bias(model="comparat17")
     >>> hm = HaloModel(bias_model=comparat)
 """
+import numpy as np
+from astropy.cosmology import FLRW, Planck15
+from colossus.lss.bias import haloBiasFromNu
+from scipy.interpolate import InterpolatedUnivariateSpline as spline
 from typing import Optional, Union
 
-import numpy as np
 from hmf import Component
-from scipy.interpolate import InterpolatedUnivariateSpline as spline
-from hmf.cosmology.cosmo import astropy_to_colossus
-from colossus.lss.bias import haloBiasFromNu
-from astropy.cosmology import FLRW, Planck15
-from hmf.halos.mass_definitions import SOMean
 from hmf._internals import pluggable
+from hmf.cosmology.cosmo import astropy_to_colossus
+from hmf.halos.mass_definitions import SOMean
 from hmf.mass_function import fitting_functions as ff
+
+SO_MEAN = SOMean()
 
 
 @pluggable
@@ -108,9 +110,8 @@ class Bias(Component):
         Hubble parameter in units of 100 km/s/Mpc.
 
     """
-    pair_hmf = (
-        tuple()
-    )  #: The HMF model that pairs with this bias in the peak-background split
+    #: The HMF model that pairs with this bias in the peak-background split
+    pair_hmf = ()
 
     _models = {}
     _defaults = {}
@@ -173,7 +174,7 @@ class UnityBias(Bias):
     """
 
     pair_hmf = tuple(
-        [hmf for hmf in ff.FittingFunction.get_models().values() if hmf.normalized]
+        hmf for hmf in ff.FittingFunction.get_models().values() if hmf.normalized
     )
 
     def bias(self):
@@ -801,7 +802,7 @@ class TinkerSD05(ScaleDepBias):
         return np.sqrt((1 + a * self.xi_dm) ** b / (1 + c * self.xi_dm) ** d)
 
 
-def make_colossus_bias(model="comparat17", mdef=SOMean(), **defaults):
+def make_colossus_bias(model="comparat17", mdef=SO_MEAN, **defaults):
     r"""
     A factory function which helps with integration with the ``colossus`` cosmology code.
     See :mod:`~halomod.bias` for an example of how to use it.

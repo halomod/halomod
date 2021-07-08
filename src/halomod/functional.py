@@ -1,16 +1,28 @@
 r"""
 Module defining functional approaches to generating halo model quantities.
 """
+from typing import List, Optional
+
+from hmf import Framework, get_hmf
+
 from .halo_model import HaloModel
-from hmf import get_hmf, Framework
-from typing import List
 
 
 def get_halomodel(
     required_attrs,
     get_label=True,
     kls=HaloModel,
-    fast_kwargs={
+    fast_kwargs: Optional[dict] = None,
+    **kwargs
+) -> List[Framework]:
+    r"""
+    Yield framework instances for all combinations of parameters supplied.
+
+    Returns a :func:`~hmf.helpers.functional.get_hmf`, with `framework =`
+    :class:`~halomod.halo_model.HaloModel`. See
+    :func:`~hmf.helpers.functional.get_hmf` for input parameters and yields.
+    """
+    fast_kwargs = fast_kwargs or {
         "transfer_fit": "BBKS",
         "lnk_min": -4,
         "lnk_max": 2,
@@ -24,14 +36,5 @@ def get_halomodel(
         "nonlinear": False,
         "scale_dependent_bias": False,
         "hod_model": "Zehavi05",
-    },
-    **kwargs
-) -> List[Framework]:
-    r"""
-    Yield framework instances for all combinations of parameters supplied.
-
-    Returns a :func:`~hmf.helpers.functional.get_hmf`, with `framework =`
-    :class:`~halomod.halo_model.HaloModel`. See
-    :func:`~hmf.helpers.functional.get_hmf` for input parameters and yields.
-    """
+    }
     return get_hmf(required_attrs, get_label, kls, fast_kwargs, **kwargs)

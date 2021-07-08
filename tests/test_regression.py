@@ -2,25 +2,27 @@
 This module performs some regression tests.
 
 The idea is to produce regression data with the `make_regression_data.py` script,
-then produce _exactly the same_ data here, and compare.
+then produce *exactly the same* data here, and compare.
 
 These tests should be run with an absolutely pinned set of dependencies so that updates
 underneath don't break things. Every now and then, one can update the list of
 dependencies, and reproduce the data.
 """
 
+import pytest
+
+import numpy as np
+from itertools import product
 from make_regression_data import (
-    tested_params,
-    quantities,
     base_options,
+    compress_data,
     datadir,
     get_hash,
-    compress_data,
+    quantities,
+    tested_params,
 )
-import pytest
+
 from halomod import TracerHaloModel
-from itertools import product
-import numpy as np
 
 
 @pytest.fixture(scope="module")

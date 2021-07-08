@@ -2,22 +2,19 @@
 Modules defining a series of utility functions to perform hankel transformation
 and Fourier transformation from correlation function to power spectrum.
 """
-from typing import List
-
+import logging
 import numpy as np
 import scipy.integrate as intg
-from scipy.stats import poisson
 import time
-from scipy.interpolate import (
-    InterpolatedUnivariateSpline as spline,
-    UnivariateSpline as uspline,
-)
-from .profiles import Profile
-from .hod import HOD
 import warnings
 from functools import lru_cache
+from scipy.interpolate import InterpolatedUnivariateSpline as spline
+from scipy.interpolate import UnivariateSpline as uspline
+from scipy.stats import poisson
+from typing import List, Optional, Union
 
-from hankel import SymmetricFourierTransform
+from .hod import HOD
+from .profiles import Profile
 
 try:
     from pathos import multiprocessing as mp
@@ -25,6 +22,8 @@ try:
     HAVE_POOL = True
 except ImportError:
     HAVE_POOL = False
+
+logger = logging.getLogger(__name__)
 
 
 @lru_cache(maxsize=25)
@@ -118,6 +117,7 @@ def power_to_corr_ogata(
     power_pos : tuple of bool, optional
         Whether 'power' is definitely positive, at either end. If so, a slightly better
         extrapolation can be achieved.
+
     Notes
     -----
     See the `hankel <https://hankel.readthedocs.io>`_ documentation for details on the
@@ -358,9 +358,9 @@ def populate(
     centres: np.ndarray,
     masses: np.ndarray,
     halomodel=None,
-    profile: [None, Profile] = None,
-    hodmod: [None, HOD] = None,
-    edges: [None, np.ndarray] = None,
+    profile: Optional[Profile] = None,
+    hodmod: Optional[HOD] = None,
+    edges: Optional[np.ndarray] = None,
 ):
     """
     Populate a series of DM halos with a tracer, given a HOD model.
@@ -459,11 +459,11 @@ def populate(
 
     nhalos_with_gal = len(set(central_halos.tolist() + sat_halos.tolist()))
 
-    print(
+    logger.info(
         f"Took {time.time() - start} seconds, or "
         f"{(time.time() - start) / nhalos_with_gal} each halo."
     )
-    print(
+    logger.info(
         f"NhalosWithGal: {nhalos_with_gal}, Ncentrals: {ncen}, NumGal: {len(halo)}, "
         f"MeanGal: {float(len(halo)) / nhalos_with_gal}, "
         f"MostGal: {sgal.max() + 1 if len(sgal) > 0 else 1}"
@@ -485,12 +485,14 @@ def populate(
 
 
 class ExtendedSpline:
+    """Generate a function from data x,y with arbitrary behaviour below and above limit."""
+
     def __init__(
         self,
         x: np.ndarray,
         y: np.ndarray,
-        lower_func: [callable, None, str] = None,
-        upper_func: [callable, None, str] = None,
+        lower_func: Union[callable, None, str] = None,
+        upper_func: Union[callable, None, str] = None,
         match_lower: bool = True,
         match_upper: bool = True,
         domain=(-np.inf, np.inf),
@@ -498,8 +500,6 @@ class ExtendedSpline:
         lower_power_law_n=10,
         upper_power_law_n=10,
     ):
-        """Generate a function from data x,y with arbitrary behaviour below and above limit."""
-
         if x.min() < domain[0] or x.max() > domain[1]:
             raise ValueError("x is outside domain")
 
@@ -641,6 +641,7 @@ def spline_integral(
 
 
 def norm_warn(self):
+    """Emit a warning when either the HMF or the HMF/bias pair are not normalized."""
     if not self.hmf.normalized:
         warnings.warn(
             f"You are using an un-normalized mass function "

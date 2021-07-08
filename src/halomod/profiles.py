@@ -26,32 +26,37 @@ Examples
 --------
 Use NFW profile in a halo model::
 
-    >>> from halomod import HaloModel
-    >>> hm = HaloModel(halo_profile_model="NFW")
+>>> from halomod import HaloModel
+>>> hm = HaloModel(halo_profile_model="NFW")
 
 You can also specify a different profile for tracer if you're working with
-:class:`~halomod.halo_model.TracerHaloModel` ::
-    >>> from halomod import HaloModel
-    >>> hm = HaloModel(halo_profile_model="NFW",tracer_profile_model="CoredNFW")
+:class:`~halomod.halo_model.TracerHaloModel`::
 
-Notice that tracer density profile density should be used only in inverse volume or dimensionless unit.
+>>> from halomod import HaloModel
+>>> hm = HaloModel(halo_profile_model="NFW",tracer_profile_model="CoredNFW")
+
+Notice that tracer density profile density should be used only in inverse volume or
+dimensionless unit.
 """
+import hankel
+import mpmath
 import numpy as np
-import scipy.special as sp
+import os
 import scipy.integrate as intg
+import scipy.special as sp
+import warnings
+from astropy.cosmology import Planck15
+from scipy.integrate import quad
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 from scipy.interpolate import RectBivariateSpline
-import mpmath
+from scipy.special import gamma, gammainc, sici
+from typing import Union
+
 from hmf import Component
-from scipy.special import gammainc, gamma
-import os
-import warnings
-from scipy.special import sici
-from hmf.halos.mass_definitions import SOMean
-from astropy.cosmology import Planck15
-import hankel
-from scipy.integrate import quad
 from hmf._internals import pluggable
+from hmf.halos.mass_definitions import SOMean
+
+SO_MEAN = SOMean()
 
 
 def ginc(a, x):
@@ -90,7 +95,7 @@ class Profile(Component):
     _defaults = {}
 
     def __init__(
-        self, cm_relation, mdef=SOMean(), z=0.0, cosmo=Planck15, **model_parameters
+        self, cm_relation, mdef=SO_MEAN, z=0.0, cosmo=Planck15, **model_parameters
     ):
 
         self.mdef = mdef
@@ -140,17 +145,17 @@ class Profile(Component):
         return r / c
 
     def scale_radius(
-        self, m: [float, np.ndarray], at_z: bool = False
-    ) -> [float, np.ndarray]:
+        self, m: Union[float, np.ndarray], at_z: bool = False
+    ) -> Union[float, np.ndarray]:
         """
         Return the scale radius for a halo of mass m.
 
-        The scale radius is defined as :math:`r_s = r_vir(m) / c(m).
+        The scale radius is defined as :math:`r_s = r_vir(m) / c(m)`.
 
         Parameters
         ----------
         m
-            Mass of the halo(s), in units of M_sun / h.
+            Mass of the halo(s), in units of ``M_sun / h``.
         at_z
             If true, return the redshift-dependent configuration-space scale radius of
             the halo. Otherwise, return the redshift-independent Lagrangian-space scale
@@ -480,15 +485,15 @@ class Profile(Component):
 
     def _reduce(self, x):
         x = np.squeeze(np.atleast_1d(x))
-        if x.size == 1:
-            try:
-                return x[0]
-            except IndexError:
-                return x.dtype.type(x)
-        else:
+        if x.size != 1:
             return x
 
-    def populate(self, n, m, c=None, centre=np.zeros(3)):
+        try:
+            return x[0]
+        except IndexError:
+            return x.dtype.type(x)
+
+    def populate(self, n, m, c=None, centre=None):
         """
         Populate a halo with the current halo profile of mass ``m`` with ``n`` tracers.
 
@@ -501,13 +506,16 @@ class Profile(Component):
         c : float, optional
             Concentration of the halo. Will be calculated if not given.
         centre : 3-array
-            (x,y,z) co-ordinates of centre of halo
+            (x,y,z) co-ordinates of centre of halo. Default is zero.
 
         Returns
         -------
         pos : (N,3)-array
             Array of positions of the tracers, centred around (0,0,0).
         """
+        if centre is None:
+            centre = np.zeros(3)
+
         c, r_s, x = self._get_r_variables(np.linspace(0, 1, 1000), m, c, coord="s")
 
         cdf = self.cdf(x, c, m, coord="x")
@@ -597,7 +605,7 @@ class ProfileInf(Profile, abstract=True):
 
         # Go through each value of c
         for i, kk in enumerate(K):
-            out[i] = ft.transform(self._f, k=K, ret_err=False, ret_cumsum=False)
+            out[i] = ft.transform(self._f, k=kk, ret_err=False, ret_cumsum=False)
 
         return out
 
@@ -746,11 +754,10 @@ class Hernquist(Profile):
 
     .. math:: \rho(r) = \frac{\rho_s}{r/R_s\big(1+r/R_s\big)^3}
 
-
     References
     ----------
     .. [1] Hernquist, L., "An Analytical Model for Spherical Galaxies and Bulges",
-    https://ui.adsabs.harvard.edu/abs/1990ApJ...356..359H.
+        https://ui.adsabs.harvard.edu/abs/1990ApJ...356..359H.
     """
 
     def _f(self, x):
@@ -835,22 +842,25 @@ class MooreInf(Moore, ProfileInf):
 
     def _p(self, K):
         def G(k):
-            return mpmath.meijerg(
-                [[1.0 / 2.0, 3.0 / 4.0, 1.0], []],
-                [
+            return (
+                mpmath.meijerg(
+                    [[1.0 / 2.0, 3.0 / 4.0, 1.0], []],
                     [
-                        1.0 / 12.0,
-                        1.0 / 4.0,
-                        5.0 / 12.0,
-                        0.5,
-                        3.0 / 4.0,
-                        3.0 / 4.0,
-                        1.0,
+                        [
+                            1.0 / 12.0,
+                            1.0 / 4.0,
+                            5.0 / 12.0,
+                            0.5,
+                            3.0 / 4.0,
+                            3.0 / 4.0,
+                            1.0,
+                        ],
+                        [-1.0 / 12.0, 7.0 / 12.0],
                     ],
-                    [-1.0 / 12.0, 7.0 / 12.0],
-                ],
-                k ** 6 / 46656.0,
-            ) / (4 * np.sqrt(3) * np.pi ** (5 / 2) * k)
+                    k ** 6 / 46656.0,
+                )
+                / (4 * np.sqrt(3) * np.pi ** (5 / 2) * k)
+            )
 
         if K.ndim == 2:
             K1 = np.reshape(K, -1)
@@ -933,17 +943,20 @@ class GeneralizedNFWInf(GeneralizedNFW, ProfileInf):
 
     def _p(self, K):
         def G(k):
-            return mpmath.meijerg(
-                [
+            return (
+                mpmath.meijerg(
                     [
-                        (self.params["alpha"] - 2) / 2.0,
-                        (self.params["alpha"] - 1) / 2.0,
+                        [
+                            (self.params["alpha"] - 2) / 2.0,
+                            (self.params["alpha"] - 1) / 2.0,
+                        ],
+                        [],
                     ],
-                    [],
-                ],
-                [[0, 0, 0.5], [-0.5]],
-                k ** 2 / 4,
-            ) / (np.sqrt(np.pi) * sp.gamma(3 - self.params["alpha"]))
+                    [[0, 0, 0.5], [-0.5]],
+                    k ** 2 / 4,
+                )
+                / (np.sqrt(np.pi) * sp.gamma(3 - self.params["alpha"]))
+            )
 
         if len(K.shape) == 2:
             K1 = np.reshape(K, -1)
@@ -983,9 +996,9 @@ class Einasto(Profile):
     ----------------
     alpha : float
         The default value is ``0.18``.
-
     use_interp : boolean
         The default value is ``True``.
+
     References
     ----------
     .. [1] Einasto , J., "Kinematics and dynamics of stellar systems",
@@ -1060,9 +1073,9 @@ class CoredNFW(Profile):
 
     References
     ----------
-    .. [1] Maller, A. and Bullock, J., "Multiphase galaxy formation:high-velocity clouds and the
-    missing baryon problem ",
-    https://ui.adsabs.harvard.edu/abs/2004MNRAS.355..694M.
+    .. [1] Maller, A. and Bullock, J., "Multiphase galaxy formation:high-velocity clouds
+        and the missing baryon problem ",
+        https://ui.adsabs.harvard.edu/abs/2004MNRAS.355..694M.
     """
 
     def _f(self, x):

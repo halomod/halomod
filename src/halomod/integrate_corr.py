@@ -4,12 +4,14 @@ to obtain eg. projected and angular correlations functions.
 
 """
 import numpy as np
-from scipy.interpolate import InterpolatedUnivariateSpline as _spline
-from scipy.integrate import simps
-from .halo_model import HaloModel
-from hmf import cached_quantity, parameter
-from hmf import Cosmology as csm
 import warnings
+from scipy.integrate import simps
+from scipy.interpolate import InterpolatedUnivariateSpline as _spline
+
+from hmf import Cosmology as csm
+from hmf import cached_quantity, parameter
+
+from .halo_model import HaloModel
 
 
 class ProjectedCF(HaloModel):
@@ -37,7 +39,7 @@ class ProjectedCF(HaloModel):
         rp_num: float = 30,
         rp_log: bool = True,
         proj_limit=None,
-        **kwargs
+        **kwargs,
     ):
         # Set default rnum
         if "rnum" not in kwargs:
@@ -267,7 +269,7 @@ class AngularCF(HaloModel):
         unum=100,
         check_p_norm=True,
         p_of_z=True,
-        **kwargs
+        **kwargs,
     ):
         super(AngularCF, self).__init__(**kwargs)
 
@@ -478,9 +480,9 @@ def _check_p(p, z):
     else:
         integ = simps(p(z), z)
     if not np.isclose(integ, 1.0, rtol=0.01):
-        print(
-            "WARNING: Filter function p(x) did not integrate to 1 (%s). Tentatively re-normalising."
-            % integ
+        warnings.warn(
+            f"Filter function p(x) did not integrate to 1 ({integ}). "
+            "Tentatively re-normalising."
         )
         return lambda z: p(z) / integ
     else:
@@ -501,7 +503,7 @@ def angular_corr_gal(
     check_p_norm=True,
     cosmo=None,
     p_of_z=True,
-    **xi_kw
+    **xi_kw,
 ):
     """
     Calculate the angular correlation function w(theta).

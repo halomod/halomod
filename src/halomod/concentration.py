@@ -19,10 +19,11 @@ A simple example of using a native concentration-mass relation::
 >>> plt.plot(m, duffy.cm(m, z=0))
 
 You can also specify a different concentration-mass relation for tracer
-if you're working with :class:`~halomod.halo_model.TracerHaloModel` ::
-    >>> from halomod import HaloModel
-    >>> hm = HaloModel(halo_concentration_model='Ludlow16',
-    >>>                tracer_concentration_model='Duffy08')
+if you're working with :class:`~halomod.halo_model.TracerHaloModel`::
+
+>>> from halomod import HaloModel
+>>> hm = HaloModel(halo_concentration_model='Ludlow16',
+>>>                tracer_concentration_model='Duffy08')
 
 Constructing and using a colossus-based relation::
 
@@ -46,31 +47,30 @@ Note that while ``statistic`` is a valid argument to the `diemer19` model in COL
 we have constructed it without access to that argument (and so it recieves its default
 value of "median"). This means we *cannot* update it via the ``HaloModel`` interface.
 """
-import warnings
-from typing import Optional
-
 import numpy as np
-from hmf import Component
+import warnings
+from colossus.halo import concentration
 from scipy import special as sp
 from scipy.interpolate import interp1d
 from scipy.optimize import minimize
-from astropy.cosmology import Planck15
+from typing import Optional
 
-from colossus.halo import concentration
-from hmf.cosmology.cosmo import astropy_to_colossus
-
-from hmf.density_field.filters import Filter
+from hmf import Component
+from hmf._internals import pluggable
+from hmf.cosmology.cosmo import Cosmology, astropy_to_colossus
 from hmf.cosmology.growth_factor import GrowthFactor
-from .profiles import Profile, NFW
-from hmf.cosmology.cosmo import Cosmology
+from hmf.density_field.filters import Filter
 from hmf.halos.mass_definitions import (
     MassDefinition,
+    SOCritical,
     SOMean,
     SOVirial,
-    SOCritical,
     from_colossus_name,
 )
-from hmf._internals import pluggable
+
+from .profiles import NFW, Profile
+
+DEFAULT_COSMO = Cosmology()
 
 
 @pluggable
@@ -102,11 +102,11 @@ class CMRelation(Component):
     __doc__ += _pdocs
     _defaults = {}
 
-    native_mdefs = tuple()
+    native_mdefs = ()
 
     def __init__(
         self,
-        cosmo: Cosmology = Cosmology(),
+        cosmo: Cosmology = DEFAULT_COSMO,
         filter0: Optional[Filter] = None,
         growth: Optional[GrowthFactor] = None,
         delta_c: float = 1.686,
@@ -152,7 +152,12 @@ class CMRelation(Component):
                 - self.delta_c
             ) ** 2
 
-        res = minimize(model, [1.0,])
+        res = minimize(
+            model,
+            [
+                1.0,
+            ],
+        )
 
         if res.success:
             r = np.exp(res.x[0])
@@ -230,15 +235,14 @@ class Bullock01(CMRelation):
     The detailed description of the model can be found in [1]_.
 
     Other Parameters
-    ----------------`
+    ----------------
     F, K : float
         Default value is ``F=0.01`` and ``K=0.34``
 
     References
     ----------
-    .. [1] Bullock, J.S. et al., " Profiles of dark haloes:
-           evolution, scatter and environment ",
-           https://ui.adsabs.harvard.edu/abs/1996MNRAS.282..347M.
+    .. [1] Bullock, J.S. et al., " Profiles of dark haloes: evolution, scatter and
+           environment ", https://ui.adsabs.harvard.edu/abs/1996MNRAS.282..347M.
     """
     _defaults = {"F": 0.01, "K": 3.4}
     native_mdefs = (SOCritical(),)
@@ -271,11 +275,11 @@ class Bullock01Power(CMRelation):
     where a,b,c,ms are model parameters.
 
     Other Parameters
-    ----------------`
-    a, b, c: float
+    ----------------
+    a, b, c : float
         Default value is ``a=9.0``, ``b=-0.13`` and ``c=1.0``.
 
-    ms: float
+    ms : float
         Default value is ``None``, where it's set to be the non-linear mass at z.
 
     References
@@ -335,7 +339,6 @@ class Duffy08(Bullock01Power):
 
     Notes
     -----
-
     .. note:: Only "NFW" parameters are implemented by default here. Furthermore,
               only the z=0-2 sample parameters are implemented. Of course, you can
               always pass your own parameters from Table 1 of [1]_.
@@ -366,16 +369,40 @@ class Duffy08(Bullock01Power):
         # All the params defined in Table 1 of Duffy 2008
         set_params = {
             "200c": {
-                "full": {"a": 5.71, "b": -0.084, "c": 0.47,},
-                "relaxed": {"a": 6.71, "b": -0.091, "c": 0.44,},
+                "full": {
+                    "a": 5.71,
+                    "b": -0.084,
+                    "c": 0.47,
+                },
+                "relaxed": {
+                    "a": 6.71,
+                    "b": -0.091,
+                    "c": 0.44,
+                },
             },
             "vir": {
-                "full": {"a": 7.85, "b": -0.081, "c": 0.71,},
-                "relaxed": {"a": 9.23, "b": -0.09, "c": 0.69,},
+                "full": {
+                    "a": 7.85,
+                    "b": -0.081,
+                    "c": 0.71,
+                },
+                "relaxed": {
+                    "a": 9.23,
+                    "b": -0.09,
+                    "c": 0.69,
+                },
             },
             "200m": {
-                "full": {"a": 10.14, "b": -0.081, "c": 1.01,},
-                "relaxed": {"a": 11.93, "b": -0.09, "c": 0.99,},
+                "full": {
+                    "a": 10.14,
+                    "b": -0.081,
+                    "c": 1.01,
+                },
+                "relaxed": {
+                    "a": 11.93,
+                    "b": -0.09,
+                    "c": 0.99,
+                },
             },
         }
 
@@ -424,7 +451,7 @@ class Ludlow16(CMRelation):
     .. note:: The form of the concentration is described by eq(6) and eq(7) in [1]_.
 
     Other Parameters
-    ----------------`
+    ----------------
     f, C : float
         Default value is ``f=0.02`` and ``C=650``
 
@@ -521,11 +548,11 @@ class Ludlow16Empirical(CMRelation):
 
     Notes
     -----
-    .. note:: The form of the concentration is described by eq(C1-C6) in [1]_::
+    .. note:: The form of the concentration is described by eq(C1-C6) in [1]_
 
     Other Parameters
-    ----------------`
-    c0_0, c0_z, beta_0, beta_z, gamma1_0, gamma1_z, gamma2_0, gamma2_z: float
+    ----------------
+    c0_0, c0_z, beta_0, beta_z, gamma1_0, gamma1_z, gamma2_0, gamma2_z : float
         Default value is ``(3.395,-0.215,0.307,0.54,0.628,-0.047,0.317,-0.893)``.
 
     References
@@ -588,7 +615,7 @@ class Ludlow16Empirical(CMRelation):
 
 
 class Ludlow2016(Ludlow16):
-    "This class is deprecated -- use :class:`Ludlow16` instead."
+    """This class is deprecated -- use :class:`Ludlow16` instead."""
 
     def __init__(self, *args, **kwargs):
         warnings.warn(
@@ -599,7 +626,7 @@ class Ludlow2016(Ludlow16):
 
 
 class Ludlow2016Empirical(Ludlow16Empirical):
-    "This class is deprecated -- use :class:`Ludlow16Empirical` instead."
+    """This class is deprecated -- use :class:`Ludlow16Empirical` instead."""
 
     def __init__(self, *args, **kwargs):
         warnings.warn(

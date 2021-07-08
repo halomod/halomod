@@ -1,15 +1,17 @@
+import pytest
+
 import numpy as np
+
+from halomod.concentration import Bullock01Power
+from halomod.hod import Tinker05, Zehavi05
+from halomod.profiles import NFW
 from halomod.tools import (
-    power_to_corr,
-    power_to_corr_ogata,
-    populate,
     ExtendedSpline,
     hankel_transform,
+    populate,
+    power_to_corr,
+    power_to_corr_ogata,
 )
-from halomod.profiles import NFW
-from halomod.hod import Tinker05, Zehavi05
-from halomod.concentration import Bullock01Power
-import pytest
 
 
 def test_ogata_powerlaw():

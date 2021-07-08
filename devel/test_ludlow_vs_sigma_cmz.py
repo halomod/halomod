@@ -1,10 +1,11 @@
 """A quick script to print out some intermediate results testing the Ludlow16 concentration
 model vs. the Sigma_cMz_Py code, originally written by Ludlow et al.
 """
-from halomod import concentration as cm
-import numpy as np
-from hmf import MassFunction
 import matplotlib.pyplot as plt
+import numpy as np
+
+from halomod import concentration as cm
+from hmf import MassFunction
 
 # Use the actual power spectrum used in the Sigma_cMz_Py code.
 # Not using this actual power spectrum results in fairly significant differences in sigma(m).
