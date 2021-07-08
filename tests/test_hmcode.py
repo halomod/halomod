@@ -13,11 +13,11 @@ information is written out.
 import pytest
 
 import numpy as np
+from matplotlib import pyplot
 from pathlib import Path
 
 from halomod import DMHaloModel
 from hmf import MassFunction
-from matplotlib import pyplot
 
 MassFunction.ERROR_ON_BAD_MDEF = False
 
