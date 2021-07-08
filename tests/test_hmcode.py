@@ -16,6 +16,7 @@ from halomod import DMHaloModel
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 from pathlib import Path
 from hmf import MassFunction
+from matplotlib import pyplot
 
 MassFunction.ERROR_ON_BAD_MDEF = False
 
@@ -74,35 +75,36 @@ def test_hmcode(hmcode_data, iz, plt):
     hm.update(z=z)
     halomod = hm.power_auto_matter_fnc(hmcode_data["k"]) * fac
 
-    fig, ax = plt.subplots(2, 1, sharex=True)
+    if plt == pyplot:
+        fig, ax = plt.subplots(2, 1, sharex=True)
 
-    ax[0].plot(hmcode_data["k"], hmcode_data["p"][:, iz])
-    ax[0].plot(hmcode_data["k"], halomod, ls="--")
-    ax[0].plot(
-        hmcode_data["k"],
-        fac * hm.power_1h_auto_matter_fnc(hmcode_data["k"]),
-        color="r",
-        ls="--",
-    )
+        ax[0].plot(hmcode_data["k"], hmcode_data["p"][:, iz])
+        ax[0].plot(hmcode_data["k"], halomod, ls="--")
+        ax[0].plot(
+            hmcode_data["k"],
+            fac * hm.power_1h_auto_matter_fnc(hmcode_data["k"]),
+            color="r",
+            ls="--",
+        )
 
-    ax[0].plot(
-        hmcode_data["k"],
-        fac * hm.power_2h_auto_matter_fnc(hmcode_data["k"]),
-        color="g",
-        ls="--",
-    )
+        ax[0].plot(
+            hmcode_data["k"],
+            fac * hm.power_2h_auto_matter_fnc(hmcode_data["k"]),
+            color="g",
+            ls="--",
+        )
 
-    ax[0].set_xscale("log")
-    ax[0].set_yscale("log")
-    ax[0].set_title(f"z={z}")
-    ax[0].set_ylim(1e-10, 1e3)
+        ax[0].set_xscale("log")
+        ax[0].set_yscale("log")
+        ax[0].set_title(f"z={z}")
+        ax[0].set_ylim(1e-10, 1e3)
 
-    ax[1].plot(
-        hmcode_data["k"],
-        hmcode_data["p"][:, iz] / (fac * hm.power_auto_matter_fnc(hmcode_data["k"]))
-        - 1,
-    )
-    ax[1].axhline(0.03, color="k", ls="--")
-    ax[1].axhline(-0.03, color="k", ls="--")
+        ax[1].plot(
+            hmcode_data["k"],
+            hmcode_data["p"][:, iz] / (fac * hm.power_auto_matter_fnc(hmcode_data["k"]))
+            - 1,
+        )
+        ax[1].axhline(0.03, color="k", ls="--")
+        ax[1].axhline(-0.03, color="k", ls="--")
 
     np.testing.assert_allclose(halomod, hmcode_data["p"][:, iz], rtol=3e-2)
