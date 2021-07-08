@@ -517,7 +517,7 @@ class DMHaloModel(MassFunction):
 
     @cached_quantity
     def corr_halofit_mm_fnc(self):
-        """A callable returning the linear auto-correlation function of dark matter."""
+        """A callable returning the nonlinear auto-correlation function of dark matter."""
         corr = tools.hankel_transform(self.nonlinear_power_fnc, self._r_table, "r")
         return tools.ExtendedSpline(
             self._r_table,
