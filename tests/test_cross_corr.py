@@ -1,5 +1,6 @@
-from halomod.cross_correlations import CrossCorrelations, ConstantCorr
 import numpy as np
+
+from halomod.cross_correlations import ConstantCorr, CrossCorrelations
 
 
 def test_cross_same():

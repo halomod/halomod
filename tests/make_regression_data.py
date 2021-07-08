@@ -2,11 +2,12 @@
 Make regression-testing data (this data is tested in `test_regression.py` -- see that
 module for more information).
 """
-from halomod import TracerHaloModel
-from pathlib import Path
 import numpy as np
-from hashlib import md5
 import sys
+from hashlib import md5
+from pathlib import Path
+
+from halomod import TracerHaloModel
 
 base_options = {
     "Mmin": 0,
@@ -18,6 +19,9 @@ base_options = {
     "dr_table": 0.1,
     "dlnk": 0.1,
     "dlog10m": 0.1,
+    "bias_model": "Tinker10",
+    "hmf_model": "Tinker08",
+    "force_unity_dm_bias": False,
 }
 
 tested_params = (

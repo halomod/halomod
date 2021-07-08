@@ -58,16 +58,19 @@ Constructing and using a colossus-based halo bias::
     >>> comparat = bias.make_colossus_bias(model="comparat17")
     >>> hm = HaloModel(bias_model=comparat)
 """
-from typing import Optional
-
 import numpy as np
-from hmf import Component
-from scipy.interpolate import InterpolatedUnivariateSpline as spline
-from hmf.cosmology.cosmo import astropy_to_colossus
-from colossus.lss.bias import haloBiasFromNu
 from astropy.cosmology import FLRW, Planck15
-from hmf.halos.mass_definitions import SOMean
+from colossus.lss.bias import haloBiasFromNu
+from scipy.interpolate import InterpolatedUnivariateSpline as spline
+from typing import Optional, Union
+
+from hmf import Component
 from hmf._internals import pluggable
+from hmf.cosmology.cosmo import astropy_to_colossus
+from hmf.halos.mass_definitions import SOMean
+from hmf.mass_function import fitting_functions as ff
+
+SO_MEAN = SOMean()
 
 
 @pluggable
@@ -107,6 +110,8 @@ class Bias(Component):
         Hubble parameter in units of 100 km/s/Mpc.
 
     """
+    #: The HMF model that pairs with this bias in the peak-background split
+    pair_hmf = ()
 
     _models = {}
     _defaults = {}
@@ -121,7 +126,7 @@ class Bias(Component):
         n: Optional[float] = 1,
         sigma_8: Optional[float] = 0.8,
         cosmo: FLRW = Planck15,
-        n_eff: [None, np.ndarray] = None,
+        n_eff: Union[None, np.ndarray] = None,
         z: float = 0.0,
         **model_parameters
     ):
@@ -168,6 +173,10 @@ class UnityBias(Bias):
     model has no free parameters.
     """
 
+    pair_hmf = tuple(
+        hmf for hmf in ff.FittingFunction.get_models().values() if hmf.normalized
+    )
+
     def bias(self):
         return np.ones_like(self.nu)
 
@@ -192,6 +201,7 @@ class Mo96(Bias):
            of dark matter haloes", https://ui.adsabs.harvard.edu/abs/1996MNRAS.282..347M,
            1996
     """
+    pair_hmf = (ff.PS,)
 
     def bias(self):
         return 1 + (self.nu - 1) / self.delta_c
@@ -262,7 +272,7 @@ class ST99(Bias):
     .. [1] Sheth, R. K.. and Tormen, G., "Large-scale bias and the peak background
            split", https://ui.adsabs.harvard.edu/abs/1999MNRAS.308..119S, 1999
     """
-
+    pair_hmf = (ff.SMT,)
     _defaults = {"q": 0.707, "p": 0.3}
 
     def bias(self):
@@ -304,6 +314,7 @@ class SMT01(Bias):
            the number and spatial distribution of dark matter haloes",
            https://ui.adsabs.harvard.edu/abs/2001MNRAS.323....1S, 2001
     """
+    pair_hmf = (ff.SMT,)
     _defaults = {"a": 0.707, "b": 0.5, "c": 0.6}
 
     def bias(self):
@@ -530,7 +541,7 @@ class Manera10(ST99):
             inaccuracy of the peak-background split ",
             https://ui.adsabs.harvard.edu/abs/2010MNRAS.402..589M, 2010
     """
-
+    pair_hmf = (ff.Manera,)
     _defaults = {"q": 0.709, "p": 0.248}
 
 
@@ -696,7 +707,7 @@ class Tinker10PBSplit(Bias):
         "gamma_exp": -0.01,
         "max_z": 3,
     }
-
+    pair_hmf = (ff.Tinker10,)
     delta_virs = np.array([200, 300, 400, 600, 800, 1200, 1600, 2400, 3200])
 
     def bias(self):
@@ -791,7 +802,7 @@ class TinkerSD05(ScaleDepBias):
         return np.sqrt((1 + a * self.xi_dm) ** b / (1 + c * self.xi_dm) ** d)
 
 
-def make_colossus_bias(model="comparat17", mdef=SOMean(), **defaults):
+def make_colossus_bias(model="comparat17", mdef=SO_MEAN, **defaults):
     r"""
     A factory function which helps with integration with the ``colossus`` cosmology code.
     See :mod:`~halomod.bias` for an example of how to use it.

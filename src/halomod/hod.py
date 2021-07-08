@@ -53,17 +53,22 @@ satellite/central decomposition. So here are the assumptions:
 """
 
 
+import astropy.constants as astroconst
 import numpy as np
+import scipy.constants as const
 import scipy.special as sp
-from hmf import Component
 from abc import ABCMeta, abstractmethod
 from astropy.cosmology import Planck15
+from typing import Optional
+
+from hmf import Component
+from hmf._internals import pluggable
+from hmf.halos.mass_definitions import MassDefinition, SOMean
+
 from .concentration import CMRelation
 from .profiles import Profile
-from hmf.halos.mass_definitions import MassDefinition, SOMean
-from hmf._internals import pluggable
-import scipy.constants as const
-import astropy.constants as astroconst
+
+SO_MEAN = SOMean()
 
 
 @pluggable
@@ -97,9 +102,9 @@ class HOD(Component, metaclass=ABCMeta):
         self,
         central: bool = False,
         cosmo=Planck15,
-        cm_relation: [None, CMRelation] = None,
-        profile: [None, Profile] = None,
-        mdef: [None, MassDefinition] = SOMean(),
+        cm_relation: Optional[CMRelation] = None,
+        profile: Optional[Profile] = None,
+        mdef: Optional[MassDefinition] = SO_MEAN,
         **model_parameters
     ):
         self._central = central
@@ -114,14 +119,16 @@ class HOD(Component, metaclass=ABCMeta):
     def nc(self, m):
         """Defines the average number of centrals at mass m.
 
-        Useful for populating catalogues."""
+        Useful for populating catalogues.
+        """
         pass
 
     @abstractmethod
     def ns(self, m):
         """Defines the average number of satellites at mass m.
 
-        Useful for populating catalogues."""
+        Useful for populating catalogues.
+        """
         pass
 
     @abstractmethod
@@ -448,7 +455,7 @@ class Geach12(Contreras13):
     This is identical to :class:`Contreras13`, but with `x==1`.
 
     References
-    ----------https://ui.adsabs.harvard.edu/abs/2005ApJ...631...41T
+    ----------
     .. [1] Geach, J. E. et al., "The clustering of Hα emitters at z=2.23 from HiZELS ",
            https://ui.adsabs.harvard.edu/abs/2012MNRAS.426..679G.
 
@@ -580,7 +587,9 @@ class ContinuousPowerLaw(HODBulk):
         M_max = 10 ** self.params["M_max"]
 
         return np.where(
-            np.logical_and(m >= M_min, m <= M_max), A * ((m / M_1) ** alpha + 1.0), 0,
+            np.logical_and(m >= M_min, m <= M_max),
+            A * ((m / M_1) ** alpha + 1.0),
+            0,
         )
 
     def sigma_satellite(self, m):
@@ -675,7 +684,10 @@ class Spinelli19(HODPoisson):
         # return 10**8
 
     def unit_conversion(self, cosmo, z):
-        "A factor (potentially with astropy units) to convert the total occupation to a desired unit."
+        """A factor to convert the total occupation to a desired unit.
+
+        The factor can potentially have astropy units.
+        """
         A12 = 2.869e-15
         nu21cm = 1.42e9
         Const = (3.0 * A12 * const.h * const.c ** 3.0) / (

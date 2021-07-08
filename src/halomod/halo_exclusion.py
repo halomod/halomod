@@ -2,10 +2,11 @@
 Module defining halo model components for halo exclusion.
 """
 import numpy as np
-from hmf import Component
+import warnings
 from cached_property import cached_property
 from scipy import integrate as intg
-import warnings
+
+from hmf import Component
 from hmf._internals import pluggable
 
 try:
@@ -271,7 +272,7 @@ class DblSphere(Sphere):
     def density_mod(self):
         """The modified density, under new limits."""
         out = np.zeros_like(self.r)
-        for i, r in enumerate(self.r):
+        for i, _ in enumerate(self.r):
             integrand = np.outer(self.density * self.m, np.ones_like(self.density))
             integrand[self.mask[i]] = 0
             out[i] = intg.simps(
@@ -353,8 +354,6 @@ class DblEllipsoid(DblSphere):
 
     taken from [1]_.
 
-
-
     References
     ----------
     .. [1]  Tinker, J. et al., " On the Mass-to-Light Ratio of Large-Scale Structure",
@@ -363,7 +362,7 @@ class DblEllipsoid(DblSphere):
 
     @cached_property
     def mask(self):
-        "Unecessary for this approach."
+        """Unecessary for this approach."""
         return None
 
     @cached_property

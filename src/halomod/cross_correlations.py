@@ -10,24 +10,28 @@ halo models to be cross-correlated, and how they're correlated.
 
 Examples
 --------
-
 Cross-correlating the same galaxy samples in different redshifts::
 
-    >>> from halomod import HaloModel
-    >>> from halomod.cross_correlations import CrossCorrelations, HODCross
-    >>> cross = CrossCorrelations(cross_hod_model=ConstantCorr, halo_model_1_params=dict(z=1.0),
-    >>>                           halo_model_2_params=dict(z=0.0))
-    >>> pkcorr = cross.power_cross
+>>> from halomod import HaloModel
+>>> from halomod.cross_correlations import CrossCorrelations, ConstantCorr
+>>> cross = CrossCorrelations(cross_hod_model=ConstantCorr, halo_model_1_params=dict(z=1.0),
+>>>                           halo_model_2_params=dict(z=0.0))
+>>> pkcorr = cross.power_cross
+
+`pkcorr` corresponds to the cross-power at `cross.halo_model_1.k_hm`.
 """
 
-from .halo_model import TracerHaloModel
-from hmf import Component, Framework
-from hmf._internals._framework import get_mdl, pluggable
-from hmf._internals._cache import parameter, cached_quantity, subframework
-from abc import ABC, abstractmethod
 import numpy as np
+from abc import ABC, abstractmethod
 from scipy import integrate as intg
+from typing import Optional
+
+from hmf import Component, Framework
+from hmf._internals._cache import cached_quantity, parameter, subframework
+from hmf._internals._framework import get_mdl, pluggable
+
 from . import tools
+from .halo_model import TracerHaloModel
 
 
 @pluggable
@@ -103,7 +107,10 @@ class _HODCross(ABC, Component):
 
         Notes
         -----
-        .. math:: `\langle T^s_1 T^s_2 \rangle - Q`"""
+        Given by
+
+        .. math:: `\langle T^s_1 T^s_2 \rangle - Q`
+        """
         h1, h2 = self.hods
 
         return (
@@ -181,17 +188,17 @@ class CrossCorrelations(Framework):
     def __init__(
         self,
         cross_hod_model,
-        cross_hod_params={},
-        halo_model_1_params={},
-        halo_model_2_params={},
+        cross_hod_params: Optional[dict] = None,
+        halo_model_1_params: Optional[dict] = None,
+        halo_model_2_params: Optional[dict] = None,
     ):
         super().__init__()
 
         self.cross_hod_model = cross_hod_model
-        self.cross_hod_params = cross_hod_params
+        self.cross_hod_params = cross_hod_params or {}
 
-        self._halo_model_1_params = halo_model_1_params
-        self._halo_model_2_params = halo_model_2_params
+        self._halo_model_1_params = halo_model_1_params or {}
+        self._halo_model_2_params = halo_model_2_params or {}
 
     @parameter("model")
     def cross_hod_model(self, val):

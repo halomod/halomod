@@ -1,7 +1,9 @@
-from halomod.hod import Zehavi05, Zehavi05Marked, Zehavi05WithMax, ContinuousPowerLaw
-from halomod import hod, TracerHaloModel
-import numpy as np
 import pytest
+
+import numpy as np
+
+from halomod import TracerHaloModel, hod
+from halomod.hod import Zehavi05, Zehavi05Marked, Zehavi05WithMax
 
 
 def test_zehavi_marked():
@@ -29,7 +31,8 @@ def test_zehavi_max():
 
 
 @pytest.mark.parametrize(
-    "hodr", (hod.Spinelli19,),
+    "hodr",
+    (hod.Spinelli19,),
 )
 def test_positive_hod(hodr):
     hm = TracerHaloModel(hod_model=hodr)

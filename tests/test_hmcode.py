@@ -11,10 +11,15 @@ information is written out.
 """
 
 import pytest
+
 import numpy as np
-from halomod import DMHaloModel
-from scipy.interpolate import InterpolatedUnivariateSpline as spline
+from matplotlib import pyplot
 from pathlib import Path
+
+from halomod import DMHaloModel
+from hmf import MassFunction
+
+MassFunction.ERROR_ON_BAD_MDEF = False
 
 
 def read_power(fname: Path):
@@ -59,19 +64,48 @@ hm = DMHaloModel(
     dlog10m=16 / 256,
     mdef_model="SOMean",
     disable_mass_conversion=True,
+    force_1halo_turnover=False,
 )
 
 
 @pytest.mark.parametrize("iz", range(16))
-def test_hmcode(hmcode_data, iz):
+def test_hmcode(hmcode_data, iz, plt):
     z = hmcode_data["z"][iz]
 
+    fac = hmcode_data["k"] ** 3 / (2 * np.pi ** 2)
     hm.update(z=z)
+    halomod = hm.power_auto_matter_fnc(hmcode_data["k"]) * fac
 
-    halomod = (
-        hm.power_auto_matter_fnc(hmcode_data["k"])
-        * hmcode_data["k"] ** 3
-        / (2 * np.pi ** 2)
-    )
+    if plt == pyplot:
+        fig, ax = plt.subplots(2, 1, sharex=True)
 
-    assert np.allclose(halomod, hmcode_data["p"][:, iz], rtol=3e-2)
+        ax[0].plot(hmcode_data["k"], hmcode_data["p"][:, iz])
+        ax[0].plot(hmcode_data["k"], halomod, ls="--")
+        ax[0].plot(
+            hmcode_data["k"],
+            fac * hm.power_1h_auto_matter_fnc(hmcode_data["k"]),
+            color="r",
+            ls="--",
+        )
+
+        ax[0].plot(
+            hmcode_data["k"],
+            fac * hm.power_2h_auto_matter_fnc(hmcode_data["k"]),
+            color="g",
+            ls="--",
+        )
+
+        ax[0].set_xscale("log")
+        ax[0].set_yscale("log")
+        ax[0].set_title(f"z={z}")
+        ax[0].set_ylim(1e-10, 1e3)
+
+        ax[1].plot(
+            hmcode_data["k"],
+            hmcode_data["p"][:, iz] / (fac * hm.power_auto_matter_fnc(hmcode_data["k"]))
+            - 1,
+        )
+        ax[1].axhline(0.03, color="k", ls="--")
+        ax[1].axhline(-0.03, color="k", ls="--")
+
+    np.testing.assert_allclose(halomod, hmcode_data["p"][:, iz], rtol=3e-2)

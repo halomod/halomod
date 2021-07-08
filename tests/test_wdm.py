@@ -1,6 +1,7 @@
-from halomod.wdm import HaloModelWDM
-from halomod import DMHaloModel
 import numpy as np
+
+from halomod import DMHaloModel
+from halomod.wdm import HaloModelWDM
 
 
 def test_cmz_wdm():

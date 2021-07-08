@@ -1,11 +1,12 @@
 """Unit tests of the bias module."""
 
 import pytest
+
 import numpy as np
+
+from halomod import DMHaloModel, bias
 from hmf import MassFunction
-from halomod import bias
 from hmf.halos.mass_definitions import SOMean
-from halomod import DMHaloModel
 
 
 @pytest.fixture(scope="module")
