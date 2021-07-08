@@ -13,6 +13,7 @@ from scipy.interpolate import InterpolatedUnivariateSpline as spline
 import scipy.integrate as intg
 import numpy as np
 from scipy.optimize import minimize
+from typing import Tuple, Callable, Union
 
 from hmf import MassFunction, cached_quantity, parameter, Cosmology
 
@@ -68,6 +69,7 @@ class DMHaloModel(MassFunction):
         Mmin=0,
         Mmax=18,
         force_1halo_turnover=True,
+        force_unity_dm_bias: bool = True,
         **hmf_kwargs,
     ):
         """
@@ -110,11 +112,28 @@ class DMHaloModel(MassFunction):
         hc_spectrum : str, {'linear', 'nonlinear', 'filtered-nl', 'filtered-lin'}
             A choice for how the halo-centre power spectrum is defined. The "filtered" options arise from eg.
             Schneider, Smith et al. (2014).
+        force_unity_dm_bias : bool
+            At the largest scales, the DM should not be biased against itself, if all
+            DM is in halos. That is, the effective bias of dark matter should be unity
+            unless an alternative halo model is being used (eg. WDM). However, the
+            integral that computes this bias is not in fact infinite, and may come short
+            of unity (or, indeed, an unnormalized HMF/bias pair may be used). If this is
+            set to true, the matter bias is forcibly renormalized to unity.
 
         Other Parameters
         ----------------
         All other parameters are passed to :class:`~MassFunction`.
         """
+        self.bias_model, self.bias_params = bias_model, bias_params or {}
+
+        try:
+            hmf_model = self.bias_model.pair_hmf[0]
+        except IndexError:
+            hmf_model = "Tinker10"
+
+        if "hmf_model" not in hmf_kwargs:
+            hmf_kwargs["hmf_model"] = hmf_model
+
         super().__init__(Mmin=Mmin, Mmax=Mmax, **hmf_kwargs)
 
         # Initially save parameters to the class.
@@ -126,7 +145,7 @@ class DMHaloModel(MassFunction):
             halo_concentration_model,
             halo_concentration_params or {},
         )
-        self.bias_model, self.bias_params = bias_model, bias_params or {}
+
         self.sd_bias_model, self.sd_bias_params = sd_bias_model, sd_bias_params or {}
         self.exclusion_model, self.exclusion_params = (
             exclusion_model,
@@ -150,6 +169,7 @@ class DMHaloModel(MassFunction):
 
         self.hc_spectrum = hc_spectrum
         self.force_1halo_turnover = force_1halo_turnover
+        self.force_unity_dm_bias = force_unity_dm_bias
         self.colossus_params = colossus_params or {}
 
     # ===============================================================================
@@ -557,13 +577,12 @@ class DMHaloModel(MassFunction):
 
         def get_b(mn, mx):
             if mn == mx:
-                b = spl(mn)
-            else:
-                mask = np.logical_and(self.m >= 10 ** mn, self.m <= 10 ** mx)
-                b = intg.simps(
-                    self.halo_bias[mask] * self.dndm[mask], self.m[mask]
-                ) / intg.simps(self.dndm[mask], self.m[mask])
-            return b
+                return spl(mn)
+
+            mask = np.logical_and(self.m >= 10 ** mn, self.m <= 10 ** mx)
+            return intg.simps(
+                self.halo_bias[mask] * self.dndm[mask], self.m[mask]
+            ) / intg.simps(self.dndm[mask], self.m[mask])
 
         return get_b(mmin, mmax) * get_b(mmin2, mmax2) * self._power_halo_centres_fnc(k)
 
@@ -644,48 +663,179 @@ class DMHaloModel(MassFunction):
         """The halo model-derived nonlinear 1-halo dark matter auto-correlation function."""
         return self.corr_1h_auto_matter_fnc(self.r)
 
-    @cached_quantity
-    def power_2h_auto_matter_fnc(self):
-        """A callable returning the halo model-derived nonlinear
-        2-halo dark matter auto-power spectrum."""
-        # TODO: check what to do here.
-        # Basically, HMcode assumes that the large-scale power is equivalent
-        # to the linear power, with no biasing. I think this *has* to be true
-        # since the matter power is for *all* mass. But other codes (eg. chomp)
-        # do the normal integral which includes biasing...
-        return self._power_halo_centres_fnc
+    def _get_power_2h_primitive(
+        self,
+        density: np.ndarray,
+        mean_density: float,
+        effective_bias: float,
+        ukm: np.ndarray,
+        mask=None,
+        debias=True,
+    ) -> Tuple[Callable, np.ndarray]:
+        """Get the 2-halo term of an auto-power spectrum.
 
-    @property
-    def power_2h_auto_matter(self):
-        """The halo model-derived nonlinear 2-halo dark matter auto-power spectrum."""
-        # TODO: check what to do here.
-        # Basically, HMcode assumes that the large-scale power is equivalent
-        # to the linear power, with no biasing. I think this *has* to be true
-        # since the matter power is for *all* mass. But other codes (eg. chomp)
-        # do the normal integral which includes biasing...
-        return self._power_halo_centres_fnc(self.k_hm)
+        This is 'primitive' because it can be 2D, i.e. it can have an r-based scale
+        dependence based either on scale dependent bias or halo exclusion.
+        """
+        # Instead of having a 2D function here we *could* just get the r-based functions
+        # in k-space and convolve them. But I'm not sure that's a more efficient option.
 
-    @cached_quantity
-    def corr_2h_auto_matter_fnc(self):
-        """A callable returning the halo-model-derived nonlinear
-        2-halo dark matter auto-correlation function."""
-        corr = tools.hankel_transform(self.power_2h_auto_matter_fnc, self._r_table, "r")
-        return tools.ExtendedSpline(
-            self._r_table,
-            corr,
-            lower_func="power_law"
-            if (
-                self.exclusion_model == NoExclusion
-                and "filtered" not in self.hc_spectrum
+        if mask is None:
+            mask = np.ones(len(density), dtype=bool)
+
+        u = ukm[:, mask]
+        if self.sd_bias_model is not None:
+            bias = np.outer(self.sd_bias_correction, self.halo_bias)[:, mask]
+        else:
+            bias = self.halo_bias[mask]
+
+        inst = self.exclusion_model(
+            m=self.m[mask],
+            density=density[mask],
+            Ifunc=density[mask] * u / mean_density,
+            bias=bias,
+            r=self._r_table,
+            delta_halo=self.halo_overdensity_mean,
+            mean_density=self.mean_density0,
+            **self.exclusion_params,
+        )
+
+        intg = inst.integrate()
+        phh = self._power_halo_centres_fnc(self.k)
+
+        if hasattr(inst, "density_mod"):
+            # See Tinker+05 Appendix B for details on using the modified density in halo
+            # exclusion models.
+            intg = (intg.T * inst.density_mod).T
+
+        # Now, we need to debias the results. Mostly, this is for DM correlations, and
+        # the point is that even if one uses a perfect pair of HMF/bias, the numerical
+        # integral of m*dndm*bias might not equal the mean density, just because we use
+        # a limited range. So, we normalize this so that we definitely have a unity bias.
+        # For tracer power spectra, the effective bias passed in should not be unity, but
+        # instead should fix itself to the numerically-calculated effective bias.
+        if debias:
+            eff_bias = (
+                tools.spline_integral(
+                    self.m[mask], density[mask] * self.halo_bias[mask], log=True
+                )
+                / mean_density
             )
-            else tools._zero,
-            upper_func=lambda x: np.zeros_like(x),
+            intg *= (effective_bias / eff_bias) ** 2
+
+        if intg.ndim == 2:
+            return [
+                tools.ExtendedSpline(
+                    self.k,
+                    x * phh,
+                    lower_func=self.linear_power_fnc,
+                    match_lower=True,
+                    upper_func="power_law"
+                    if (
+                        self.exclusion_model == NoExclusion
+                        and "filtered" not in self.hc_spectrum
+                    )
+                    else tools._zero,
+                )
+                for i, x in enumerate(intg)
+            ]
+        else:
+            return tools.ExtendedSpline(
+                self.k,
+                intg * phh,
+                lower_func=self.linear_power_fnc,
+                match_lower=True,
+                upper_func="power_law"
+                if (
+                    self.exclusion_model == NoExclusion
+                    and "filtered" not in self.hc_spectrum
+                )
+                else tools._zero,
+            )
+
+    def _get_corr_2h_auto_fnc(
+        self, density, mean_density, effective_bias, ukm, mask=None, debias=True
+    ) -> Callable[[Union[float, np.ndarray]], Union[float, np.ndarray]]:
+        """Get a callable returning the 2-halo term of an auto-correlation."""
+        power_primitive = self._get_power_2h_primitive(
+            density, mean_density, effective_bias, ukm, mask=mask, debias=debias
+        )
+
+        # Need to set h smaller here because this might need to be transformed back
+        # to power.
+        corr = tools.hankel_transform(power_primitive, self._r_table, "r", h=1e-4)
+
+        return tools.ExtendedSpline(
+            self._r_table, corr, lower_func="power_law", upper_func=tools._zero
+        )
+
+    @cached_quantity
+    def corr_2h_auto_matter_fnc(
+        self,
+    ) -> Callable[[Union[float, np.ndarray]], Union[float, np.ndarray]]:
+        """A callable returning the 2-halo term of the matter auto-correlation at arbitrary k."""
+        tools.norm_warn(self)
+        return self._get_corr_2h_auto_fnc(
+            self.m * self.dndm,
+            self.mean_density0,
+            self.bias_effective_matter,
+            self.halo_profile_ukm,
+            debias=self.force_unity_dm_bias,
         )
 
     @property
-    def corr_2h_auto_matter(self):
-        """The halo-model-derived nonlinear 2-halo dark matter auto-correlation function."""
+    def corr_2h_auto_matter(
+        self,
+    ) -> Callable[[Union[float, np.ndarray]], Union[float, np.ndarray]]:
+        """The 2-halo term of the matter auto-correlation."""
         return self.corr_2h_auto_matter_fnc(self.r)
+
+    def _get_power_2h_auto_fnc(
+        self, density, mean_density, effective_bias, ukm, mask=None, debias=True
+    ):
+        """Get the halo model 2-halo matter auto-power spectrum."""
+        if self.exclusion_model is NoExclusion and self.sd_bias_model is None:
+            # Here we have a 1D primitive power, so we can just return it.
+            return self._get_power_2h_primitive(
+                density, mean_density, effective_bias, ukm, mask=mask, debias=debias
+            )
+
+        # Otherwise, first calculate the correlation function.
+        corr = self._get_corr_2h_auto_fnc(
+            density, mean_density, effective_bias, ukm, mask=mask, debias=debias
+        )
+        out = tools.hankel_transform(corr, self.k, "k", h=0.001)
+
+        # Everything below about k=1e-2 is essentially just the linear power biased,
+        # and the hankel transform stops working at some small k.
+        mask = self.k_hm < 1e-2
+        if np.any(mask):
+            warnings.warn(
+                "power_2h_auto_tracer for k < 1e-2 is not computed directly, but "
+                "is rather just the linear power * effective bias."
+            )
+            out[mask] = self.power[mask] * effective_bias
+
+        return tools.ExtendedSpline(
+            self.k, out, lower_func="power_law", upper_func=tools._zero
+        )
+
+    @cached_quantity
+    def power_2h_auto_matter_fnc(self) -> np.ndarray:
+        """Return the halo model 2-halo matter auto-power spectrum at k."""
+        tools.norm_warn(self)
+        return self._get_power_2h_auto_fnc(
+            self.m * self.dndm,
+            self.mean_density0,
+            self.bias_effective_matter,
+            self.halo_profile_ukm,
+            debias=self.force_unity_dm_bias,
+        )
+
+    @property
+    def power_2h_auto_matter(self) -> np.ndarray:
+        """The halo model 2-halo matter auto-power spectrum at :attr:`k_hm`."""
+        return self.power_2h_auto_matter_fnc(self.k_hm)
 
     @cached_quantity
     def corr_auto_matter_fnc(self):
@@ -715,19 +865,40 @@ class DMHaloModel(MassFunction):
         """The halo-model-derived nonlinear dark power auto-power spectrum."""
         return self.power_auto_matter_fnc(self.k_hm)
 
+    def _get_naive_bias_effective(self, density, mean_density, mmin=None):
+        return (
+            tools.spline_integral(self.m, density, xmin=mmin, log=True) / mean_density
+        )
+
     @cached_quantity
-    def bias_effective_matter(self):
+    def bias_effective_matter(self) -> float:
         """The effective bias of matter in DM halos.
 
         This *should* be unity for models in which all dark matter is encapsulated in
-        halos (though in practice it won't be for some halo-bias models). For models
-        in which some dark matter exists in a "smooth" component outside halos (eg.
-        the WDM model of Schneider et al. 2012) it also will not be unity.
+        halos. However, sometimes the pair of HMF/bias models chosen are not pairs
+        in the peak-background split sense, and will not (even in principle) yield an
+        integral of unity. Also, even when in principle the value should be unity, the
+        numerical integral is over a limited range of mass, and will generally not
+        account for all the mass in the Universe.
+
+        To account for this, if :attr:`force_unity_dm_bias` is True, the returned
+        bias will be unity if the bias/HMF models are a pair. If they are not a pair,
+        we still somewhat account for the limited mass range by returning the integral
+        normalized by the mean density in halos greater than our minimum mass.
+
+        If :attr:`force_unity_dm_bias` is False, none of these fudges are performed.
         """
-        # Integrand is just the density of halos at mass m by bias
-        integrand = self.m * self.dndm * self.halo_bias
-        b = intg.simps(integrand, self.m)
-        return b / self.rho_gtm[0]
+        # If we have a normalized HMF and its bias pair, it's always unity.
+        if self.force_unity_dm_bias:
+            return 1.0
+
+        return self._get_naive_bias_effective(
+            self.m * self.dndm * self.halo_bias, self.mean_density_in_halos
+        )
+
+    @cached_quantity
+    def mean_density_in_halos(self):
+        return self.rho_gtm[0]
 
 
 class TracerHaloModel(DMHaloModel):
@@ -1353,124 +1524,32 @@ class TracerHaloModel(DMHaloModel):
         return self.corr_1h_auto_tracer_fnc(self.r)
 
     @cached_quantity
-    def _power_2h_auto_tracer_primitive(self):
-        """The 2-halo term of the tracer auto-power spectrum.
-
-        This is 'primitive' because it can be 2D, i.e. it can have an r-based scale
-        dependence based either on scale dependent bias or halo exclusion.
-        """
-        # It's possible that a better route for both scale-dep bias and halo-exclusion
-        # is to use the scales r=2pi/k. But then you'd get correlation functions that
-        # weren't necessarily the FT of the power...
-
-        u = self.tracer_profile_ukm[:, self._tm]
-        if self.sd_bias_model is not None:
-            bias = np.outer(self.sd_bias_correction, self.halo_bias)[:, self._tm]
-        else:
-            bias = self.halo_bias[self._tm]
-
-        inst = self.exclusion_model(
-            m=self.m[self._tm],
-            density=self.total_occupation[self._tm] * self.dndm[self._tm],
-            Ifunc=self.total_occupation[self._tm]
-            * self.dndm[self._tm]
-            * u
-            / self.mean_tracer_den,
-            bias=bias,
-            r=self._r_table,
-            delta_halo=self.halo_overdensity_mean,
-            mean_density=self.mean_density0,
-            **self.exclusion_params,
+    def power_2h_auto_tracer_fnc(self):
+        """Return the 2-halo term of the tracer auto-power spectrum at k."""
+        return self._get_power_2h_auto_fnc(
+            self.dndm * self.total_occupation,
+            self.mean_tracer_den,
+            self.bias_effective_tracer,
+            self.tracer_profile_ukm,
+            mask=self._tm,
+            debias=False,
         )
-
-        if hasattr(inst, "density_mod"):
-            self.__density_mod = inst.density_mod
-        else:
-            self.__density_mod = np.ones_like(self._r_table) * self.mean_tracer_den
-
-        intg = inst.integrate()
-
-        phh = self._power_halo_centres_fnc(self.k)
-
-        if intg.ndim == 2:
-            p = [
-                tools.ExtendedSpline(
-                    self.k,
-                    x * phh,
-                    lower_func=self.linear_power_fnc,
-                    match_lower=True,
-                    upper_func="power_law"
-                    if (
-                        self.exclusion_model == NoExclusion
-                        and "filtered" not in self.hc_spectrum
-                    )
-                    else tools._zero,
-                )
-                for i, x in enumerate(intg)
-            ]
-        else:
-            p = tools.ExtendedSpline(
-                self.k,
-                intg * phh,
-                lower_func=self.linear_power_fnc,
-                match_lower=True,
-                upper_func="power_law"
-                if (
-                    self.exclusion_model == NoExclusion
-                    and "filtered" not in self.hc_spectrum
-                )
-                else tools._zero,
-            )
-
-        return p
 
     @property
     def power_2h_auto_tracer(self):
         """The 2-halo term of the tracer auto-power spectrum."""
-        # If there's nothing modifying the scale-dependence, just return the original power.
-        if self.exclusion_model is NoExclusion and self.sd_bias_model is None:
-            return self._power_2h_auto_tracer_primitive(self.k_hm)
-
-        # Otherwise, first calculate the correlation function.
-        out = tools.hankel_transform(
-            self.corr_2h_auto_tracer_fnc, self.k_hm, "k", h=0.001
-        )
-
-        # Everything below about k=1e-2 is essentially just the linear power biased,
-        # and the hankel transform stops working at some small k.
-        if np.any(self.k_hm < 1e-2):
-            warnings.warn(
-                "power_2h_auto_tracer for k < 1e-2 is not computed directly, but "
-                "is rather just the linear power * effective bias."
-            )
-            out[self.k_hm < 1e-2] = (
-                self.power[self.k_hm < 1e-2] * self.bias_effective_tracer
-            )
-
-        return out
+        return self.power_2h_auto_tracer_fnc(self.k_hm)
 
     @cached_quantity
     def corr_2h_auto_tracer_fnc(self):
         """A callable returning the 2-halo term of the tracer auto-correlation."""
-        # Need to set h smaller here because this might need to be transformed back
-        # to power.
-        corr = tools.hankel_transform(
-            self._power_2h_auto_tracer_primitive, self._r_table, "r", h=1e-4
-        )
-
-        # modify by the new density. This step is *extremely* sensitive to the exact
-        # value of __density_mod at large
-        # scales, where the ratio *should* be exactly 1.
-        if self._r_table[-1] > 2 * self.halo_profile.halo_mass_to_radius(self.m[-1]):
-            try:
-                self.__density_mod *= self.mean_tracer_den / self.__density_mod[-1]
-            except TypeError:
-                pass
-
-        corr = (self.__density_mod / self.mean_tracer_den) ** 2 * (1 + corr) - 1
-
-        return tools.ExtendedSpline(
-            self._r_table, corr, lower_func="power_law", upper_func=tools._zero
+        return self._get_corr_2h_auto_fnc(
+            self.dndm * self.total_occupation,
+            self.mean_tracer_den,
+            self.bias_effective_tracer,
+            self.tracer_profile_ukm,
+            debias=False,
+            mask=self._tm,
         )
 
     @property
@@ -1479,11 +1558,17 @@ class TracerHaloModel(DMHaloModel):
         return self.corr_2h_auto_tracer_fnc(self.r)
 
     @property
+    def power_auto_tracer_fnc(self):
+        return lambda k: (
+            self.power_1h_auto_tracer_fnc(k) + self.power_2h_auto_tracer_fnc(k)
+        )
+
+    @property
     def power_auto_tracer(self):
         """Auto-power spectrum of the tracer."""
-        return self.power_1h_auto_tracer_fnc(self.k_hm) + self.power_2h_auto_tracer
+        return self.power_auto_tracer_fnc(self.k_hm)
 
-    @cached_quantity
+    @property
     def corr_auto_tracer_fnc(self):
         """A callable returning the tracer auto correlation function."""
         return lambda r: self.corr_1h_auto_tracer_fnc(r) + self.corr_2h_auto_tracer_fnc(
@@ -1518,7 +1603,7 @@ class TracerHaloModel(DMHaloModel):
                 xmin=self.tracer_mmin,
             )
 
-        p /= self.mean_tracer_den * self.mean_density
+        p /= self.mean_tracer_den * self.mean_density0
         return tools.ExtendedSpline(
             self.k, p, lower_func="power_law", upper_func="power_law"
         )
@@ -1526,8 +1611,7 @@ class TracerHaloModel(DMHaloModel):
     @property
     def power_1h_cross_tracer_matter(self):
         """
-        The total 1-halo cross-power spectrum
-        between tracer and matter.
+        The total 1-halo cross-power spectrum between tracer and matter.
         """
         return self.power_1h_cross_tracer_matter_fnc(self.k_hm)
 
@@ -1570,7 +1654,7 @@ class TracerHaloModel(DMHaloModel):
             bt
             * bm
             * self._power_halo_centres_fnc(self.k)
-            / (self.mean_tracer_den * self.mean_density)
+            / (self.mean_tracer_den * self.mean_density0)
         )
 
         return tools.ExtendedSpline(

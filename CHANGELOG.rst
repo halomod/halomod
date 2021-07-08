@@ -5,23 +5,38 @@ dev-version
 -----------
 Features
 ++++++++
+
+* New ``pair_hmf`` attribute of Bias classes that indicates the peak-background split
+  HMF pair for each model.
+* Warnings emitted when the bias model and HMF do not match and computing DM statistics.
 * A new example of doing cross-correlation with ``halomod``
 
 Changed
 +++++++
 
+* Default HMF now matches the input bias model. By default, this is ``Tinker10``.
+* New behaviour at large scales for the dark matter correlations. Instead of always
+  returning the linear/halofit power spectrum, it is calculated self-consistently.
+  The large-scale matter bias is able to be normalized so that the effective bias is unity
+  though the ``force_unity_dm_bias`` parameter (regardless of the input mass function
+  and bias function).
+
+Fixed
++++++
+
+* Input matter correlation function for the scale-dependent bias is now that from halofit.
 * Default for ``hc_spectrum`` is now "linear". The previous default -- "nonlinear" --
   does not play well with dark matter statistics in general, and adds spurious 1-halo
   structure to the 2-halo term. These can be undone to some degree by clever use of halo
   exclusion and filters, but it was deemed not suitable as a default.
-
-v2.0.1 [26 Feb 2021]
-----------------------
-
 * Scale-dependent bias uses nonlinear (halofit) matter correlation function (as per Tinker+2005).
   Previously was using halo model matter-matter correlation function.
 
+
 v2.0.2 [26 Feb 2021]
+----------------------
+
+v2.0.1 [26 Feb 2021]
 ----------------------
 
 Changes

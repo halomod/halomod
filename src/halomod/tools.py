@@ -526,15 +526,13 @@ class ExtendedSpline:
     def _get_extension_func(self, fnc, x, y, match, match_x):
         """Function to generate the extended spline"""
         if callable(fnc):
-            if match:
-                ff = fnc(match_x)
-                if ff == 0:
-                    return fnc
-                else:
-                    norm = self._spl(match_x) / ff
-                    return lambda xx: fnc(xx) * norm
-            else:
+            if not match:
                 return fnc
+            ff = fnc(match_x)
+            if ff == 0:
+                return fnc
+            norm = self._spl(match_x) / ff
+            return lambda xx: fnc(xx) * norm
         elif fnc == "power_law":
             assert np.all(x > 0), "to use a power-law, x must be >= 0"
             if not np.all(y > 0) or np.all(y < 0):
@@ -640,3 +638,20 @@ def spline_integral(
     else:
         spl = spline(x, f)
         return spl.integral(xmin or x.min(), xmax or x.max())
+
+
+def norm_warn(self):
+    if not self.hmf.normalized:
+        warnings.warn(
+            f"You are using an un-normalized mass function "
+            f"({self.hmf_model.__name__}). Matter correlations are not "
+            "well-defined."
+        )
+
+    if self.hmf_model not in self.bias.pair_hmf:
+        warnings.warn(
+            f"You are using an un-normalized mass function and bias function pair."
+            f"Bias {self.bias_model.__name__} has the following paired HMF model: "
+            f"{self.bias_model.pair_hmf}. Matter correlations are not "
+            "well-defined."
+        )
