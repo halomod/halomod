@@ -9,27 +9,23 @@ for halo models including a tracer population embedded in the dark matter haloes
 
 The :class:`HaloModel` class is provided as an alias of :class:`TracerHaloModel`.
 """
-from scipy.interpolate import InterpolatedUnivariateSpline as spline
-import scipy.integrate as intg
 import numpy as np
+import scipy.integrate as intg
+import warnings
+from copy import copy
+from scipy.interpolate import InterpolatedUnivariateSpline as spline
 from scipy.optimize import minimize
-from typing import Tuple, Callable, Union
+from typing import Callable, Tuple, Union
 
-from hmf import MassFunction, cached_quantity, parameter, Cosmology
+from hmf import Cosmology, MassFunction, cached_quantity, parameter
+from hmf._internals import get_mdl
+from hmf.cosmology.cosmo import astropy_to_colossus
+from hmf.density_field.filters import TopHat
 
 # import hmf.tools as ht
 from . import tools
 from .concentration import CMRelation
 from .halo_exclusion import NoExclusion
-
-
-from copy import copy
-from hmf._internals import get_mdl
-
-from hmf.density_field.filters import TopHat
-import warnings
-
-from hmf.cosmology.cosmo import astropy_to_colossus
 
 
 class DMHaloModel(MassFunction):
@@ -201,10 +197,10 @@ class DMHaloModel(MassFunction):
     def hc_spectrum(self, val):
         """The spectrum with which the halo-centre power spectrum is identified.
 
-           Choices are 'linear', 'nonlinear', 'filtered-lin' or 'filtered-nl'.
-           'filtered' spectra are filtered with a real-space top-hat window
-           function at a scale of 2 Mpc/h, which ensures that haloes
-           do not overlap on scales small than this.
+        Choices are 'linear', 'nonlinear', 'filtered-lin' or 'filtered-nl'.
+        'filtered' spectra are filtered with a real-space top-hat window
+        function at a scale of 2 Mpc/h, which ensures that haloes
+        do not overlap on scales small than this.
         """
         if val not in ["linear", "nonlinear", "filtered-lin", "filtered-nl"]:
             raise ValueError(
@@ -374,7 +370,10 @@ class DMHaloModel(MassFunction):
         this_filter = copy(self.filter)
         this_filter.power = self._power0
         this_profile = self.halo_profile_model(
-            cm_relation=None, mdef=self.mdef, z=self.z, **self.halo_profile_params,
+            cm_relation=None,
+            mdef=self.mdef,
+            z=self.z,
+            **self.halo_profile_params,
         )
 
         return self.halo_concentration_model(
@@ -614,8 +613,7 @@ class DMHaloModel(MassFunction):
     # ===========================================================================
     @cached_quantity
     def power_1h_auto_matter_fnc(self):
-        """A callable returning the halo model-derived nonlinear
-        1-halo dark matter auto-power spectrum."""
+        """A callable returning the halo model 1-halo DM auto-power spectrum."""
         u = self.halo_profile_ukm
         integrand = self.dndm * self.m ** 3 * u ** 2
 
@@ -635,8 +633,7 @@ class DMHaloModel(MassFunction):
 
     @cached_quantity
     def corr_1h_auto_matter_fnc(self):
-        """A callable returning the halo model-derived nonlinear
-        1-halo dark matter auto-correlation function."""
+        """A callable returning the halo model 1-halo DM auto-correlation function."""
         if self.halo_profile.has_lam:
             lam = self.halo_profile_lam
             integrand = self.dndm * self.m ** 3 * lam
@@ -660,7 +657,7 @@ class DMHaloModel(MassFunction):
 
     @property
     def corr_1h_auto_matter(self):
-        """The halo model-derived nonlinear 1-halo dark matter auto-correlation function."""
+        """The halo model 1-halo dark matter auto-correlation function."""
         return self.corr_1h_auto_matter_fnc(self.r)
 
     def _get_power_2h_primitive(
@@ -839,8 +836,7 @@ class DMHaloModel(MassFunction):
 
     @cached_quantity
     def corr_auto_matter_fnc(self):
-        """A callable returning the halo-model-derived
-        nonlinear dark matter auto-correlation function."""
+        """A callable returning the halo-model DM auto-correlation function."""
         return (
             lambda r: self.corr_1h_auto_matter_fnc(r)
             + self.corr_2h_auto_matter_fnc(r)
@@ -854,8 +850,7 @@ class DMHaloModel(MassFunction):
 
     @cached_quantity
     def power_auto_matter_fnc(self):
-        """A callable returning the halo-model-derived
-        nonlinear dark power auto-power spectrum."""
+        """A callable returning the halo-model DM auto-power spectrum."""
         return lambda k: self.power_1h_auto_matter_fnc(
             k
         ) + self.power_2h_auto_matter_fnc(k)
@@ -949,7 +944,7 @@ class TracerHaloModel(DMHaloModel):
     def __init__(
         self,
         hod_model="Zehavi05",
-        hod_params={},
+        hod_params=None,
         tracer_profile_model=None,
         tracer_profile_params=None,
         tracer_concentration_model=None,
@@ -961,7 +956,7 @@ class TracerHaloModel(DMHaloModel):
         super().__init__(**halomodel_kwargs)
 
         # Initially save parameters to the class.
-        self.hod_params = hod_params
+        self.hod_params = hod_params or {}
         self.hod_model = hod_model
         self.tracer_profile_model, self.tracer_profile_params = (
             tracer_profile_model,
@@ -1095,7 +1090,10 @@ class TracerHaloModel(DMHaloModel):
 
         if self.tracer_profile_model is None:
             this_profile = self.halo_profile_model(
-                cm_relation=None, mdef=self.mdef, z=self.z, **self.halo_profile_params,
+                cm_relation=None,
+                mdef=self.mdef,
+                z=self.z,
+                **self.halo_profile_params,
             )
         else:
             # Need to get the tracer profile params if it wasn't given.
@@ -1110,7 +1108,10 @@ class TracerHaloModel(DMHaloModel):
                 tr_params = self.tracer_profile_params
 
             this_profile = self.tracer_profile_model(
-                cm_relation=None, mdef=self.mdef, z=self.z, **tr_params,
+                cm_relation=None,
+                mdef=self.mdef,
+                z=self.z,
+                **tr_params,
             )
 
         if (
@@ -1273,7 +1274,7 @@ class TracerHaloModel(DMHaloModel):
             self.m, self.m * self.dndm * self._total_occupation, xmin=self.tracer_mmin
         )
 
-        return np.log10((m / self.mean_tracer_den))
+        return np.log10(m / self.mean_tracer_den)
 
     @cached_quantity
     def satellite_fraction(self):
@@ -1617,8 +1618,7 @@ class TracerHaloModel(DMHaloModel):
 
     @cached_quantity
     def corr_1h_cross_tracer_matter_fnc(self):
-        """A callable returning the 1-halo term of the cross correlation
-        between tracer and matter."""
+        """A callable returning the 1-halo cross-corr between tracer and matter."""
         corr = tools.hankel_transform(
             self.power_1h_cross_tracer_matter_fnc, self._r_table, "r"
         )
@@ -1633,8 +1633,7 @@ class TracerHaloModel(DMHaloModel):
 
     @cached_quantity
     def power_2h_cross_tracer_matter_fnc(self):
-        """A callable returning the 2-halo term of the cross-power spectrum
-        between tracer and matter."""
+        """A callable returning the 2-halo cross-power between tracer and matter."""
         # Do this the simple way for now
         bt = np.zeros_like(self.k)
         bm = np.zeros_like(self.k)
@@ -1668,14 +1667,12 @@ class TracerHaloModel(DMHaloModel):
 
     @property
     def power_2h_cross_tracer_matter(self):
-        """The 2-halo term of the cross-power spectrum
-        between tracer and matter."""
+        """The 2-halo term of the cross-power spectrum between tracer and matter."""
         return self.power_2h_cross_tracer_matter_fnc(self.k_hm)
 
     @cached_quantity
     def corr_2h_cross_tracer_matter_fnc(self):
-        """A callable returning the 2-halo term of the cross-correlation
-        between tracer and matter."""
+        """A callable returning the 2-halo cross-corr between tracer and matter."""
         corr = tools.hankel_transform(
             self.power_2h_cross_tracer_matter_fnc, self._r_table, "r"
         )
@@ -1685,8 +1682,7 @@ class TracerHaloModel(DMHaloModel):
 
     @property
     def corr_2h_cross_tracer_matter(self):
-        """The 2-halo term of the cross-correlation
-        between tracer and matter."""
+        """The 2-halo term of the cross-correlation between tracer and matter."""
         return self.corr_2h_cross_tracer_matter_fnc(self.r)
 
     @cached_quantity
@@ -1847,4 +1843,6 @@ HaloModel = TracerHaloModel
 
 
 class NGException(Exception):
+    """Exception raised when mean tracer density errors in computation."""
+
     pass

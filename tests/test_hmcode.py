@@ -11,10 +11,11 @@ information is written out.
 """
 
 import pytest
+
 import numpy as np
-from halomod import DMHaloModel
-from scipy.interpolate import InterpolatedUnivariateSpline as spline
 from pathlib import Path
+
+from halomod import DMHaloModel
 from hmf import MassFunction
 
 MassFunction.ERROR_ON_BAD_MDEF = False

@@ -1,9 +1,11 @@
 import pytest
-from halomod import concentration as cm
+
 import numpy as np
-from hmf import MassFunction
-from hmf.halos.mass_definitions import SOCritical, SOVirial, SOMean
+
 from halomod import TracerHaloModel
+from halomod import concentration as cm
+from hmf import MassFunction
+from hmf.halos.mass_definitions import SOCritical, SOMean, SOVirial
 
 
 @pytest.fixture(scope="function")

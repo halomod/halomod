@@ -1,16 +1,17 @@
 """
 Integration-style tests of the full HaloModel class.
 """
-from halomod import TracerHaloModel, DMHaloModel
 import pytest
+
 import numpy as np
 
-from hmf.halos.mass_definitions import MassDefinition
-from hmf.density_field.filters import Filter
-from halomod.profiles import Profile
+from halomod import DMHaloModel, TracerHaloModel
 from halomod.bias import Bias
 from halomod.concentration import CMRelation
 from halomod.hod import HOD
+from halomod.profiles import Profile
+from hmf.density_field.filters import Filter
+from hmf.halos.mass_definitions import MassDefinition
 
 
 @pytest.mark.parametrize("model", (TracerHaloModel, DMHaloModel))
@@ -86,7 +87,10 @@ def test_setting_default_tracers_conc():
         tracer_profile_model="CoredNFW",
         halo_concentration_model="Ludlow16",
         tracer_concentration_model="Duffy08",
-        halo_concentration_params={"f": 0.02, "C": 650,},
+        halo_concentration_params={
+            "f": 0.02,
+            "C": 650,
+        },
         transfer_model="EH",
     )
 
@@ -100,7 +104,10 @@ def test_setting_default_tracers_conc_set_params():
         tracer_profile_model="NFW",
         halo_concentration_model="Ludlow16",
         tracer_concentration_model="Ludlow16",
-        tracer_concentration_params={"f": 0.03, "C": 657,},
+        tracer_concentration_params={
+            "f": 0.03,
+            "C": 657,
+        },
         transfer_model="EH",
     )
 

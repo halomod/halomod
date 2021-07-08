@@ -1,5 +1,6 @@
-import halomod
 import numpy as np
+
+import halomod
 
 model = halomod.TracerHaloModel(
     z=0.2,

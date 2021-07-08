@@ -1,16 +1,17 @@
 """
 Contains WDM versions of all models and frameworks
 """
-from .halo_model import DMHaloModel
-from hmf import cached_quantity, parameter
 import numpy as np
-from scipy import integrate as intg
-from hmf.alternatives.wdm import MassFunctionWDM
 import sys
-from .integrate_corr import ProjectedCF
-from .concentration import CMRelation
+from scipy import integrate as intg
+
+from hmf import cached_quantity, parameter
 from hmf._internals._framework import get_mdl
-from numpy import issubclass_
+from hmf.alternatives.wdm import MassFunctionWDM
+
+from .halo_model import DMHaloModel
+from .integrate_corr import ProjectedCF
+
 
 # ===============================================================================
 # C-M relations

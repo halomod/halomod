@@ -1,25 +1,27 @@
 """
 Various direct tests of the halo exclusion classes.
 """
+import pytest
+
+import numpy as np
+from scipy.integrate import simps
+
 from halomod.halo_exclusion import (
-    makeW,
-    outer,
+    DblEllipsoid,
+    DblEllipsoid_,
+    DblSphere,
+    DblSphere_,
+    NgMatched,
+    NgMatched_,
+    NoExclusion,
+    Sphere,
+    cumsimps,
     dblsimps_,
     dbltrapz,
     dbltrapz_,
-    NoExclusion,
-    Sphere,
-    DblSphere,
-    DblSphere_,
-    DblEllipsoid,
-    DblEllipsoid_,
-    NgMatched,
-    NgMatched_,
-    cumsimps,
+    makeW,
+    outer,
 )
-import numpy as np
-import pytest
-from scipy.integrate import simps
 
 
 def test_makeW():

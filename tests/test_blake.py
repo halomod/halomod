@@ -2,11 +2,13 @@
 Test a specific model against data provided by Chris Blake from his own halo modelling
 code, used in Blake+08 (modelling of SDSS sources).
 """
-import numpy as np
 import pytest
+
+import numpy as np
+from scipy.interpolate import InterpolatedUnivariateSpline as spline
+
 from halomod import TracerHaloModel
 from halomod.hod import Zehavi05
-from scipy.interpolate import InterpolatedUnivariateSpline as spline
 
 
 @pytest.fixture(scope="module")
@@ -36,7 +38,16 @@ def hod():
 # ===============================================================================
 # Iterate through quantities
 # ===============================================================================
-@pytest.mark.parametrize("q", ["linearpk", "nonlinpk", "m_vs_nu", "biasfn", "massfn",])
+@pytest.mark.parametrize(
+    "q",
+    [
+        "linearpk",
+        "nonlinpk",
+        "m_vs_nu",
+        "biasfn",
+        "massfn",
+    ],
+)
 def test_blake_quantity(hod, datadir, q):
     if not q.startswith("xir"):
         chris = np.genfromtxt(datadir / "blake" / (q + ".txt"))
