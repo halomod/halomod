@@ -15,6 +15,9 @@ import numpy as np
 from halomod import DMHaloModel
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 from pathlib import Path
+from hmf import MassFunction
+
+MassFunction.ERROR_ON_BAD_MDEF = False
 
 
 def read_power(fname: Path):

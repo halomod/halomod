@@ -65,7 +65,7 @@ class DMHaloModel(MassFunction):
         exclusion_model="NoExclusion",
         exclusion_params=None,
         colossus_params=None,
-        hc_spectrum="nonlinear",
+        hc_spectrum="linear",
         Mmin=0,
         Mmax=18,
         force_1halo_turnover=True,
@@ -469,6 +469,10 @@ class DMHaloModel(MassFunction):
         elif self.hc_spectrum == "linear":
             return self.linear_power_fnc
         elif self.hc_spectrum == "nonlinear":
+            warnings.warn(
+                "Warning: using halofit for tracer stats is only valid up to"
+                + " quasi-linear scales k<~1 (h/Mpc)."
+            )
             return self.nonlinear_power_fnc
         else:
             raise ValueError("hc_spectrum was specified incorrectly!")
@@ -513,7 +517,7 @@ class DMHaloModel(MassFunction):
 
     @cached_quantity
     def corr_halofit_mm_fnc(self):
-        """A callable returning the linear auto-correlation function of dark matter."""
+        """A callable returning the nonlinear auto-correlation function of dark matter."""
         corr = tools.hankel_transform(self.nonlinear_power_fnc, self._r_table, "r")
         return tools.ExtendedSpline(
             self._r_table,
