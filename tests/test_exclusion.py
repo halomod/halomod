@@ -1,6 +1,7 @@
 """
 Various direct tests of the halo exclusion classes.
 """
+
 import pytest
 
 import numpy as np

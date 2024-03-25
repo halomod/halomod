@@ -25,7 +25,7 @@ MassFunction.ERROR_ON_BAD_MDEF = False
 def read_power(fname: Path):
     """Read the power.dat file from HMcode"""
     # Each column is the power at a different redshift.
-    with open(fname, "r") as fl:
+    with open(fname) as fl:
         line = fl.readline().split("#####")[-1].split("        ")[1:]
         redshifts = [float(x) for x in line]
 
@@ -72,7 +72,7 @@ hm = DMHaloModel(
 def test_hmcode(hmcode_data, iz, plt):
     z = hmcode_data["z"][iz]
 
-    fac = hmcode_data["k"] ** 3 / (2 * np.pi ** 2)
+    fac = hmcode_data["k"] ** 3 / (2 * np.pi**2)
     hm.update(z=z)
     halomod = hm.power_auto_matter_fnc(hmcode_data["k"]) * fac
 

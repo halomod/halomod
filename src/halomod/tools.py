@@ -2,6 +2,7 @@
 Modules defining a series of utility functions to perform hankel transformation
 and Fourier transformation from correlation function to power spectrum.
 """
+
 import logging
 import numpy as np
 import scipy.integrate as intg
@@ -80,9 +81,9 @@ def hankel_transform(
         out[ir] = res
 
     if trns_var_name == "r":
-        return out / (2 * np.pi ** 2 * trns_var ** 3)
+        return out / (2 * np.pi**2 * trns_var**3)
     else:
-        return out * 4 * np.pi / trns_var ** 3
+        return out * 4 * np.pi / trns_var**3
 
 
 def power_to_corr_ogata(
@@ -240,7 +241,7 @@ def power_to_corr_ogata(
 
                 out[ir] = cumsum[-1]
 
-    return out / (2 * np.pi ** 2 * r ** 3)
+    return out / (2 * np.pi**2 * r**3)
 
 
 def corr_to_power_ogata(
@@ -272,7 +273,7 @@ def corr_to_power_ogata(
     """
     return (
         8
-        * np.pi ** 3
+        * np.pi**3
         * power_to_corr_ogata(
             corr, r, k, h, power_pos=power_pos, atol=atol, rtol=rtol, _reverse=True
         )
@@ -330,7 +331,7 @@ def power_to_corr(power_func: callable, r: np.ndarray) -> np.ndarray:
         P = power_func(lnk)
         integ = P * np.exp(lnk) ** 2 * np.sin(np.exp(lnk) * rr) / rr
 
-        corr[i] = (0.5 / np.pi ** 2) * intg.simps(integ, dx=dlnk)
+        corr[i] = (0.5 / np.pi**2) * intg.simps(integ, dx=dlnk)
 
     return corr
 
@@ -351,7 +352,7 @@ def exclusion_window(k: np.ndarray, r: float) -> np.ndarray:
         The top-hat window function in fourier space.
     """
     x = k * r
-    return 3 * (np.sin(x) - x * np.cos(x)) / x ** 3
+    return 3 * (np.sin(x) - x * np.cos(x)) / x**3
 
 
 def populate(

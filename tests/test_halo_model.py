@@ -1,6 +1,7 @@
 """
 Integration-style tests of the full HaloModel class.
 """
+
 import pytest
 
 import numpy as np

@@ -2,6 +2,7 @@
 
 This package computes halo model quantities for dark matter and tracers.
 """
+
 try:
     from importlib.metadata import PackageNotFoundError, version
 except ImportError:

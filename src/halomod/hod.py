@@ -52,7 +52,6 @@ satellite/central decomposition. So here are the assumptions:
 6. By default, the central condition is *not* enforced.
 """
 
-
 import astropy.constants as astroconst
 import numpy as np
 import scipy.constants as const
@@ -113,7 +112,7 @@ class HOD(Component, metaclass=ABCMeta):
         self.profile = profile
         self.mdef = mdef
 
-        super(HOD, self).__init__(**model_parameters)
+        super().__init__(**model_parameters)
 
     @abstractmethod
     def nc(self, m):
@@ -194,7 +193,7 @@ class HODNoCentral(HOD, abstract=True):
     """Base class for all HODs which have no concept of a central/satellite split."""
 
     def __init__(self, **model_parameters):
-        super(HODNoCentral, self).__init__(**model_parameters)
+        super().__init__(**model_parameters)
         self._central = False
 
     def nc(self, m):
@@ -537,7 +536,7 @@ class Zehavi05Marked(Zehavi05WithMax):
 
     def sigma_central(self, m):
         """The standard deviation of the central tracer amount in haloes of mass m."""
-        co = super(Zehavi05Marked, self)._central_occupation(m)
+        co = super()._central_occupation(m)
         return np.sqrt(self._tracer_per_central(m) * co * (1 - co))
 
     def _tracer_per_central(self, m):
@@ -548,7 +547,7 @@ class Zehavi05Marked(Zehavi05WithMax):
         """
         Amplitude of central tracer at mass M
         """
-        return super(Zehavi05Marked, self)._central_occupation(
+        return super()._central_occupation(
             m
         ) * self._tracer_per_central(m)
 
@@ -556,7 +555,7 @@ class Zehavi05Marked(Zehavi05WithMax):
         """
         Amplitude of satellite tracer at mass M
         """
-        return super(Zehavi05Marked, self)._satellite_occupation(
+        return super()._satellite_occupation(
             m
         ) * self._tracer_per_satellite(m)
 
@@ -678,7 +677,7 @@ class Spinelli19(HODPoisson):
         amp = 10 ** self.params["M_0"]
         m1 = 10 ** self.params["M_break_sat"]
         array = np.zeros_like(m)
-        array[m >= 10 ** 11] = 1
+        array[m >= 10**11] = 1
 
         return amp * (m / m1) ** beta * np.exp(-((m1 / m) ** alpha)) * array
         # return 10**8
@@ -690,8 +689,8 @@ class Spinelli19(HODPoisson):
         """
         A12 = 2.869e-15
         nu21cm = 1.42e9
-        Const = (3.0 * A12 * const.h * const.c ** 3.0) / (
-            32.0 * np.pi * (const.m_p + const.m_e) * const.Boltzmann * nu21cm ** 2
+        Const = (3.0 * A12 * const.h * const.c**3.0) / (
+            32.0 * np.pi * (const.m_p + const.m_e) * const.Boltzmann * nu21cm**2
         )
         Mpcoverh_3 = ((astroconst.kpc.value * 1e3) / (cosmo.H0.value / 100.0)) ** 3
         hubble = cosmo.H0.value * cosmo.efunc(z) * 1.0e3 / (astroconst.kpc.value * 1e3)
