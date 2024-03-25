@@ -1,6 +1,7 @@
 """A quick script to print out some intermediate results testing the Ludlow16 concentration
 model vs. the Sigma_cMz_Py code, originally written by Ludlow et al.
 """
+
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -22,7 +23,7 @@ mf = MassFunction(
     transfer_model="FromArray",
     transfer_params={
         "k": ludlow_k[ludlow_pk > 0],
-        "T": np.sqrt(ludlow_pk / ludlow_k ** 0.9677)[ludlow_pk > 0],
+        "T": np.sqrt(ludlow_pk / ludlow_k**0.9677)[ludlow_pk > 0],
     },
 )
 

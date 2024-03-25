@@ -1,6 +1,7 @@
 """
 Module defining halo model components for halo exclusion.
 """
+
 import numpy as np
 import warnings
 from cached_property import cached_property
@@ -374,7 +375,7 @@ class DblEllipsoid(DblSphere):
         x = outer(self.r, 1 / np.add.outer(rvir, rvir))
         x = (x - 0.8) / 0.29  # this is y but we re-use the memory
         np.clip(x, 0, 1, x)
-        return 3 * x ** 2 - 2 * x ** 3
+        return 3 * x**2 - 2 * x**3
 
     @cached_property
     def density_mod(self):
@@ -478,7 +479,7 @@ if USE_NUMBA:
                     elif x >= 1:
                         out[ir, irv, jrv] = 1
                     else:
-                        out[ir, irv, jrv] = 3 * x ** 2 - 2 * x ** 3
+                        out[ir, irv, jrv] = 3 * x**2 - 2 * x**3
         return out
 
     @jit(nopython=True)
@@ -498,7 +499,7 @@ if USE_NUMBA:
                 elif x >= 1:
                     out[irv, jrv] = 1
                 else:
-                    out[irv, jrv] = 3 * x ** 2 - 2 * x ** 3
+                    out[irv, jrv] = 3 * x**2 - 2 * x**3
         return out
 
 

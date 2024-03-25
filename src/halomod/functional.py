@@ -1,6 +1,7 @@
 r"""
 Module defining functional approaches to generating halo model quantities.
 """
+
 from typing import List, Optional
 
 from hmf import Framework, get_hmf

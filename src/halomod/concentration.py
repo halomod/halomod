@@ -47,6 +47,7 @@ Note that while ``statistic`` is a valid argument to the `diemer19` model in COL
 we have constructed it without access to that argument (and so it recieves its default
 value of "median"). This means we *cannot* update it via the ``HaloModel`` interface.
 """
+
 import numpy as np
 import warnings
 from colossus.halo import concentration
@@ -78,6 +79,7 @@ class CMRelation(Component):
     r"""
     Base-class for Concentration-Mass relations
     """
+
     _pdocs = r"""
 
         Parameters
@@ -134,7 +136,7 @@ class CMRelation(Component):
                 f"performed, so results will be wrong. Using '{self.mdef}'."
             )
 
-        super(CMRelation, self).__init__(**model_parameters)
+        super().__init__(**model_parameters)
 
     def mass_nonlinear(self, z):
         """
@@ -198,7 +200,7 @@ def make_colossus_cm(model="diemer15", **defaults):
         )
 
         def __init__(self, *args, **kwargs):
-            super(CustomColossusCM, self).__init__(*args, **kwargs)
+            super().__init__(*args, **kwargs)
             # TODO: may want a more accurate way of passing sigma8 and ns here.
             astropy_to_colossus(self.cosmo.cosmo, sigma8=0.8, ns=1)
 
@@ -244,6 +246,7 @@ class Bullock01(CMRelation):
     .. [1] Bullock, J.S. et al., " Profiles of dark haloes: evolution, scatter and
            environment ", https://ui.adsabs.harvard.edu/abs/1996MNRAS.282..347M.
     """
+
     _defaults = {"F": 0.01, "K": 3.4}
     native_mdefs = (SOCritical(),)
 
@@ -288,6 +291,7 @@ class Bullock01Power(CMRelation):
            evolution, scatter and environment ",
            https://ui.adsabs.harvard.edu/abs/1996MNRAS.282..347M.
     """
+
     _defaults = {"a": 9.0, "b": -0.13, "c": 1.0, "ms": None}
     native_mdefs = (SOCritical(),)
 
@@ -436,6 +440,7 @@ class Zehavi11(Bullock01Power):
            The Dependence on Color and Luminosity",
            https://ui.adsabs.harvard.edu/abs/2011ApJ...736...59Z.
     """
+
     _defaults = {"a": 11.0, "b": -0.13, "c": 1.0, "ms": 2.26e12}
 
 
@@ -461,6 +466,7 @@ class Ludlow16(CMRelation):
             of cold and warm dark matter haloes ",
             https://ui.adsabs.harvard.edu/abs/2016MNRAS.460.1214L.
     """
+
     # Note: only defined for NFW for now.
     _defaults = {
         "f": 0.02,  # Fraction of mass assembled at "formation"
@@ -474,14 +480,14 @@ class Ludlow16(CMRelation):
     def _eq6_zf(self, c, C, z):
         cosmo = self.cosmo.cosmo
         M2 = self.profile._h(1) / self.profile._h(c)
-        rho_2 = self.delta_halo(z) * c ** 3 * M2
+        rho_2 = self.delta_halo(z) * c**3 * M2
         rhoc = rho_2 / C
         in_brackets = (
             rhoc * (cosmo.Om0 * (1 + z) ** 3 + cosmo.Ode0) - cosmo.Ode0
         ) / cosmo.Om0
         c = c[in_brackets > 0]
         in_brackets = in_brackets[in_brackets > 0]
-        return c, in_brackets ** 0.33333 - 1.0
+        return c, in_brackets**0.33333 - 1.0
 
     def _eq7(self, f, C, m, z):
         cvec = np.logspace(0, 2, 400)
@@ -561,6 +567,7 @@ class Ludlow16Empirical(CMRelation):
             of cold and warm dark matter haloes ",
             https://ui.adsabs.harvard.edu/abs/2016MNRAS.460.1214L.
     """
+
     _defaults = {
         "c0_0": 3.395,
         "c0_z": -0.215,
@@ -588,7 +595,7 @@ class Ludlow16Empirical(CMRelation):
     def _nu_0(self, z):
         a = 1.0 / (1 + z)
         return (
-            4.135 - 0.564 / a - 0.21 / a ** 2 + 0.0557 / a ** 3 - 0.00348 / a ** 4
+            4.135 - 0.564 / a - 0.21 / a**2 + 0.0557 / a**3 - 0.00348 / a**4
         ) / self.growth.growth_factor(z)
 
     def cm(self, m, z=0):
@@ -602,8 +609,8 @@ class Ludlow16Empirical(CMRelation):
         sig = (
             self.growth.growth_factor(z)
             * 22.26
-            * xi ** 0.292
-            / (1 + 1.53 * xi ** 0.275 + 3.36 * xi ** 0.198)
+            * xi**0.292
+            / (1 + 1.53 * xi**0.275 + 3.36 * xi**0.198)
         )
         nu = self.delta_c / sig
         return (

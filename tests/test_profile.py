@@ -1,6 +1,7 @@
 """
 Test various halo profile properties.
 """
+
 import pytest
 
 import numpy as np

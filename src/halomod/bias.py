@@ -58,6 +58,7 @@ Constructing and using a colossus-based halo bias::
     >>> comparat = bias.make_colossus_bias(model="comparat17")
     >>> hm = HaloModel(bias_model=comparat)
 """
+
 import numpy as np
 from astropy.cosmology import FLRW, Planck15
 from colossus.lss.bias import haloBiasFromNu
@@ -110,6 +111,7 @@ class Bias(Component):
         Hubble parameter in units of 100 km/s/Mpc.
 
     """
+
     #: The HMF model that pairs with this bias in the peak-background split
     pair_hmf = ()
 
@@ -143,7 +145,7 @@ class Bias(Component):
         self.sigma_8 = sigma_8
         self.n_eff = n_eff
 
-        super(Bias, self).__init__(**model_parameters)
+        super().__init__(**model_parameters)
 
     def bias(self) -> np.ndarray:
         """Calculate the first-order, linear, deterministic halo bias.
@@ -201,6 +203,7 @@ class Mo96(Bias):
            of dark matter haloes", https://ui.adsabs.harvard.edu/abs/1996MNRAS.282..347M,
            1996
     """
+
     pair_hmf = (ff.PS,)
 
     def bias(self):
@@ -242,7 +245,7 @@ class Jing98(Bias):
         a = self.params["a"]
         b = self.params["b"]
         c = self.params["c"]
-        return (a / nu ** 2 + 1) ** (b - c * self.n_eff) * (1 + (nu - 1) / self.delta_c)
+        return (a / nu**2 + 1) ** (b - c * self.n_eff) * (1 + (nu - 1) / self.delta_c)
 
 
 class ST99(Bias):
@@ -272,6 +275,7 @@ class ST99(Bias):
     .. [1] Sheth, R. K.. and Tormen, G., "Large-scale bias and the peak background
            split", https://ui.adsabs.harvard.edu/abs/1999MNRAS.308..119S, 1999
     """
+
     pair_hmf = (ff.SMT,)
     _defaults = {"q": 0.707, "p": 0.3}
 
@@ -314,6 +318,7 @@ class SMT01(Bias):
            the number and spatial distribution of dark matter haloes",
            https://ui.adsabs.harvard.edu/abs/2001MNRAS.323....1S, 2001
     """
+
     pair_hmf = (ff.SMT,)
     _defaults = {"a": 0.707, "b": 0.5, "c": 0.6}
 
@@ -377,7 +382,7 @@ class Seljak04(Bias):
         f = self.params["f"]
         g = self.params["g"]
         x = self.m / self.mstar
-        return a + b * x ** c + d / (e * x + 1) + f * x ** g
+        return a + b * x**c + d / (e * x + 1) + f * x**g
 
 
 class Seljak04Cosmo(Seljak04):
@@ -541,6 +546,7 @@ class Manera10(ST99):
             inaccuracy of the peak-background split ",
             https://ui.adsabs.harvard.edu/abs/2010MNRAS.402..589M, 2010
     """
+
     pair_hmf = (ff.Manera,)
     _defaults = {"q": 0.709, "p": 0.248}
 
@@ -605,9 +611,7 @@ class Tinker10(Bias):
         B = self.params["B"]
         c = self.params["c"]
         b = self.params["b"]
-        return (
-            1 - A * nu ** a / (nu ** a + self.delta_c ** a) + B * nu ** b + C * nu ** c
-        )
+        return 1 - A * nu**a / (nu**a + self.delta_c**a) + B * nu**b + C * nu**c
 
 
 class Tinker10PBSplit(Bias):
@@ -650,6 +654,7 @@ class Tinker10PBSplit(Bias):
         Bias from the same study but without the constraint of the peak-background
         split formalism.
     """
+
     _defaults = {  # --- alpha
         "alpha_200": 0.368,
         "alpha_300": 0.363,
@@ -747,7 +752,7 @@ class Tinker10PBSplit(Bias):
         return (
             1
             + (gamma * self.nu - (1 + 2 * eta)) / self.delta_c
-            + 2 * phi / self.delta_c / (1 + (beta ** 2 * self.nu) ** phi)
+            + 2 * phi / self.delta_c / (1 + (beta**2 * self.nu) ** phi)
         )
 
 
@@ -763,7 +768,7 @@ class ScaleDepBias(Component):
 
     def __init__(self, xi_dm: np.ndarray, **model_parameters):
         self.xi_dm = xi_dm
-        super(ScaleDepBias, self).__init__(**model_parameters)
+        super().__init__(**model_parameters)
 
     def bias_scale(self) -> np.ndarray:
         """Return the scale dependent bias as a function of r.
@@ -816,7 +821,7 @@ def make_colossus_bias(model="comparat17", mdef=SO_MEAN, **defaults):
         _mdef = mdef
 
         def __init__(self, *args, **kwargs):
-            super(CustomColossusBias, self).__init__(*args, **kwargs)
+            super().__init__(*args, **kwargs)
             astropy_to_colossus(self.cosmo, sigma8=self.sigma_8, ns=self.n)
 
         def bias(self):
