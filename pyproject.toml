@@ -1,5 +1,74 @@
 [build-system]
-requires = ["setuptools>=42", "wheel", "setuptools_scm[toml]>=3.4"]
+requires = ["setuptools>=60", "wheel", "setuptools_scm>=8.0", "numpy"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
+
+
+
+
+[project]
+name = "halomod"
+description = "A Halo Model calculator built on hmf"
+readme = "README.rst"
+authors = [
+    {name="Steven Murray", email="murray.steveng@gmail.com"}
+]
+license = {text="MIT"}
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX",
+    "Operating System :: Unix",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Natural Language :: English",
+	"Topic :: Scientific/Engineering :: Physics",
+	"Topic :: Scientific/Engineering :: Astronomy",
+]
+dependencies = [
+    "hmf>=3.3.4",
+    "mpmath",
+    "numpy",
+    "scipy",
+    "colossus",
+    "hankel",
+]
+dynamic = ["version"]
+
+
+[project.optional-dependencies]
+docs = [
+	"Sphinx>=1.7.5",
+	"numpydoc>=0.8.0",
+	"nbsphinx",
+]
+tests = [
+	"coverage>=4.5.1",
+	"pytest>=3.5.1",
+	"pytest-cov>=2.5.1",
+	"pytest-plt",
+	"pre-commit",
+	"mpmath>=1.0.0",
+	"numba",
+]
+dev = [
+    "halomod[docs,tests]"
+]
+all = [
+    "halomod[dev]",
+	"camb>1.0.0,<2.0",
+]
+
+[tool.pytest.ini_options]
+addopts = "--cov halomod --cov-report term-missing --verbose"
+norecursedirs = [
+	"dist",
+	"build",
+	".tox",
+]
+testpaths = "tests"
