@@ -1,26 +1,27 @@
 """
 Main halo model module.
 
-Contains Frameworks that combine all components necessary for halo model calculations (eg. mass function, bias,
-concentration, halo profile).
+Contains Frameworks that combine all components necessary for halo model calculations
+(eg. mass function, bias, concentration, halo profile).
 
-Two main classes are provided: :class:`DMHaloModel` for dark-matter only halo models, and :class:`TracerHaloModel`
-for halo models including a tracer population embedded in the dark matter haloes, via a HOD.
+Two main classes are provided: :class:`DMHaloModel` for dark-matter only halo models,
+and :class:`TracerHaloModel` for halo models including a tracer population embedded in
+the dark matter haloes, via a HOD.
 
 The :class:`HaloModel` class is provided as an alias of :class:`TracerHaloModel`.
 """
-import numpy as np
-import scipy.integrate as intg
 import warnings
 from copy import copy
-from scipy.interpolate import InterpolatedUnivariateSpline as spline
-from scipy.optimize import minimize
-from typing import Callable, Tuple, Union
+from typing import Callable, Union
 
+import numpy as np
+import scipy.integrate as intg
 from hmf import Cosmology, MassFunction, cached_quantity, parameter
 from hmf._internals import get_mdl
 from hmf.cosmology.cosmo import astropy_to_colossus
 from hmf.density_field.filters import TopHat
+from scipy.interpolate import InterpolatedUnivariateSpline as spline
+from scipy.optimize import minimize
 
 # import hmf.tools as ht
 from . import tools
@@ -32,7 +33,8 @@ class DMHaloModel(MassFunction):
     """
     Dark-matter-only halo model class.
 
-    This Framework is subclassed from hmf's ``MassFunction`` class, and operates in a similar manner.
+    This Framework is subclassed from hmf's ``MassFunction`` class, and operates in a
+    similar manner.
 
     **kwargs: anything that can be used in the MassFunction class
 
@@ -71,14 +73,16 @@ class DMHaloModel(MassFunction):
         """
         Initializer for the class.
 
-        Note that all `*_model` parameters can be a string or a class of the type described below. If a string,
-        it should be the name of a class that must exist in the relevant module within `halomod`.
+        Note that all `*_model` parameters can be a string or a class of the type
+        described below. If a string, it should be the name of a class that must exist
+        in the relevant module within `halomod`.
 
         Parameters
         ----------
         rmin : float or arry-like, optional
-            Minimum length scale over which to calculate correlations, in Mpc/h. Alternatively, if an array,
-            this is used to specify the entire array of scales and `rmax`, `rnum` and `rlog` are ignored.
+            Minimum length scale over which to calculate correlations, in Mpc/h.
+            Alternatively, if an array, this is used to specify the entire array of
+            scales and `rmax`, `rnum` and `rlog` are ignored.
         rmax : float, optional
             Maximum length scale over which to calculate correlations, in Mpc/h
         rnum : int, optional
@@ -89,7 +93,7 @@ class DMHaloModel(MassFunction):
             The model for the density profile of the halos.
         halo_profile_params : dict, optional
             Parameters for the density profile model (see its docstring for details)
-        halo_concentration_model : str or :class:`~concentration.CMRelation` subclass, optional
+        halo_concentration_model : str or :class:`~concentration.CMRelation` subclass
             The model for the concentration-mass-redshift relation of the halos.
         halo_concentration_params : dict, optional
             Parameters for the concentration-mass relation (see its docstring for details)
@@ -98,7 +102,8 @@ class DMHaloModel(MassFunction):
         bias_params : dict, optional
             Parameters for the bias model (see its docstring for details)
         sd_bias_model : str, None, or :class:`~bias.ScaleDepBias` subclass, optional
-            A model for scale-dependent bias (as a function of `r`). Setting to None will use no scale-dependent bias.
+            A model for scale-dependent bias (as a function of `r`). Setting to None
+            will use no scale-dependent bias.
         sd_bias_params : dict, optional
             Parameters for the scale-dependent bias model (see its docstring for details).
         exclusion_model : str, None or :class:`~halo_exclusion.Exclusion` subclass
@@ -106,8 +111,8 @@ class DMHaloModel(MassFunction):
         exclusion_params : dict, optional
             Parameters for the halo exclusion model
         hc_spectrum : str, {'linear', 'nonlinear', 'filtered-nl', 'filtered-lin'}
-            A choice for how the halo-centre power spectrum is defined. The "filtered" options arise from eg.
-            Schneider, Smith et al. (2014).
+            A choice for how the halo-centre power spectrum is defined. The "filtered"
+            options arise from eg. Schneider, Smith et al. (2014).
         force_unity_dm_bias : bool
             At the largest scales, the DM should not be biased against itself, if all
             DM is in halos. That is, the effective bias of dark matter should be unity
@@ -239,7 +244,9 @@ class DMHaloModel(MassFunction):
         val = float(val)
         if val > 10 ** self._logr_table_max:
             warnings.warn(
-                f"rmax is larger than the interpolation table maximum [{10**self._logr_table_max:.2e}]. Larger values will yield zero correlation."
+                "rmax is larger than the interpolation table maximum "
+                f"[{10**self._logr_table_max:.2e}]. Larger values will yield zero "
+                "correlation."
             )
         return val
 
@@ -685,7 +692,7 @@ class DMHaloModel(MassFunction):
         ukm: np.ndarray,
         mask=None,
         debias=True,
-    ) -> Tuple[Callable, np.ndarray]:
+    ) -> tuple[Callable, np.ndarray]:
         """Get the 2-halo term of an auto-power spectrum.
 
         This is 'primitive' because it can be 2D, i.e. it can have an r-based scale

@@ -9,10 +9,11 @@ underneath don't break things. Every now and then, one can update the list of
 dependencies, and reproduce the data.
 """
 
-import pytest
+from itertools import product
 
 import numpy as np
-from itertools import product
+import pytest
+from halomod import TracerHaloModel
 from make_regression_data import (
     base_options,
     compress_data,
@@ -21,8 +22,6 @@ from make_regression_data import (
     quantities,
     tested_params,
 )
-
-from halomod import TracerHaloModel
 
 
 @pytest.fixture(scope="module")

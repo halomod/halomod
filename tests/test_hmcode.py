@@ -10,14 +10,13 @@ used (https://github.com/steven-murray/hmcode) which has a branch in which more
 information is written out.
 """
 
-import pytest
-
-import numpy as np
-from matplotlib import pyplot
 from pathlib import Path
 
+import numpy as np
+import pytest
 from halomod import DMHaloModel
 from hmf import MassFunction
+from matplotlib import pyplot
 
 MassFunction.ERROR_ON_BAD_MDEF = False
 
@@ -25,7 +24,7 @@ MassFunction.ERROR_ON_BAD_MDEF = False
 def read_power(fname: Path):
     """Read the power.dat file from HMcode"""
     # Each column is the power at a different redshift.
-    with open(fname, "r") as fl:
+    with open(fname) as fl:
         line = fl.readline().split("#####")[-1].split("        ")[1:]
         redshifts = [float(x) for x in line]
 

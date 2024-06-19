@@ -41,26 +41,27 @@ satellite/central decomposition. So here are the assumptions:
    trivially to <Ns>. However, if the central condition is not enforced we *assume* that the
    variates Nc and Ns are uncorrelated, and use <Nc*Ns> = <Nc><Ns>.
 
-5. A HOD class that is defined with the central condition intrinsically satisfied, the class variable
-   ``central_condition_inherent`` can be set to True in the class definition, which will avoid the
-   extra modification. Do note that just because the class is specified such that the central
-   condition can be satisfied (i.e. <Ns> is 0 when <Nc> is zero), and thus the
-   ``central_condition_inherent`` is True, does not mean that it is entirely enforced.
-   The pairwise counts still depend on whether the user assumes that the central condition is
-   enforced or not, which must be set at instantiation.
+5. A HOD class that is defined with the central condition intrinsically satisfied, the
+   class variable ``central_condition_inherent`` can be set to True in the class
+   definition, which will avoid the extra modification. Do note that just because the
+   class is specified such that the central condition can be satisfied (i.e. <Ns> is 0
+   when <Nc> is zero), and thus the ``central_condition_inherent`` is True, does not
+   mean that it is entirely enforced. The pairwise counts still depend on whether the
+   user assumes that the central condition is enforced or not, which must be set at
+   instantiation.
 
 6. By default, the central condition is *not* enforced.
 """
 
 
+from abc import ABCMeta, abstractmethod
+from typing import Optional
+
 import astropy.constants as astroconst
 import numpy as np
 import scipy.constants as const
 import scipy.special as sp
-from abc import ABCMeta, abstractmethod
 from astropy.cosmology import Planck15
-from typing import Optional
-
 from hmf import Component
 from hmf._internals import pluggable
 from hmf.halos.mass_definitions import MassDefinition, SOMean
@@ -113,7 +114,7 @@ class HOD(Component, metaclass=ABCMeta):
         self.profile = profile
         self.mdef = mdef
 
-        super(HOD, self).__init__(**model_parameters)
+        super().__init__(**model_parameters)
 
     @abstractmethod
     def nc(self, m):
@@ -194,7 +195,7 @@ class HODNoCentral(HOD, abstract=True):
     """Base class for all HODs which have no concept of a central/satellite split."""
 
     def __init__(self, **model_parameters):
-        super(HODNoCentral, self).__init__(**model_parameters)
+        super().__init__(**model_parameters)
         self._central = False
 
     def nc(self, m):
@@ -537,7 +538,7 @@ class Zehavi05Marked(Zehavi05WithMax):
 
     def sigma_central(self, m):
         """The standard deviation of the central tracer amount in haloes of mass m."""
-        co = super(Zehavi05Marked, self)._central_occupation(m)
+        co = super()._central_occupation(m)
         return np.sqrt(self._tracer_per_central(m) * co * (1 - co))
 
     def _tracer_per_central(self, m):
@@ -548,7 +549,7 @@ class Zehavi05Marked(Zehavi05WithMax):
         """
         Amplitude of central tracer at mass M
         """
-        return super(Zehavi05Marked, self)._central_occupation(
+        return super()._central_occupation(
             m
         ) * self._tracer_per_central(m)
 
@@ -556,7 +557,7 @@ class Zehavi05Marked(Zehavi05WithMax):
         """
         Amplitude of satellite tracer at mass M
         """
-        return super(Zehavi05Marked, self)._satellite_occupation(
+        return super()._satellite_occupation(
             m
         ) * self._tracer_per_satellite(m)
 

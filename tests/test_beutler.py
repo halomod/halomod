@@ -3,11 +3,10 @@ Direct tests of the halo model code against known values from Beutler+2013, with
 intermediate data provided by David Palomara using his own halo model code.
 """
 
-import pytest
-
-import numpy as np
 from pathlib import Path
 
+import numpy as np
+import pytest
 from halomod.integrate_corr import ProjectedCF
 
 pytestmark = pytest.mark.skip(

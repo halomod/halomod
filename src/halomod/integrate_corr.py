@@ -3,13 +3,13 @@ Routines and Frameworks for intelligent integration of the correlation function,
 to obtain eg. projected and angular correlations functions.
 
 """
-import numpy as np
 import warnings
-from scipy.integrate import simps
-from scipy.interpolate import InterpolatedUnivariateSpline as _spline
 
+import numpy as np
 from hmf import Cosmology as csm
 from hmf import cached_quantity, parameter
+from scipy.integrate import simps
+from scipy.interpolate import InterpolatedUnivariateSpline as _spline
 
 from .halo_model import HaloModel
 
@@ -45,7 +45,7 @@ class ProjectedCF(HaloModel):
         if "rnum" not in kwargs:
             kwargs["rnum"] = 5 * rp_num
 
-        super(ProjectedCF, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
         self.proj_limit = proj_limit
         self.rp_min = rp_min
@@ -271,12 +271,12 @@ class AngularCF(HaloModel):
         p_of_z=True,
         **kwargs,
     ):
-        super(AngularCF, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
         if self.z < zmin or self.z > zmax:
             warnings.warn(
-                "Your specified redshift (z=%s) is not within your selection function, z=(%s,%s)"
-                % (self.z, zmin, zmax)
+                f"Your specified redshift (z={self.z}) is not within your selection "
+                f"function, z=({zmin},{zmax})"
             )
 
         if p1 is None:

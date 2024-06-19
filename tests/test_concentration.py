@@ -1,7 +1,5 @@
-import pytest
-
 import numpy as np
-
+import pytest
 from halomod import TracerHaloModel
 from halomod import concentration as cm
 from hmf import MassFunction

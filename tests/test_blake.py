@@ -2,13 +2,11 @@
 Test a specific model against data provided by Chris Blake from his own halo modelling
 code, used in Blake+08 (modelling of SDSS sources).
 """
-import pytest
-
 import numpy as np
-from scipy.interpolate import InterpolatedUnivariateSpline as spline
-
+import pytest
 from halomod import TracerHaloModel
 from halomod.hod import Zehavi05
+from scipy.interpolate import InterpolatedUnivariateSpline as spline
 
 
 @pytest.fixture(scope="module")

@@ -13,6 +13,26 @@ except PackageNotFoundError:
     # package is not installed
     pass
 
+__all__ = [
+    "bias",
+    "concentration",
+    "cross_correlations",
+    "functional",
+    "halo_exclusion",
+    "halo_model",
+    "hod",
+    "integrate_corr",
+    "profiles",
+    "tools",
+    "wdm",
+    "DMHaloModel",
+    "HaloModel",
+    "TracerHaloModel",
+    "AngularCF",
+    "ProjectedCF",
+    "projected_corr_gal",
+]
+
 from . import (
     bias,
     concentration,

@@ -1,26 +1,32 @@
 r"""
 Module defining halo density profile.
 
-The halo density profile is used to describe the density distribution of dark matter or a specific type of tracer within a dark matter halo. It is usually descirbed as a function
+The halo density profile is used to describe the density distribution of dark matter or
+a specific type of tracer within a dark matter halo. It is usually descirbed as a function
 
 ``rho(r|rho_s,r_s) = rho_s f(x=r/r_s)``
 
-Here ``rho_s`` is the amplitude of the density, ``r_s = r_vir/c`` is related to the concentration and the virial radius of the halo.
+Here ``rho_s`` is the amplitude of the density, ``r_s = r_vir/c`` is related to the
+concentration and the virial radius of the halo.
 
-The profile used in power spectrum calculation is usually the Fourier Transformed one, which is usually a function of ``u(K=kr_s)``.
+The profile used in power spectrum calculation is usually the Fourier Transformed one,
+which is usually a function of ``u(K=kr_s)``.
 
 Profile models are defined as :class:`~hmf.Component` instances -- that is,
 they are flexible models that the user can subclass and use in the halo model framework.
-See :class:`Profile` for instructions on how to use ``Profile`` models. The following notes
-will mostly describe how to use various models provided in the literature.
+See :class:`Profile` for instructions on how to use ``Profile`` models. The following
+notes will mostly describe how to use various models provided in the literature.
 
-All models are specified in terms of the ``f(x)``, and analytically transformed to Fourier space, if
-an analytical formulae can be obtained.
+All models are specified in terms of the ``f(x)``, and analytically transformed to
+Fourier space, if an analytical formulae can be obtained.
 
 As with all ``Component`` subclasses, arbitrary user-specified variables can be received
 by defining them in the `_defaults` class-level dictionary.
 
-The module also defines a :class:`ProfileInf`, which does not truncate the dark matter halo at ``x=c``. Mathematically, it does not require a concentration-mass relation as an input. Here, an arbitary :class:`~halomod.CMRelation` should be plugged in, and results will remain the same.
+The module also defines a :class:`ProfileInf`, which does not truncate the dark matter
+halo at ``x=c``. Mathematically, it does not require a concentration-mass relation as
+an input. Here, an arbitary :class:`~halomod.CMRelation` should be plugged in, and
+results will remain the same.
 
 Examples
 --------
@@ -38,23 +44,23 @@ You can also specify a different profile for tracer if you're working with
 Notice that tracer density profile density should be used only in inverse volume or
 dimensionless unit.
 """
+import os
+import warnings
+from typing import Union
+
 import hankel
 import mpmath
 import numpy as np
-import os
 import scipy.integrate as intg
 import scipy.special as sp
-import warnings
 from astropy.cosmology import Planck15
+from hmf import Component
+from hmf._internals import pluggable
+from hmf.halos.mass_definitions import SOMean
 from scipy.integrate import quad
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 from scipy.interpolate import RectBivariateSpline
 from scipy.special import gamma, gammainc, sici
-from typing import Union
-
-from hmf import Component
-from hmf._internals import pluggable
-from hmf.halos.mass_definitions import SOMean
 
 SO_MEAN = SOMean()
 
@@ -106,7 +112,7 @@ class Profile(Component):
         self.mean_density0 = mdef.mean_density(0, cosmo=cosmo)
         self.has_lam = hasattr(self, "_l")
 
-        super(Profile, self).__init__(**model_parameters)
+        super().__init__(**model_parameters)
 
     def halo_mass_to_radius(self, m, at_z=False):
         """Return the halo radius corresponding to ``m``.
@@ -117,8 +123,8 @@ class Profile(Component):
         # I'm not absolutely sure that it's correct to use mean_density0 here,
         # rather than mean_dens (i.e. a function of redshift). Using mean_density0
         # lines up with HMCode, which I kind of trust, but it seems odd to me that
-        # the radius of a halo of a given mass at a given redshift should only depend on the
-        # background density at z=0.
+        # the radius of a halo of a given mass at a given redshift should only depend on
+        # the background density at z=0.
         dens = self.mean_dens if at_z else self.mean_density0
         return (3 * m / (4 * np.pi * self.delta_halo * dens)) ** (1.0 / 3.0)
 
@@ -825,13 +831,13 @@ class Moore(Profile):
         return 2.0 * np.log(1 + c ** 1.5) / 3
 
     def cm_relation(self, m):
-        c = super(Moore, self).cm_relation(m)
+        c = super().cm_relation(m)
         c = (c / 1.7) ** 0.9
 
         return c
 
     def _rs_from_m(self, m, c=None):
-        r_s = super(Moore, self)._rs_from_m(m, c)
+        r_s = super()._rs_from_m(m, c)
         return r_s * c / (c / 1.7) ** 0.9
 
 
@@ -990,7 +996,8 @@ class Einasto(Profile):
     -----
     This is an empirical form which is a special case of the formula in [1]_:
 
-    .. math:: \rho(r) = \rho_s{\rm exp}\bigg[-\frac{2}{\alpha}\Big(\big(\frac{r}{r_s}\big)^\alpha-1\Big)\bigg]
+    .. math:: \rho(r) = \rho_s{\rm exp}
+              \bigg[-\frac{2}{\alpha}\Big(\big(\frac{r}{r_s}\big)^\alpha-1\Big)\bigg]
 
     Other Parameters
     ----------------
@@ -1054,7 +1061,7 @@ class Einasto(Profile):
                 self._reduce(spl.ev(np.log(K.flatten()), np.log(cc)).reshape(K.shape))
             )
         else:  # Numerical version.
-            return super(Einasto, self)._p(K, c)
+            return super()._p(K, c)
 
 
 class CoredNFW(Profile):

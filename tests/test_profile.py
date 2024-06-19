@@ -1,10 +1,8 @@
 """
 Test various halo profile properties.
 """
-import pytest
-
 import numpy as np
-
+import pytest
 from halomod import TracerHaloModel
 from halomod import profiles as pf
 from halomod.concentration import Bullock01Power

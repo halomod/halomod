@@ -58,17 +58,17 @@ Constructing and using a colossus-based halo bias::
     >>> comparat = bias.make_colossus_bias(model="comparat17")
     >>> hm = HaloModel(bias_model=comparat)
 """
+from typing import Optional, Union
+
 import numpy as np
 from astropy.cosmology import FLRW, Planck15
 from colossus.lss.bias import haloBiasFromNu
-from scipy.interpolate import InterpolatedUnivariateSpline as spline
-from typing import Optional, Union
-
 from hmf import Component
 from hmf._internals import pluggable
 from hmf.cosmology.cosmo import astropy_to_colossus
 from hmf.halos.mass_definitions import SOMean
 from hmf.mass_function import fitting_functions as ff
+from scipy.interpolate import InterpolatedUnivariateSpline as spline
 
 SO_MEAN = SOMean()
 
@@ -143,7 +143,7 @@ class Bias(Component):
         self.sigma_8 = sigma_8
         self.n_eff = n_eff
 
-        super(Bias, self).__init__(**model_parameters)
+        super().__init__(**model_parameters)
 
     def bias(self) -> np.ndarray:
         """Calculate the first-order, linear, deterministic halo bias.
@@ -298,7 +298,9 @@ class SMT01(Bias):
     for the HMF and allowing for ellipsoidal collapse, as shown for example in [1]_.
     The form is
 
-    .. math:: 1 + \frac{1}{\delta_c \sqrt{a}} \left(\sqrt{a} a \nu + \sqrt{a} b (a\nu)^{1-c}  - \frac{(a\nu)^c}{(a\nu)^c + b(1-c)(1 - c/2)}\right)
+    .. math:: 1 + \frac{1}{\delta_c \sqrt{a}} \left(\sqrt{a} a \nu +
+              \sqrt{a} b (a\nu)^{1-c}  - \frac{(a\nu)^c}{(a\nu)^c +
+              b(1-c)(1 - c/2)}\right)
 
     with ``a``, ``b`` and ``c`` having default values of ``(0.707, 0.5, 0.6)``.
     They are free in this implementation for the user to modify.
@@ -392,7 +394,9 @@ class Seljak04Cosmo(Seljak04):
     This the form from [1]_ *with* cosmological dependence -- except we do not include
     the running of the spectral index. The form is
 
-    .. math:: b_{\rm no cosmo} + \log_10(x) \left[a_1 (\Omega_{m,0} - 0.3 + n - 1) + a_2(\sigma_8 - 0.9 + h-0.7)\right]
+    .. math:: b_{\rm no cosmo} +
+              \log_10(x) \left[a_1 (\Omega_{m,0} - 0.3 + n - 1) +
+              a_2(\sigma_8 - 0.9 + h-0.7)\right]
 
     with :math:`x = m/m_\star` (and :math:`m_{\star}` the nonlinear mass -- see :class:`Bias`
     for details). The non-cosmologically-dependent bias is that given by :class:`Seljak04`.
@@ -533,7 +537,8 @@ class Manera10(ST99):
 
     Notes
     -----
-    .. note:: This form from [1]_ has the same form as :class:`ST99`, but has refitted the parameters with ``(q, p) = (0.709, 0.2)``.
+    .. note:: This form from [1]_ has the same form as :class:`ST99`, but has refitted
+              the parameters with ``(q, p) = (0.709, 0.2)``.
 
     References
     ----------
@@ -712,12 +717,12 @@ class Tinker10PBSplit(Bias):
 
     def bias(self):
         if self.delta_halo not in self.delta_virs:
-            beta_array = np.array([self.params["beta_%s" % d] for d in self.delta_virs])
+            beta_array = np.array([self.params[f"beta_{d}"] for d in self.delta_virs])
             gamma_array = np.array(
-                [self.params["gamma_%s" % d] for d in self.delta_virs]
+                [self.params[f"gamma_{d}"] for d in self.delta_virs]
             )
-            phi_array = np.array([self.params["phi_%s" % d] for d in self.delta_virs])
-            eta_array = np.array([self.params["eta_%s" % d] for d in self.delta_virs])
+            phi_array = np.array([self.params[f"phi_{d}"] for d in self.delta_virs])
+            eta_array = np.array([self.params[f"eta_{d}"] for d in self.delta_virs])
 
             beta_func = spline(self.delta_virs, beta_array)
             gamma_func = spline(self.delta_virs, gamma_array)
@@ -729,10 +734,10 @@ class Tinker10PBSplit(Bias):
             phi_0 = phi_func(self.delta_halo)
             eta_0 = eta_func(self.delta_halo)
         else:
-            beta_0 = self.params["beta_%s" % (int(self.delta_halo))]
-            gamma_0 = self.params["gamma_%s" % (int(self.delta_halo))]
-            phi_0 = self.params["phi_%s" % (int(self.delta_halo))]
-            eta_0 = self.params["eta_%s" % (int(self.delta_halo))]
+            beta_0 = self.params[f"beta_{int(self.delta_halo)}"]
+            gamma_0 = self.params[f"gamma_{int(self.delta_halo)}"]
+            phi_0 = self.params[f"phi_{int(self.delta_halo)}"]
+            eta_0 = self.params[f"eta_{int(self.delta_halo)}"]
 
         beta = (
             beta_0 * (1 + min(self.z, self.params["max_z"])) ** self.params["beta_exp"]
@@ -763,7 +768,7 @@ class ScaleDepBias(Component):
 
     def __init__(self, xi_dm: np.ndarray, **model_parameters):
         self.xi_dm = xi_dm
-        super(ScaleDepBias, self).__init__(**model_parameters)
+        super().__init__(**model_parameters)
 
     def bias_scale(self) -> np.ndarray:
         """Return the scale dependent bias as a function of r.
@@ -816,7 +821,7 @@ def make_colossus_bias(model="comparat17", mdef=SO_MEAN, **defaults):
         _mdef = mdef
 
         def __init__(self, *args, **kwargs):
-            super(CustomColossusBias, self).__init__(*args, **kwargs)
+            super().__init__(*args, **kwargs)
             astropy_to_colossus(self.cosmo, sigma8=self.sigma_8, ns=self.n)
 
         def bias(self):

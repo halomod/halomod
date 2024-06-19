@@ -1,11 +1,8 @@
 """
 Various direct tests of the halo exclusion classes.
 """
-import pytest
-
 import numpy as np
-from scipy.integrate import simps
-
+import pytest
 from halomod.halo_exclusion import (
     DblEllipsoid,
     DblEllipsoid_,
@@ -22,6 +19,7 @@ from halomod.halo_exclusion import (
     makeW,
     outer,
 )
+from scipy.integrate import simps
 
 
 def test_makeW():

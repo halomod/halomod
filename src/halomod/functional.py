@@ -1,7 +1,7 @@
 r"""
 Module defining functional approaches to generating halo model quantities.
 """
-from typing import List, Optional
+from typing import Optional
 
 from hmf import Framework, get_hmf
 
@@ -14,7 +14,7 @@ def get_halomodel(
     kls=HaloModel,
     fast_kwargs: Optional[dict] = None,
     **kwargs
-) -> List[Framework]:
+) -> list[Framework]:
     r"""
     Yield framework instances for all combinations of parameters supplied.
 

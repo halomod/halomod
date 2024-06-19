@@ -4,12 +4,11 @@ Simple tests for the integration scheme for ProjectedCF.
 import numpy as np
 from astropy.cosmology import Planck15, z_at_value
 from astropy.units import Mpc
+from halomod import ProjectedCF, projected_corr_gal
+from halomod.integrate_corr import AngularCF, angular_corr_gal
 from mpmath import hyp2f1
 from scipy.integrate import dblquad, quad
 from scipy.special import gamma
-
-from halomod import ProjectedCF, projected_corr_gal
-from halomod.integrate_corr import AngularCF, angular_corr_gal
 
 hyp2f1A = np.frompyfunc(lambda a, b, c, z: float(hyp2f1(a, b, c, z)), 4, 1)
 

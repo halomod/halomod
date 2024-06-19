@@ -1,9 +1,7 @@
 """Unit tests of the bias module."""
 
-import pytest
-
 import numpy as np
-
+import pytest
 from halomod import DMHaloModel, bias
 from hmf import MassFunction
 from hmf.halos.mass_definitions import SOMean

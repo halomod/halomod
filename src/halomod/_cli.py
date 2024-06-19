@@ -1,9 +1,9 @@
 """Module that contains the command line app."""
 import click
-
-import halomod
 import hmf
 from hmf._cli import run_cli
+
+import halomod
 
 from .halo_model import TracerHaloModel
 

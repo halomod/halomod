@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # halomod documentation build configuration file,
 #
@@ -11,6 +10,7 @@
 # serve to show the default.
 
 import time
+
 from importlib_metadata import version as _version
 
 # -- General configuration -----------------------------------------------------
@@ -53,8 +53,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'halomod'
-copyright = u'%s, Steven Murray' % (time.localtime()[0])
+project = 'halomod'
+copyright = f'{time.localtime()[0]}, Steven Murray'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -207,8 +207,8 @@ latex_elements = {
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('index', 'halomod.tex', u'halomod Documentation',
-   u'Steven Murray', 'manual'),
+  ('index', 'halomod.tex', 'halomod Documentation',
+   'Steven Murray', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -237,8 +237,8 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'halomod', u'halomod Documentation',
-     [u'Steven Murray'], 1)
+    ('index', 'halomod', 'halomod Documentation',
+     ['Steven Murray'], 1)
 ]
 
 # If true, show URL addresses after external links.
@@ -251,8 +251,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-  ('index', 'halomod', u'halomod Documentation',
-   u'Steven Murray', 'halomod', 'One line description of project.',
+  ('index', 'halomod', 'halomod Documentation',
+   'Steven Murray', 'halomod', 'One line description of project.',
    'Miscellaneous'),
 ]
 

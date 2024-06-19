@@ -47,14 +47,11 @@ Note that while ``statistic`` is a valid argument to the `diemer19` model in COL
 we have constructed it without access to that argument (and so it recieves its default
 value of "median"). This means we *cannot* update it via the ``HaloModel`` interface.
 """
-import numpy as np
 import warnings
-from colossus.halo import concentration
-from scipy import special as sp
-from scipy.interpolate import interp1d
-from scipy.optimize import minimize
 from typing import Optional
 
+import numpy as np
+from colossus.halo import concentration
 from hmf import Component
 from hmf._internals import pluggable
 from hmf.cosmology.cosmo import Cosmology, astropy_to_colossus
@@ -67,6 +64,9 @@ from hmf.halos.mass_definitions import (
     SOVirial,
     from_colossus_name,
 )
+from scipy import special as sp
+from scipy.interpolate import interp1d
+from scipy.optimize import minimize
 
 from .profiles import NFW, Profile
 
@@ -134,7 +134,7 @@ class CMRelation(Component):
                 f"performed, so results will be wrong. Using '{self.mdef}'."
             )
 
-        super(CMRelation, self).__init__(**model_parameters)
+        super().__init__(**model_parameters)
 
     def mass_nonlinear(self, z):
         """
@@ -198,7 +198,7 @@ def make_colossus_cm(model="diemer15", **defaults):
         )
 
         def __init__(self, *args, **kwargs):
-            super(CustomColossusCM, self).__init__(*args, **kwargs)
+            super().__init__(*args, **kwargs)
             # TODO: may want a more accurate way of passing sigma8 and ns here.
             astropy_to_colossus(self.cosmo.cosmo, sigma8=0.8, ns=1)
 

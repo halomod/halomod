@@ -21,14 +21,14 @@ Cross-correlating the same galaxy samples in different redshifts::
 `pkcorr` corresponds to the cross-power at `cross.halo_model_1.k_hm`.
 """
 
-import numpy as np
 from abc import ABC, abstractmethod
-from scipy import integrate as intg
 from typing import Optional
 
+import numpy as np
 from hmf import Component, Framework
 from hmf._internals._cache import cached_quantity, parameter, subframework
 from hmf._internals._framework import get_mdl, pluggable
+from scipy import integrate as intg
 
 from . import tools
 from .halo_model import TracerHaloModel
@@ -54,10 +54,11 @@ class _HODCross(ABC, Component):
         -----
         Defined by
 
-        .. math:: \langle T_1 T_2 \rangle  = \langle T_1 \rangle \langle T_2 \rangle + \sigma_1 \sigma_2 R_{ss},
+        .. math:: \langle T_1 T_2 \rangle  = \langle T_1 \rangle \langle T_2 \rangle +
+                  \sigma_1 \sigma_2 R_{ss},
 
-        where :math:`T` is the total amount of tracer in the halo's profile (i.e. not counting the
-        central component, if this exists).
+        where :math:`T` is the total amount of tracer in the halo's profile (i.e. not
+        counting the central component, if this exists).
         """
         pass
 
@@ -72,10 +73,12 @@ class _HODCross(ABC, Component):
         -----
         Defined by
 
-        .. math:: \langle T^c_1 T^s_2 \rangle  = \langle T^c_1 \rangle \langle T^s_2 \rangle + \sigma^c_1 \sigma^s_2 R_{cs},
+        .. math:: \langle T^c_1 T^s_2 \rangle  =
+                  \langle T^c_1 \rangle \langle T^s_2 \rangle +
+                  \sigma^c_1 \sigma^s_2 R_{cs},
 
-        where :math:`T^s` is the total amount of tracer in the halo's profile (i.e. not counting the
-        central component,if this exists).
+        where :math:`T^s` is the total amount of tracer in the halo's profile (i.e. not
+        counting the central component,if this exists).
         """
         pass
 
@@ -90,10 +93,12 @@ class _HODCross(ABC, Component):
         -----
         Defined by
 
-        .. math:: \langle T^s_1 T^c_2 \rangle  = \langle T^s_1 \rangle \langle T^c_2 \rangle + \sigma^s_1 \sigma^c_2 R_{sc},
+        .. math:: \langle T^s_1 T^c_2 \rangle  =
+                  \langle T^s_1 \rangle \langle T^c_2 \rangle +
+                  \sigma^s_1 \sigma^c_2 R_{sc},
 
-        where :math:`T^s` is the total amount of tracer in the halo's profile (i.e. not counting
-        the central component,if this exists).
+        where :math:`T^s` is the total amount of tracer in the halo's profile (i.e. not
+        counting the central component,if this exists).
         """
         pass
 

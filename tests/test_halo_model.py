@@ -1,10 +1,8 @@
 """
 Integration-style tests of the full HaloModel class.
 """
-import pytest
-
 import numpy as np
-
+import pytest
 from halomod import DMHaloModel, TracerHaloModel
 from halomod.bias import Bias
 from halomod.concentration import CMRelation

@@ -3,15 +3,16 @@ Modules defining a series of utility functions to perform hankel transformation
 and Fourier transformation from correlation function to power spectrum.
 """
 import logging
-import numpy as np
-import scipy.integrate as intg
 import time
 import warnings
 from functools import lru_cache
+from typing import Optional, Union
+
+import numpy as np
+import scipy.integrate as intg
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 from scipy.interpolate import UnivariateSpline as uspline
 from scipy.stats import poisson
-from typing import List, Optional, Union
 
 from .hod import HOD
 from .profiles import Profile
@@ -42,7 +43,7 @@ def _get_sumspace(h: float, nmin: int, nmax: int):
 
 
 def hankel_transform(
-    f: [callable, List[callable]],
+    f: [callable, list[callable]],
     trns_var: np.ndarray,
     trns_var_name: str,
     h=0.005,
@@ -537,7 +538,8 @@ class ExtendedSpline:
             assert np.all(x > 0), "to use a power-law, x must be >= 0"
             if not np.all(y > 0) or np.all(y < 0):
                 warnings.warn(
-                    "to use a power-law, y must be all positive or negative. Switching to zero extrapolation."
+                    "to use a power-law, y must be all positive or negative. "
+                    "Switching to zero extrapolation."
                 )
                 return _zero
             neg = y[0] < 0

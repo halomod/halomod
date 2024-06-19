@@ -3,7 +3,6 @@ model vs. the Sigma_cMz_Py code, originally written by Ludlow et al.
 """
 import matplotlib.pyplot as plt
 import numpy as np
-
 from halomod import concentration as cm
 from hmf import MassFunction
 

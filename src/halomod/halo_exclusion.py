@@ -1,13 +1,13 @@
 """
 Module defining halo model components for halo exclusion.
 """
-import numpy as np
 import warnings
-from cached_property import cached_property
-from scipy import integrate as intg
 
+import numpy as np
+from cached_property import cached_property
 from hmf import Component
 from hmf._internals import pluggable
+from scipy import integrate as intg
 
 try:
     from numba import jit

@@ -1,13 +1,13 @@
 """
 Contains WDM versions of all models and frameworks
 """
-import numpy as np
 import sys
-from scipy import integrate as intg
 
+import numpy as np
 from hmf import cached_quantity, parameter
 from hmf._internals._framework import get_mdl
 from hmf.alternatives.wdm import MassFunctionWDM
+from scipy import integrate as intg
 
 from .halo_model import DMHaloModel
 from .integrate_corr import ProjectedCF
@@ -58,7 +58,7 @@ class HaloModelWDM(DMHaloModel, MassFunctionWDM):
 
     def __init__(self, **kw):
         kw.setdefault("halo_concentration_model", "Ludlow2016")
-        super(HaloModelWDM, self).__init__(**kw)
+        super().__init__(**kw)
 
     @cached_quantity
     def f_halos(self):

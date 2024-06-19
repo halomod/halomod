@@ -1,5 +1,4 @@
 import numpy as np
-
 from halomod import DMHaloModel
 from halomod.wdm import HaloModelWDM
 

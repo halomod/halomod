@@ -1,7 +1,8 @@
 """
-Module to do the Fourier Transform of the Einasto profile numerically and cache results for later use.
+Module to Fourier Transform the Einasto profile numerically and cache results for later use.
 
-We save a binary file to the data directory to be read in, but also some ASCII files for long-term use.
+We save a binary file to the data directory to be read in, but also some ASCII files
+for long-term use.
 """
 
 import numpy as np

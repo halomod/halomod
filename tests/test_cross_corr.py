@@ -1,5 +1,4 @@
 import numpy as np
-
 from halomod.cross_correlations import ConstantCorr, CrossCorrelations
 
 
