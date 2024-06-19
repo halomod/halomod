@@ -1,4 +1,7 @@
 """Module that contains the command line app."""
+
+from __future__ import annotations
+
 import click
 import hmf
 from hmf._cli import run_cli

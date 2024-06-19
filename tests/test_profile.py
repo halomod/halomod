@@ -1,4 +1,5 @@
 """Test various halo profile properties."""
+
 import numpy as np
 import pytest
 from halomod import TracerHaloModel

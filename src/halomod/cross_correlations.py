@@ -21,6 +21,8 @@ Cross-correlating the same galaxy samples in different redshifts::
 `pkcorr` corresponds to the cross-power at `cross.halo_model_1.k_hm`.
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -253,9 +255,7 @@ class CrossCorrelations(Framework):
         p = intg.simps(integ, m)
 
         p /= hm1.mean_tracer_den * hm2.mean_tracer_den
-        return tools.ExtendedSpline(
-            hm1.k, p, lower_func="power_law", upper_func="power_law"
-        )
+        return tools.ExtendedSpline(hm1.k, p, lower_func="power_law", upper_func="power_law")
 
     @property
     def power_1h_cross(self):
@@ -265,9 +265,7 @@ class CrossCorrelations(Framework):
     @cached_quantity
     def corr_1h_cross_fnc(self):
         """The 1-halo term of the cross correlation."""
-        corr = tools.hankel_transform(
-            self.power_1h_cross_fnc, self.halo_model_1._r_table, "r"
-        )
+        corr = tools.hankel_transform(self.power_1h_cross_fnc, self.halo_model_1._r_table, "r")
         return tools.ExtendedSpline(
             self.halo_model_1._r_table,
             corr,

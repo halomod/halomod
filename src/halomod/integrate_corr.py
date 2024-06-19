@@ -3,6 +3,9 @@ Routines and Frameworks for intelligent integration of the correlation function,
 to obtain eg. projected and angular correlations functions.
 
 """
+
+from __future__ import annotations
+
 import warnings
 
 import numpy as np
@@ -87,9 +90,7 @@ class ProjectedCF(HaloModel):
             rp = np.array(self.rp_min)
         else:
             if self.rp_log:
-                rp = np.logspace(
-                    np.log10(self.rp_min), np.log10(self.rp_max), self.rp_num
-                )
+                rp = np.logspace(np.log10(self.rp_min), np.log10(self.rp_max), self.rp_num)
             else:
                 rp = np.linspace(self.rp_min, self.rp_max, self.rp_num)
 
@@ -165,7 +166,7 @@ def projected_corr_gal(
             a = max(1.3, -ydiff)
             theta = _get_theta(a)
 
-        min_y = theta * f_peak ** 2 * rp
+        min_y = theta * f_peak**2 * rp
 
         # Get the upper limit for this rp
         ylim = rlim - rp
@@ -187,14 +188,14 @@ def _get_theta(a):
         2 ** (1 + 2 * a)
         * (
             7
-            - 2 * a ** 3
-            + 3 * np.sqrt(5 - 8 * a + 4 * a ** 2)
-            + a ** 2 * (9 + np.sqrt(5 - 8 * a + 4 * a ** 2))
-            - a * (13 + 3 * np.sqrt(5 - 8 * a + 4 * a ** 2))
+            - 2 * a**3
+            + 3 * np.sqrt(5 - 8 * a + 4 * a**2)
+            + a**2 * (9 + np.sqrt(5 - 8 * a + 4 * a**2))
+            - a * (13 + 3 * np.sqrt(5 - 8 * a + 4 * a**2))
         )
-        * ((1 + np.sqrt(5 - 8 * a + 4 * a ** 2)) / (a - 1)) ** (-2 * a)
+        * ((1 + np.sqrt(5 - 8 * a + 4 * a**2)) / (a - 1)) ** (-2 * a)
     )
-    theta /= (a - 1) ** 2 * (-1 + 2 * a + np.sqrt(5 - 8 * a + 4 * a ** 2))
+    theta /= (a - 1) ** 2 * (-1 + 2 * a + np.sqrt(5 - 8 * a + 4 * a**2))
     return theta
 
 
@@ -395,21 +396,15 @@ class AngularCF(HaloModel):
             raise ValueError("theta_min must be less than theta_max")
 
         if self.theta_log:
-            return np.logspace(
-                np.log10(self.theta_min), np.log10(self.theta_max), self.theta_num
-            )
+            return np.logspace(np.log10(self.theta_min), np.log10(self.theta_max), self.theta_num)
         else:
             return np.linspace(self.theta_min, self.theta_max, self.theta_num)
 
     @cached_quantity
     def r(self):
         """Physical separation grid [Mpc/h]."""
-        rmin = np.sqrt(
-            (10 ** self.logu_min) ** 2 + self.theta.min() ** 2 * self.xvec.min() ** 2
-        )
-        rmax = np.sqrt(
-            (10 ** self.logu_max) ** 2 + self.theta.max() ** 2 * self.xvec.max() ** 2
-        )
+        rmin = np.sqrt((10**self.logu_min) ** 2 + self.theta.min() ** 2 * self.xvec.min() ** 2)
+        rmax = np.sqrt((10**self.logu_max) ** 2 + self.theta.max() ** 2 * self.xvec.max() ** 2)
         return np.logspace(np.log10(rmin), np.log10(rmax), self.rnum)
 
     @cached_quantity
@@ -577,7 +572,7 @@ def angular_corr_gal(
         p2 = _check_p(p2, z if p_of_z else x)
 
     p_integ = p1(z) * p2(z) / dxdz(z, cosmo) ** 2 if p_of_z else p1(x) * p2(x)
-    R = np.sqrt(np.add.outer(np.outer(theta ** 2, x ** 2), u ** 2)).flatten()
+    R = np.sqrt(np.add.outer(np.outer(theta**2, x**2), u**2)).flatten()
 
     integrand = np.einsum(
         "kij,i->kij", xi(R, **xi_kw).reshape((len(theta), len(x), len(u))), p_integ

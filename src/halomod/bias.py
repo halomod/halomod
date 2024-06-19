@@ -58,7 +58,9 @@ Constructing and using a colossus-based halo bias::
     >>> comparat = bias.make_colossus_bias(model="comparat17")
     >>> hm = HaloModel(bias_model=comparat)
 """
+
 from __future__ import annotations
+
 import numpy as np
 from astropy.cosmology import FLRW, Planck15
 from colossus.lss.bias import haloBiasFromNu
@@ -128,7 +130,7 @@ class Bias(Component):
         cosmo: FLRW = Planck15,
         n_eff: None | np.ndarray = None,
         z: float = 0.0,
-        **model_parameters
+        **model_parameters,
     ):
         self.nu = nu
         self.n = n
@@ -173,9 +175,7 @@ class UnityBias(Bias):
     model has no free parameters.
     """
 
-    pair_hmf = tuple(
-        hmf for hmf in ff.FittingFunction.get_models().values() if hmf.normalized
-    )
+    pair_hmf = tuple(hmf for hmf in ff.FittingFunction.get_models().values() if hmf.normalized)
 
     def bias(self):
         return np.ones_like(self.nu)
@@ -243,7 +243,7 @@ class Jing98(Bias):
         a = self.params["a"]
         b = self.params["b"]
         c = self.params["c"]
-        return (a / nu ** 2 + 1) ** (b - c * self.n_eff) * (1 + (nu - 1) / self.delta_c)
+        return (a / nu**2 + 1) ** (b - c * self.n_eff) * (1 + (nu - 1) / self.delta_c)
 
 
 class ST99(Bias):
@@ -281,9 +281,7 @@ class ST99(Bias):
         p = self.params["p"]
         q = self.params["q"]
         return (
-            1
-            + (q * self.nu - 1) / self.delta_c
-            + (2 * p / self.delta_c) / (1 + (q * self.nu) ** p)
+            1 + (q * self.nu - 1) / self.delta_c + (2 * p / self.delta_c) / (1 + (q * self.nu) ** p)
         )
 
 
@@ -382,7 +380,7 @@ class Seljak04(Bias):
         f = self.params["f"]
         g = self.params["g"]
         x = self.m / self.mstar
-        return a + b * x ** c + d / (e * x + 1) + f * x ** g
+        return a + b * x**c + d / (e * x + 1) + f * x**g
 
 
 class Seljak04Cosmo(Seljak04):
@@ -438,8 +436,7 @@ class Seljak04Cosmo(Seljak04):
         x = np.log10(self.m / self.mstar)
         x[x < -1] = -1
         return b + x * (
-            a1 * (self.Om0 - 0.3 + self.n - 1)
-            + a2 * (self.sigma_8 - 0.9 + self.h - 0.7)
+            a1 * (self.Om0 - 0.3 + self.n - 1) + a2 * (self.sigma_8 - 0.9 + self.h - 0.7)
         )
 
 
@@ -614,9 +611,7 @@ class Tinker10(Bias):
         B = self.params["B"]
         c = self.params["c"]
         b = self.params["b"]
-        return (
-            1 - A * nu ** a / (nu ** a + self.delta_c ** a) + B * nu ** b + C * nu ** c
-        )
+        return 1 - A * nu**a / (nu**a + self.delta_c**a) + B * nu**b + C * nu**c
 
 
 class Tinker10PBSplit(Bias):
@@ -723,9 +718,7 @@ class Tinker10PBSplit(Bias):
     def bias(self):
         if self.delta_halo not in self.delta_virs:
             beta_array = np.array([self.params[f"beta_{d}"] for d in self.delta_virs])
-            gamma_array = np.array(
-                [self.params[f"gamma_{d}"] for d in self.delta_virs]
-            )
+            gamma_array = np.array([self.params[f"gamma_{d}"] for d in self.delta_virs])
             phi_array = np.array([self.params[f"phi_{d}"] for d in self.delta_virs])
             eta_array = np.array([self.params[f"eta_{d}"] for d in self.delta_virs])
 
@@ -744,20 +737,15 @@ class Tinker10PBSplit(Bias):
             phi_0 = self.params[f"phi_{int(self.delta_halo)}"]
             eta_0 = self.params[f"eta_{int(self.delta_halo)}"]
 
-        beta = (
-            beta_0 * (1 + min(self.z, self.params["max_z"])) ** self.params["beta_exp"]
-        )
+        beta = beta_0 * (1 + min(self.z, self.params["max_z"])) ** self.params["beta_exp"]
         phi = phi_0 * (1 + min(self.z, self.params["max_z"])) ** self.params["phi_exp"]
         eta = eta_0 * (1 + min(self.z, self.params["max_z"])) ** self.params["eta_exp"]
-        gamma = (
-            gamma_0
-            * (1 + min(self.z, self.params["max_z"])) ** self.params["gamma_exp"]
-        )
+        gamma = gamma_0 * (1 + min(self.z, self.params["max_z"])) ** self.params["gamma_exp"]
 
         return (
             1
             + (gamma * self.nu - (1 + 2 * eta)) / self.delta_c
-            + 2 * phi / self.delta_c / (1 + (beta ** 2 * self.nu) ** phi)
+            + 2 * phi / self.delta_c / (1 + (beta**2 * self.nu) ** phi)
         )
 
 
@@ -834,7 +822,7 @@ def make_colossus_bias(model="comparat17", mdef=SO_MEAN, **defaults):
                 z=self.z,
                 mdef=self._mdef.colossus_name,
                 model=self._model_name,
-                **self.params
+                **self.params,
             )
 
     CustomColossusBias.__name__ = model.capitalize()

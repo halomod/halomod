@@ -2,6 +2,7 @@
 Test a specific model against data provided by Chris Blake from his own halo modelling
 code, used in Blake+08 (modelling of SDSS sources).
 """
+
 import numpy as np
 import pytest
 from halomod import TracerHaloModel

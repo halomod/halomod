@@ -1,4 +1,5 @@
 """Unit tests of the bias module."""
+
 from __future__ import annotations
 
 import numpy as np

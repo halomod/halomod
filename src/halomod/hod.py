@@ -53,6 +53,7 @@ satellite/central decomposition. So here are the assumptions:
 6. By default, the central condition is *not* enforced.
 """
 
+from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
 
@@ -105,7 +106,7 @@ class HOD(Component, metaclass=ABCMeta):
         cm_relation: CMRelation | None = None,
         profile: Profile | None = None,
         mdef: MassDefinition | None = SO_MEAN,
-        **model_parameters
+        **model_parameters,
     ):
         self._central = central
         self.cosmo = cosmo
@@ -335,16 +336,13 @@ class Zheng05(HODPoisson):
 
     def _central_occupation(self, m):
         """Amplitude of central tracer at mass M."""
-        return 0.5 * (
-            1 + sp.erf((np.log10(m) - self.params["M_min"]) / self.params["sig_logm"])
-        )
+        return 0.5 * (1 + sp.erf((np.log10(m) - self.params["M_min"]) / self.params["sig_logm"]))
 
     def _satellite_occupation(self, m):
         """Amplitude of satellite tracer at mass M."""
         ns = np.zeros_like(m)
         ns[m > 10 ** self.params["M_0"]] = (
-            (m[m > 10 ** self.params["M_0"]] - 10 ** self.params["M_0"])
-            / 10 ** self.params["M_1"]
+            (m[m > 10 ** self.params["M_0"]] - 10 ** self.params["M_0"]) / 10 ** self.params["M_1"]
         ) ** self.params["alpha"]
         return ns
 
@@ -405,7 +403,7 @@ class Contreras13(HODPoisson):
     def _central_occupation(self, m):
         """Amplitude of central tracer at mass M."""
         return self.params["fcb"] * (1 - self.params["fca"]) * np.exp(
-            -np.log10(m / 10 ** self.params["M_min"]) ** 2
+            -(np.log10(m / 10 ** self.params["M_min"]) ** 2)
             / (2 * (self.params["x"] * self.params["sig_logm"]) ** 2)
         ) + self.params["fca"] * (
             1
@@ -420,10 +418,7 @@ class Contreras13(HODPoisson):
         """Amplitude of satellite tracer at mass M."""
         return (
             self.params["fs"]
-            * (
-                1
-                + sp.erf(np.log10(m / 10 ** self.params["M_1"]) / self.params["delta"])
-            )
+            * (1 + sp.erf(np.log10(m / 10 ** self.params["M_1"]) / self.params["delta"]))
             * (m / 10 ** self.params["M_1"]) ** self.params["alpha"]
         )
 
@@ -440,7 +435,6 @@ class Geach12(Contreras13):
            https://ui.adsabs.harvard.edu/abs/2012MNRAS.426..679G.
 
     """
-
 
 
 class Tinker05(Zehavi05):
@@ -480,11 +474,7 @@ class Zehavi05WithMax(Zehavi05):
     def _central_occupation(self, m):
         """Amplitude of central tracer at mass M."""
         n_c = np.zeros_like(m)
-        n_c[
-            np.logical_and(
-                m >= 10 ** self.params["M_min"], m <= 10 ** self.params["M_max"]
-            )
-        ] = 1
+        n_c[np.logical_and(m >= 10 ** self.params["M_min"], m <= 10 ** self.params["M_max"])] = 1
 
         return n_c
 
@@ -519,22 +509,18 @@ class Zehavi05Marked(Zehavi05WithMax):
 
     def _central_occupation(self, m):
         """Amplitude of central tracer at mass M."""
-        return super()._central_occupation(
-            m
-        ) * self._tracer_per_central(m)
+        return super()._central_occupation(m) * self._tracer_per_central(m)
 
     def _satellite_occupation(self, m):
         """Amplitude of satellite tracer at mass M."""
-        return super()._satellite_occupation(
-            m
-        ) * self._tracer_per_satellite(m)
+        return super()._satellite_occupation(m) * self._tracer_per_satellite(m)
 
 
 class ContinuousPowerLaw(HODBulk):
     """A continuous HOD which is tuned to match the Zehavi05 total occupation.
 
-      (except for normalisation)
-      """
+    (except for normalisation)
+    """
 
     _defaults = {
         "M_min": 11.6222,
@@ -640,7 +626,7 @@ class Spinelli19(HODPoisson):
         amp = 10 ** self.params["M_0"]
         m1 = 10 ** self.params["M_break_sat"]
         array = np.zeros_like(m)
-        array[m >= 10 ** 11] = 1
+        array[m >= 10**11] = 1
 
         return amp * (m / m1) ** beta * np.exp(-((m1 / m) ** alpha)) * array
         # return 10**8
@@ -652,8 +638,8 @@ class Spinelli19(HODPoisson):
         """
         A12 = 2.869e-15
         nu21cm = 1.42e9
-        Const = (3.0 * A12 * const.h * const.c ** 3.0) / (
-            32.0 * np.pi * (const.m_p + const.m_e) * const.Boltzmann * nu21cm ** 2
+        Const = (3.0 * A12 * const.h * const.c**3.0) / (
+            32.0 * np.pi * (const.m_p + const.m_e) * const.Boltzmann * nu21cm**2
         )
         Mpcoverh_3 = ((astroconst.kpc.value * 1e3) / (cosmo.H0.value / 100.0)) ** 3
         hubble = cosmo.H0.value * cosmo.efunc(z) * 1.0e3 / (astroconst.kpc.value * 1e3)
@@ -680,8 +666,6 @@ class Spinelli19(HODPoisson):
             10 ** self.params["M_min_counts"] <= M,
             10 ** self.params["M_max_counts"] >= M,
         )
-        n_s[index] = (M[index] / 10 ** self.params["M_1_counts"]) ** self.params[
-            "alpha_counts"
-        ]
+        n_s[index] = (M[index] / 10 ** self.params["M_1_counts"]) ** self.params["alpha_counts"]
 
         return n_s

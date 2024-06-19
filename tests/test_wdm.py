@@ -26,10 +26,7 @@ def test_cmz_wdm():
         transfer_model="EH",
     )
 
-    assert np.all(
-        cdm.cmz_relation[cdm.m <= wdm.wdm.m_hm]
-        > wdm.cmz_relation[wdm.m <= wdm.wdm.m_hm]
-    )
+    assert np.all(cdm.cmz_relation[cdm.m <= wdm.wdm.m_hm] > wdm.cmz_relation[wdm.m <= wdm.wdm.m_hm])
 
 
 def test_ludlow_cmz_wdm():
@@ -57,7 +54,4 @@ def test_ludlow_cmz_wdm():
         transfer_model="EH",
     )
 
-    assert np.all(
-        cdm.cmz_relation[cdm.m <= wdm.wdm.m_hm]
-        > wdm.cmz_relation[wdm.m <= wdm.wdm.m_hm]
-    )
+    assert np.all(cdm.cmz_relation[cdm.m <= wdm.wdm.m_hm] > wdm.cmz_relation[wdm.m <= wdm.wdm.m_hm])

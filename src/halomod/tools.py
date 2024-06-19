@@ -2,6 +2,7 @@
 Modules defining a series of utility functions to perform hankel transformation
 and Fourier transformation from correlation function to power spectrum.
 """
+
 from __future__ import annotations
 
 import logging
@@ -82,9 +83,9 @@ def hankel_transform(
         out[ir] = res
 
     if trns_var_name == "r":
-        return out / (2 * np.pi ** 2 * trns_var ** 3)
+        return out / (2 * np.pi**2 * trns_var**3)
     else:
-        return out * 4 * np.pi / trns_var ** 3
+        return out * 4 * np.pi / trns_var**3
 
 
 def power_to_corr_ogata(
@@ -160,9 +161,7 @@ def power_to_corr_ogata(
         lower_mask = logk < lnk.min()
         if power_pos[0]:
             result[lower_mask] = np.exp(
-                (np.log(p[1]) - np.log(p[0]))
-                * (logk[lower_mask] - lnk[0])
-                / (lnk[1] - lnk[0])
+                (np.log(p[1]) - np.log(p[0])) * (logk[lower_mask] - lnk[0]) / (lnk[1] - lnk[0])
                 + np.log(p[0])
             )
         else:
@@ -175,9 +174,7 @@ def power_to_corr_ogata(
             if p[-1] <= 0 or p[-2] <= 0:
                 raise ValueError("Something went horribly wrong")
             result[upper_mask] = np.exp(
-                (np.log(p[-1]) - np.log(p[-2]))
-                * (logk[upper_mask] - lnk[-1])
-                / (lnk[-1] - lnk[-2])
+                (np.log(p[-1]) - np.log(p[-2])) * (logk[upper_mask] - lnk[-1]) / (lnk[-1] - lnk[-2])
                 + np.log(p[-1])
             )
         else:
@@ -227,10 +224,7 @@ def power_to_corr_ogata(
                     )
                     warn_upper = False
 
-                if (
-                    not np.isclose(cumsum[-1], cumsum[-2], atol=atol, rtol=rtol)
-                    and warn_conv
-                ):
+                if not np.isclose(cumsum[-1], cumsum[-2], atol=atol, rtol=rtol) and warn_conv:
                     warnings.warn(
                         f"Hankel transform of {func} did not converge for {v[1]}={rr:.2e}. "
                         f"It is likely that higher {v[1]} will also not converge. "
@@ -242,12 +236,10 @@ def power_to_corr_ogata(
 
                 out[ir] = cumsum[-1]
 
-    return out / (2 * np.pi ** 2 * r ** 3)
+    return out / (2 * np.pi**2 * r**3)
 
 
-def corr_to_power_ogata(
-    corr, r, k, h=0.005, power_pos=(True, False), atol=1e-15, rtol=1e-3
-):
+def corr_to_power_ogata(corr, r, k, h=0.005, power_pos=(True, False), atol=1e-15, rtol=1e-3):
     """
     Convert an isotropic 3D correlation function to a power spectrum.
 
@@ -274,7 +266,7 @@ def corr_to_power_ogata(
     """
     return (
         8
-        * np.pi ** 3
+        * np.pi**3
         * power_to_corr_ogata(
             corr, r, k, h, power_pos=power_pos, atol=atol, rtol=rtol, _reverse=True
         )
@@ -324,15 +316,13 @@ def power_to_corr(power_func: callable, r: np.ndarray) -> np.ndarray:
         maxk = max(501.5 * np.pi / rr, min_k)
 
         # Now we calculate the requisite number of steps to have a good dk at hi-k.
-        nk = np.ceil(
-            np.log(maxk / mink) / np.log(maxk / (maxk - np.pi / (minsteps * rr)))
-        )
+        nk = np.ceil(np.log(maxk / mink) / np.log(maxk / (maxk - np.pi / (minsteps * rr))))
 
         lnk, dlnk = np.linspace(np.log(mink), np.log(maxk), int(nk), retstep=True)
         P = power_func(lnk)
         integ = P * np.exp(lnk) ** 2 * np.sin(np.exp(lnk) * rr) / rr
 
-        corr[i] = (0.5 / np.pi ** 2) * intg.simps(integ, dx=dlnk)
+        corr[i] = (0.5 / np.pi**2) * intg.simps(integ, dx=dlnk)
 
     return corr
 
@@ -353,7 +343,7 @@ def exclusion_window(k: np.ndarray, r: float) -> np.ndarray:
         The top-hat window function in fourier space.
     """
     x = k * r
-    return 3 * (np.sin(x) - x * np.cos(x)) / x ** 3
+    return 3 * (np.sin(x) - x * np.cos(x)) / x**3
 
 
 def populate(
@@ -363,7 +353,7 @@ def populate(
     profile: Profile | None = None,
     hodmod: HOD | None = None,
     edges: np.ndarray | None = None,
-    rng = None,
+    rng=None,
 ):
     """
     Populate a series of DM halos with a tracer, given a HOD model.

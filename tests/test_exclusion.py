@@ -1,4 +1,5 @@
 """Various direct tests of the halo exclusion classes."""
+
 import numpy as np
 import pytest
 from halomod.halo_exclusion import (
@@ -129,9 +130,7 @@ def test_dbl_sphere(dbl_sphere):
 
     den = np.sqrt(
         simps(
-            simps(
-                np.outer(density * m, np.ones_like(density)), dx=excl.dlnx, even="first"
-            ),
+            simps(np.outer(density * m, np.ones_like(density)), dx=excl.dlnx, even="first"),
             dx=excl.dlnx,
             even="first",
         )
@@ -175,9 +174,7 @@ def test_dbl_ellipsoid_large_r(dbl_ellipsoid):
         )
     )
 
-    assert np.allclose(
-        no_excl.integrate().flatten(), excl.integrate().flatten(), rtol=1e-3
-    )
+    assert np.allclose(no_excl.integrate().flatten(), excl.integrate().flatten(), rtol=1e-3)
     assert np.allclose(den, excl.density_mod, rtol=1e-3)
 
 

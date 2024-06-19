@@ -47,6 +47,9 @@ Note that while ``statistic`` is a valid argument to the `diemer19` model in COL
 we have constructed it without access to that argument (and so it recieves its default
 value of "median"). This means we *cannot* update it via the ``HaloModel`` interface.
 """
+
+from __future__ import annotations
+
 import warnings
 
 import numpy as np
@@ -147,8 +150,7 @@ class CMRelation(Component):
 
         def model(lnr):
             return (
-                self.filter.sigma(np.exp(lnr)) * self.growth.growth_factor(z)
-                - self.delta_c
+                self.filter.sigma(np.exp(lnr)) * self.growth.growth_factor(z) - self.delta_c
             ) ** 2
 
         res = minimize(
@@ -160,9 +162,7 @@ class CMRelation(Component):
 
         if res.success:
             r = np.exp(res.x[0])
-            return self.filter.radius_to_mass(
-                r, self.mean_density0
-            )  # TODO *(1+z)**3 ????
+            return self.filter.radius_to_mass(r, self.mean_density0)  # TODO *(1+z)**3 ????
         else:
             warnings.warn("Minimization failed :(", stacklevel=2)
             return 0
@@ -191,9 +191,7 @@ def make_colossus_cm(model="diemer15", **defaults):
     class CustomColossusCM(CMRelation):
         _model_name = model
         _defaults = defaults
-        native_mdefs = tuple(
-            from_colossus_name(d) for d in concentration.models[model].mdefs
-        )
+        native_mdefs = tuple(from_colossus_name(d) for d in concentration.models[model].mdefs)
 
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
@@ -320,10 +318,7 @@ class Maccio07(CMRelation):
 
     def cm(self, m, z):
         return (
-            self.params["c_0"]
-            * (m * 10 ** (-11)) ** (-0.109)
-            * 4
-            / (1 + z) ** self.params["gamma"]
+            self.params["c_0"] * (m * 10 ** (-11)) ** (-0.109) * 4 / (1 + z) ** self.params["gamma"]
         )
 
 
@@ -476,14 +471,12 @@ class Ludlow16(CMRelation):
     def _eq6_zf(self, c, C, z):
         cosmo = self.cosmo.cosmo
         M2 = self.profile._h(1) / self.profile._h(c)
-        rho_2 = self.delta_halo(z) * c ** 3 * M2
+        rho_2 = self.delta_halo(z) * c**3 * M2
         rhoc = rho_2 / C
-        in_brackets = (
-            rhoc * (cosmo.Om0 * (1 + z) ** 3 + cosmo.Ode0) - cosmo.Ode0
-        ) / cosmo.Om0
+        in_brackets = (rhoc * (cosmo.Om0 * (1 + z) ** 3 + cosmo.Ode0) - cosmo.Ode0) / cosmo.Om0
         c = c[in_brackets > 0]
         in_brackets = in_brackets[in_brackets > 0]
-        return c, in_brackets ** 0.33333 - 1.0
+        return c, in_brackets**0.33333 - 1.0
 
     def _eq7(self, f, C, m, z):
         cvec = np.logspace(0, 2, 400)
@@ -591,7 +584,7 @@ class Ludlow16Empirical(CMRelation):
     def _nu_0(self, z):
         a = 1.0 / (1 + z)
         return (
-            4.135 - 0.564 / a - 0.21 / a ** 2 + 0.0557 / a ** 3 - 0.00348 / a ** 4
+            4.135 - 0.564 / a - 0.21 / a**2 + 0.0557 / a**3 - 0.00348 / a**4
         ) / self.growth.growth_factor(z)
 
     def cm(self, m, z=0):
@@ -606,8 +599,8 @@ class Ludlow16Empirical(CMRelation):
         sig = (
             self.growth.growth_factor(z)
             * 22.26
-            * xi ** 0.292
-            / (1 + 1.53 * xi ** 0.275 + 3.36 * xi ** 0.198)
+            * xi**0.292
+            / (1 + 1.53 * xi**0.275 + 3.36 * xi**0.198)
         )
         nu = self.delta_c / sig
         return (

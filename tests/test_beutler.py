@@ -2,6 +2,7 @@
 Direct tests of the halo model code against known values from Beutler+2013, with
 intermediate data provided by David Palomara using his own halo model code.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -64,7 +65,7 @@ def h() -> ProjectedCF:
 
 
 def test_mean_gal_den(h: ProjectedCF):
-    assert np.isclose(h.mean_tracer_den / h.cosmo.h ** 3, david_nden, rtol=0.1)
+    assert np.isclose(h.mean_tracer_den / h.cosmo.h**3, david_nden, rtol=0.1)
 
 
 def test_mean_mass_eff(h: ProjectedCF):

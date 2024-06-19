@@ -2,6 +2,9 @@
 
 This package computes halo model quantities for dark matter and tracers.
 """
+
+from __future__ import annotations
+
 import contextlib
 
 try:

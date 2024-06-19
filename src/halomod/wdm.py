@@ -1,4 +1,5 @@
 """Contains WDM versions of all models and frameworks."""
+
 import sys
 
 import numpy as np
@@ -69,7 +70,7 @@ class HaloModelWDM(DMHaloModel, MassFunctionWDM):
         return (
             (1 - self.f_halos) ** 2 * self.power_auto_matter_ss
             + 2 * (1 - self.f_halos) * self.f_halos * self.power_auto_matter_sh
-            + self.f_halos ** 2 * self.power_auto_matter_hh
+            + self.f_halos**2 * self.power_auto_matter_hh
         )
 
     @cached_quantity
@@ -77,7 +78,7 @@ class HaloModelWDM(DMHaloModel, MassFunctionWDM):
         """The halo-halo matter power spectrum (includes both 1-halo and 2-halo terms)."""
         return (
             (self.power_1h_auto_matter + self.power_2h_auto_matter)
-            * self.mean_density ** 2
+            * self.mean_density**2
             / self.rho_gtm[0] ** 2
         )
 
@@ -85,10 +86,7 @@ class HaloModelWDM(DMHaloModel, MassFunctionWDM):
     def power_auto_matter_sh(self) -> np.ndarray:
         """The smooth-halo cross power spectrum."""
         integrand = (
-            self.m
-            * self.dndm
-            * self.halo_bias
-            * self.halo_profile.u(self.k, self.m, norm="m")
+            self.m * self.dndm * self.halo_bias * self.halo_profile.u(self.k, self.m, norm="m")
         )
         pch = intg.simps(integrand, self.m)
         return self.bias_smooth * self._power_halo_centres_table * pch / self.rho_gtm[0]
@@ -96,7 +94,7 @@ class HaloModelWDM(DMHaloModel, MassFunctionWDM):
     @cached_quantity
     def power_auto_matter_ss(self) -> np.ndarray:
         """The smooth-smooth matter power spectrum."""
-        return self.bias_smooth ** 2 * self._power_halo_centres_table
+        return self.bias_smooth**2 * self._power_halo_centres_table
 
     @cached_quantity
     def bias_smooth(self):
@@ -136,4 +134,3 @@ class HaloModelWDM(DMHaloModel, MassFunctionWDM):
 
 class ProjectedCFWDM(ProjectedCF, HaloModelWDM):
     """Projected Correlation Function for WDM halos."""
-

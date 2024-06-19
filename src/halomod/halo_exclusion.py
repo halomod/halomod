@@ -1,4 +1,5 @@
 """Module defining halo model components for halo exclusion."""
+
 import warnings
 
 import numpy as np
@@ -240,9 +241,7 @@ class DblSphere(Sphere):
     @property
     def r_halo(self):
         """The virial radius of the halo."""
-        return (3 * self.m / (4 * np.pi * self.delta_halo * self.mean_density)) ** (
-            1.0 / 3.0
-        )
+        return (3 * self.m / (4 * np.pi * self.delta_halo * self.mean_density)) ** (1.0 / 3.0)
 
     @cached_property
     def mask(self):
@@ -278,9 +277,7 @@ def integrate_dblsphere(integ, mask, dx):
         for ir in range(mask.shape[0]):
             integrand[ir] = np.outer(integ[ir, ik, :], integ[ir, ik, :])
         integrand[mask] = 0
-        out[:, ik] = intg.simps(
-            intg.simps(integrand, dx=dx, even="first"), dx=dx, even="first"
-        )
+        out[:, ik] = intg.simps(intg.simps(integrand, dx=dx, even="first"), dx=dx, even="first")
     return out
 
 
@@ -346,7 +343,7 @@ class DblEllipsoid(DblSphere):
         x = outer(self.r, 1 / np.add.outer(rvir, rvir))
         x = (x - 0.8) / 0.29  # this is y but we re-use the memory
         np.clip(x, 0, 1, x)
-        return 3 * x ** 2 - 2 * x ** 3
+        return 3 * x**2 - 2 * x**3
 
     @cached_property
     def density_mod(self):
@@ -363,11 +360,8 @@ class DblEllipsoid(DblSphere):
 
         integrand = np.zeros_like(self.prob)
         for ik in range(integ.shape[1]):
-
             for ir in range(len(self.r)):
-                integrand[ir] = self.prob[ir] * np.outer(
-                    integ[ir, ik, :], integ[ir, ik, :]
-                )
+                integrand[ir] = self.prob[ir] * np.outer(integ[ir, ik, :], integ[ir, ik, :])
             out[:, ik] = intg.simps(intg.simps(integrand, dx=self.dlnx), dx=self.dlnx)
         return out
 
@@ -410,9 +404,7 @@ if USE_NUMBA:
             for ik in range(nk):
                 for im in range(nm):
                     for jm in range(im, nm):
-                        integrand[im, jm] = (
-                            integ[ir, ik, im] * integ[ir, ik, jm] * prob[ir, im, jm]
-                        )
+                        integrand[im, jm] = integ[ir, ik, im] * integ[ir, ik, jm] * prob[ir, im, jm]
                 out[ir, ik] = dbltrapz_(integrand, dx, dx)
         return out
 
@@ -440,7 +432,7 @@ if USE_NUMBA:
                     elif x >= 1:
                         out[ir, irv, jrv] = 1
                     else:
-                        out[ir, irv, jrv] = 3 * x ** 2 - 2 * x ** 3
+                        out[ir, irv, jrv] = 3 * x**2 - 2 * x**3
         return out
 
     @jit(nopython=True)
@@ -460,7 +452,7 @@ if USE_NUMBA:
                 elif x >= 1:
                     out[irv, jrv] = 1
                 else:
-                    out[irv, jrv] = 3 * x ** 2 - 2 * x ** 3
+                    out[irv, jrv] = 3 * x**2 - 2 * x**3
         return out
 
 

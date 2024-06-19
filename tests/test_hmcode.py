@@ -71,7 +71,7 @@ hm = DMHaloModel(
 def test_hmcode(hmcode_data, iz, plt):
     z = hmcode_data["z"][iz]
 
-    fac = hmcode_data["k"] ** 3 / (2 * np.pi ** 2)
+    fac = hmcode_data["k"] ** 3 / (2 * np.pi**2)
     hm.update(z=z)
     halomod = hm.power_auto_matter_fnc(hmcode_data["k"]) * fac
 
@@ -101,8 +101,7 @@ def test_hmcode(hmcode_data, iz, plt):
 
         ax[1].plot(
             hmcode_data["k"],
-            hmcode_data["p"][:, iz] / (fac * hm.power_auto_matter_fnc(hmcode_data["k"]))
-            - 1,
+            hmcode_data["p"][:, iz] / (fac * hm.power_auto_matter_fnc(hmcode_data["k"])) - 1,
         )
         ax[1].axhline(0.03, color="k", ls="--")
         ax[1].axhline(-0.03, color="k", ls="--")

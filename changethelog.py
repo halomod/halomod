@@ -1,5 +1,6 @@
 #!/usr/bin/python
 """Auto-update the CHANGELOG for a new version."""
+
 import sys
 from datetime import datetime
 from pathlib import Path
