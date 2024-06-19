@@ -44,9 +44,8 @@ You can also specify a different profile for tracer if you're working with
 Notice that tracer density profile density should be used only in inverse volume or
 dimensionless unit.
 """
-import os
 import warnings
-from typing import Union
+from pathlib import Path
 
 import hankel
 import mpmath
@@ -151,8 +150,8 @@ class Profile(Component):
         return r / c
 
     def scale_radius(
-        self, m: Union[float, np.ndarray], at_z: bool = False
-    ) -> Union[float, np.ndarray]:
+        self, m: float | np.ndarray, at_z: bool = False
+    ) -> float | np.ndarray:
         """
         Return the scale radius for a halo of mass m.
 
@@ -253,10 +252,8 @@ class Profile(Component):
 
         c = np.atleast_1d(c)
         if K.ndim < 2:
-            if len(K) != len(c):
-                K = np.atleast_2d(K)  # should be len(k) * len(rs)
-            else:
-                K = np.atleast_2d(K).T
+            # should be len(k) * len(rs)
+                K = np.atleast_2d(K) if len(K) != len(c) else  np.atleast_2d(K).T
 
         assert K.ndim == 2
         assert K.shape[1] == len(c)
@@ -499,7 +496,7 @@ class Profile(Component):
         except IndexError:
             return x.dtype.type(x)
 
-    def populate(self, n, m, c=None, centre=None):
+    def populate(self, n, m, c=None, centre=None, rng=None):
         """
         Populate a halo with the current halo profile of mass ``m`` with ``n`` tracers.
 
@@ -519,6 +516,9 @@ class Profile(Component):
         pos : (N,3)-array
             Array of positions of the tracers, centred around (0,0,0).
         """
+        if rng is None:
+            rng = np.random.default_rng()
+
         if centre is None:
             centre = np.zeros(3)
 
@@ -527,11 +527,11 @@ class Profile(Component):
         cdf = self.cdf(x, c, m, coord="x")
         spl = spline(cdf, x, k=3)
 
-        rnd = np.random.uniform(size=n)
+        rnd = rng.uniform(size=n)
         x = spl(rnd)
 
         r = r_s * x
-        pos = np.random.normal(size=(3, n))
+        pos = rng.normal(size=(3, n))
         pos *= r / np.sqrt(np.sum(pos ** 2, axis=0))
         return pos.T + centre
 
@@ -1039,8 +1039,8 @@ class Einasto(Profile):
 
     def _p(self, K, c):
         if self.params["use_interp"]:
-            data_path = os.path.join(os.path.dirname(__file__), "data")
-            data = np.load(os.path.join(data_path, "uKc_einasto.npz"))
+            data_path = Path(__file__).parent / "data"
+            data = np.load(data_path / "uKc_einasto.npz")
 
             pk = data["pk"]
             _k = data["K"]
@@ -1050,10 +1050,9 @@ class Einasto(Profile):
             if np.isscalar(K):
                 K = np.atleast_2d(K)
             if K.ndim < 2:
-                if len(K) != len(c):
-                    K = np.atleast_2d(K).T  # should be len(rs) x len(k)
-                else:
-                    K = np.atleast_2d(K)
+                # should be len(rs) x len(k)
+                K = np.atleast_2d(K).T if len(K) != len(c) else np.atleast_2d(K)
+
             pk[pk <= 0] = 1e-8
 
             spl = RectBivariateSpline(np.log(_k), np.log(_c), np.log(pk))

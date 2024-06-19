@@ -2,7 +2,7 @@
 Direct tests of the halo model code against known values from Beutler+2013, with
 intermediate data provided by David Palomara using his own halo model code.
 """
-
+from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
@@ -75,7 +75,7 @@ def test_sat_frac(h: ProjectedCF):
 
 
 @pytest.mark.parametrize(
-    "q,thing,indx",
+    ("q", "thing", "indx"),
     [
         ("projected_corr_gal", david_wprp, 1),
         ("corr_1h_cs_auto_tracer", david_xi, 1),

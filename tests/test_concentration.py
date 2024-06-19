@@ -6,7 +6,7 @@ from hmf import MassFunction
 from hmf.halos.mass_definitions import SOCritical, SOMean, SOVirial
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture()
 def mass():
     return np.logspace(10, 15, 100)
 
@@ -54,7 +54,7 @@ def test_lud16_scalarm():
 
 @pytest.mark.parametrize(
     "cmr",
-    (
+    [
         cm.Bullock01,
         cm.Bullock01Power,
         cm.Maccio07,
@@ -62,7 +62,7 @@ def test_lud16_scalarm():
         cm.Zehavi11,
         cm.Ludlow16,
         cm.Ludlow16Empirical,
-    ),
+    ],
 )
 def test_decreasing_cm(cmr):
     hm = TracerHaloModel(halo_concentration_model=cmr)

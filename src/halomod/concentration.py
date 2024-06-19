@@ -48,7 +48,6 @@ we have constructed it without access to that argument (and so it recieves its d
 value of "median"). This means we *cannot* update it via the ``HaloModel`` interface.
 """
 import warnings
-from typing import Optional
 
 import numpy as np
 from colossus.halo import concentration
@@ -107,11 +106,11 @@ class CMRelation(Component):
     def __init__(
         self,
         cosmo: Cosmology = DEFAULT_COSMO,
-        filter0: Optional[Filter] = None,
-        growth: Optional[GrowthFactor] = None,
+        filter0: Filter | None = None,
+        growth: GrowthFactor | None = None,
         delta_c: float = 1.686,
-        profile: Optional[Profile] = None,
-        mdef: Optional[MassDefinition] = None,
+        profile: Profile | None = None,
+        mdef: MassDefinition | None = None,
         **model_parameters,
     ):
         # Save instance variables
@@ -180,7 +179,6 @@ class CMRelation(Component):
         m : float
             Halo Mass.
         """
-        pass
 
 
 def make_colossus_cm(model="diemer15", **defaults):

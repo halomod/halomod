@@ -182,6 +182,6 @@ if __name__ == "__main__":
             np.save(fname, data)
 
         # Make a little readme in the directory
-        with open(param_dir / "params.yaml", "w") as fl:
+        with Path(param_dir / "params.yaml").open("w") as fl:
             params.update(z=z)
             yaml.dump(params, fl)

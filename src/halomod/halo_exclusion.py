@@ -187,7 +187,6 @@ class Exclusion(Component):
         This should pass back whatever is multiplied by P_m(k) to get the two-halo
         term. Often this will be a square of an integral, sometimes a Double-integral.
         """
-        pass
 
 
 class NoExclusion(Exclusion):

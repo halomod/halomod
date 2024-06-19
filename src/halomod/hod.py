@@ -55,7 +55,6 @@ satellite/central decomposition. So here are the assumptions:
 
 
 from abc import ABCMeta, abstractmethod
-from typing import Optional
 
 import astropy.constants as astroconst
 import numpy as np
@@ -103,9 +102,9 @@ class HOD(Component, metaclass=ABCMeta):
         self,
         central: bool = False,
         cosmo=Planck15,
-        cm_relation: Optional[CMRelation] = None,
-        profile: Optional[Profile] = None,
-        mdef: Optional[MassDefinition] = SO_MEAN,
+        cm_relation: CMRelation | None = None,
+        profile: Profile | None = None,
+        mdef: MassDefinition | None = SO_MEAN,
         **model_parameters
     ):
         self._central = central
@@ -122,7 +121,6 @@ class HOD(Component, metaclass=ABCMeta):
 
         Useful for populating catalogues.
         """
-        pass
 
     @abstractmethod
     def ns(self, m):
@@ -130,37 +128,30 @@ class HOD(Component, metaclass=ABCMeta):
 
         Useful for populating catalogues.
         """
-        pass
 
     @abstractmethod
     def _central_occupation(self, m):
         """The central occupation function of the tracer."""
-        pass
 
     @abstractmethod
     def _satellite_occupation(self, m):
         """The satellite occupation function of the tracer."""
-        pass
 
     @abstractmethod
     def ss_pairs(self, m):
         """The average amount of the tracer coupled with itself in haloes of mass m, <T_s T_s>."""
-        pass
 
     @abstractmethod
     def cs_pairs(self, m):
         """The average amount of the tracer coupled with itself in haloes of mass m, <T_s T_c>."""
-        pass
 
     @abstractmethod
     def sigma_satellite(self, m):
         """The standard deviation of the satellite tracer amount in haloes of mass m."""
-        pass
 
     @abstractmethod
     def sigma_central(self, m):
         """The standard deviation of the central tracer amount in haloes of mass m."""
-        pass
 
     def central_occupation(self, m):
         """The occupation function of the central component."""
@@ -462,7 +453,6 @@ class Geach12(Contreras13):
 
     """
 
-    pass
 
 
 class Tinker05(Zehavi05):
@@ -706,8 +696,8 @@ class Spinelli19(HODPoisson):
         n_c = np.zeros_like(M)
         n_c[
             np.logical_and(
-                M >= 10 ** self.params["M_min_counts"],
-                M <= 10 ** self.params["M_max_counts"],
+                10 ** self.params["M_min_counts"] <= M,
+                10 ** self.params["M_max_counts"] >= M,
             )
         ] = 1
         return n_c
@@ -716,8 +706,8 @@ class Spinelli19(HODPoisson):
         """Number of tracer per satellite tracer source"""
         n_s = np.zeros_like(M)
         index = np.logical_and(
-            M >= 10 ** self.params["M_min_counts"],
-            M <= 10 ** self.params["M_max_counts"],
+            10 ** self.params["M_min_counts"] <= M,
+            10 ** self.params["M_max_counts"] >= M,
         )
         n_s[index] = (M[index] / 10 ** self.params["M_1_counts"]) ** self.params[
             "alpha_counts"

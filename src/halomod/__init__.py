@@ -2,16 +2,15 @@
 
 This package computes halo model quantities for dark matter and tracers.
 """
+import contextlib
+
 try:
     from importlib.metadata import PackageNotFoundError, version
 except ImportError:
     from importlib_metadata import PackageNotFoundError, version
 
-try:
+with contextlib.suppress(PackageNotFoundError):
     __version__ = version(__name__)
-except PackageNotFoundError:
-    # package is not installed
-    pass
 
 __all__ = [
     "bias",

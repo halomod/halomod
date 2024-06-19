@@ -22,7 +22,6 @@ Cross-correlating the same galaxy samples in different redshifts::
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional
 
 import numpy as np
 from hmf import Component, Framework
@@ -60,7 +59,6 @@ class _HODCross(ABC, Component):
         where :math:`T` is the total amount of tracer in the halo's profile (i.e. not
         counting the central component, if this exists).
         """
-        pass
 
     @abstractmethod
     def R_cs(self, m):
@@ -80,7 +78,6 @@ class _HODCross(ABC, Component):
         where :math:`T^s` is the total amount of tracer in the halo's profile (i.e. not
         counting the central component,if this exists).
         """
-        pass
 
     @abstractmethod
     def R_sc(self, m):
@@ -100,12 +97,10 @@ class _HODCross(ABC, Component):
         where :math:`T^s` is the total amount of tracer in the halo's profile (i.e. not
         counting the central component,if this exists).
         """
-        pass
 
     @abstractmethod
     def self_pairs(self, m):
         r"""The expected number of cross-pairs at a separation of zero."""
-        pass
 
     def ss_cross_pairs(self, m):
         r"""The average value of cross-pairs in a halo of mass m.
@@ -193,9 +188,9 @@ class CrossCorrelations(Framework):
     def __init__(
         self,
         cross_hod_model,
-        cross_hod_params: Optional[dict] = None,
-        halo_model_1_params: Optional[dict] = None,
-        halo_model_2_params: Optional[dict] = None,
+        cross_hod_params: dict | None = None,
+        halo_model_1_params: dict | None = None,
+        halo_model_2_params: dict | None = None,
     ):
         super().__init__()
 

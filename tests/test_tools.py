@@ -79,16 +79,16 @@ def test_ogata_powerlaw_matrix():
 
 
 def test_populate_runs_with_central_cond():
-    np.random.seed(1234)
+    rng = np.random.default_rng(1234)
 
     nhalos = 100
     boxsize = 100
-    centres = boxsize * np.random.random((nhalos, 3))  # centres between 0 - 100 Mpc
-    masses = 10 ** (10 + 5 * np.random.random(nhalos))  # masses between 1e10 and 1e15
+    centres = boxsize * rng.random((nhalos, 3))  # centres between 0 - 100 Mpc
+    masses = 10 ** (10 + 5 * rng.random(nhalos))  # masses between 1e10 and 1e15
     hod = Tinker05(central=True)
     profile = NFW(Bullock01Power(ms=1e12))
 
-    pos, halo, ncen = populate(centres, masses, profile=profile, hodmod=hod)
+    pos, halo, ncen = populate(centres, masses, profile=profile, hodmod=hod, rng=rng)
 
     assert pos.min() >= -5  # Could be in a big halo on the edge.
     assert pos.max() <= boxsize + 5  # Could be in a big halo on the edge.
@@ -109,16 +109,16 @@ def test_populate_runs_with_central_cond():
 
 
 def test_populate_runs_without_central_cond():
-    np.random.seed(1234)
+    rng = np.random.default_rng(1234)
 
     nhalos = 100
     boxsize = 100
-    centres = boxsize * np.random.random((nhalos, 3))  # centres between 0 - 100 Mpc
-    masses = 10 ** (10 + 5 * np.random.random(nhalos))  # masses between 1e10 and 1e15
+    centres = boxsize * rng.random((nhalos, 3))  # centres between 0 - 100 Mpc
+    masses = 10 ** (10 + 5 * rng.random(nhalos))  # masses between 1e10 and 1e15
     hod = Zehavi05(central=False)
     profile = NFW(Bullock01Power(ms=1e12))
 
-    pos, halo, ncen = populate(centres, masses, profile=profile, hodmod=hod)
+    pos, halo, ncen = populate(centres, masses, profile=profile, hodmod=hod, rng=rng)
 
     assert pos.min() >= -5  # Could be in a big halo on the edge.
     assert pos.max() <= boxsize + 5  # Could be in a big halo on the edge.
@@ -194,7 +194,7 @@ def test_extended_spline_pl_pure(xy):
 
 def test_extended_spline_pl_noise(xy):
     x, y = xy
-    y += np.random.normal(scale=y / 1000)
+    y += np.random.default_rng().normal(scale=y / 1000)
 
     es = ExtendedSpline(x, y, lower_func="power_law", upper_func="power_law")
 

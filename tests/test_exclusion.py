@@ -52,7 +52,7 @@ def test_no_exclusion():
     assert np.allclose(excl.integrate(), 0.9999e20, rtol=1e-4)
 
 
-@pytest.mark.parametrize("integ", (dblsimps_, dbltrapz_))
+@pytest.mark.parametrize("integ", [dblsimps_, dbltrapz_])
 def test_dbl_simps_(integ):
     """Test a simple integration"""
     arr1 = np.outer(np.arange(7).astype("float64"), np.arange(7).astype("float64"))
@@ -94,7 +94,7 @@ def test_spherical_exclusion():
     assert np.allclose(num.flatten(), analytic, rtol=1e-3)
 
 
-@pytest.mark.parametrize("dbl_sphere", (DblSphere, DblSphere_))
+@pytest.mark.parametrize("dbl_sphere", [DblSphere, DblSphere_])
 def test_dbl_sphere(dbl_sphere):
     """Test simple uniform integral for double-spherical exclusion."""
     m = np.logspace(10, 15, 1001)
@@ -143,7 +143,7 @@ def test_dbl_sphere(dbl_sphere):
     assert np.allclose(den, excl.density_mod[-1])
 
 
-@pytest.mark.parametrize("dbl_ellipsoid", (DblEllipsoid, DblEllipsoid_))
+@pytest.mark.parametrize("dbl_ellipsoid", [DblEllipsoid, DblEllipsoid_])
 def test_dbl_ellipsoid_large_r(dbl_ellipsoid):
     m = np.logspace(10, 15, 200)
     integrand = np.outer(np.ones(3), (m / 1e10) ** -2)  # shape (k, m)
@@ -208,7 +208,7 @@ def test_dbl_ellipsoid_small_r():
     excl.integrate().flatten()
 
 
-@pytest.mark.parametrize("ng_matched", (NgMatched, NgMatched_))
+@pytest.mark.parametrize("ng_matched", [NgMatched, NgMatched_])
 def test_ng_matched_large_r(ng_matched):
     m = np.logspace(10, 15, 200)
     integrand = np.outer(np.ones(3), (m / 1e10) ** -2)  # shape (k, m)

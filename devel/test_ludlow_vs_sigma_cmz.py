@@ -36,4 +36,3 @@ l16 = cm.Ludlow16(filter0=mf.normalised_filter)
 
 m = np.logspace(10, 15, 100)
 
-print(l16.cm(m))

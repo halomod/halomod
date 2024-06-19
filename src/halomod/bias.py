@@ -58,7 +58,6 @@ Constructing and using a colossus-based halo bias::
     >>> comparat = bias.make_colossus_bias(model="comparat17")
     >>> hm = HaloModel(bias_model=comparat)
 """
-from typing import Optional, Union
 
 import numpy as np
 from astropy.cosmology import FLRW, Planck15
@@ -120,13 +119,13 @@ class Bias(Component):
         self,
         nu: np.ndarray,
         delta_c: float = 1.686,
-        m: Optional[np.ndarray] = None,
-        mstar: Optional[float] = None,
-        delta_halo: Optional[float] = 200,
-        n: Optional[float] = 1,
-        sigma_8: Optional[float] = 0.8,
+        m: np.ndarray | None = None,
+        mstar: float | None = None,
+        delta_halo: float | None = 200,
+        n: float | None = 1,
+        sigma_8: float | None = 0.8,
         cosmo: FLRW = Planck15,
-        n_eff: Union[None, np.ndarray] = None,
+        n_eff: None | np.ndarray = None,
         z: float = 0.0,
         **model_parameters
     ):
@@ -777,7 +776,6 @@ class ScaleDepBias(Component):
         function, and the length of the returned array should be the same size as the
         instance :attr:`xi_dm`.
         """
-        pass
 
 
 class TinkerSD05(ScaleDepBias):

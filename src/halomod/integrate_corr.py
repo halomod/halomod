@@ -83,7 +83,7 @@ class ProjectedCF(HaloModel):
     @cached_quantity
     def rp(self):
         """Array of projected radius bins."""
-        if isinstance(self.rp_min, (list, np.ndarray)):
+        if isinstance(self.rp_min, list | np.ndarray):
             rp = np.array(self.rp_min)
         else:
             if self.rp_log:
@@ -476,10 +476,7 @@ class AngularCF(HaloModel):
 
 def _check_p(p, z):
     """If False, cancels checking the normalisation of :func:`p1` and :func:`p2`."""
-    if hasattr(p, "integral"):
-        integ = p.integral(z.min(), z.max())
-    else:
-        integ = simps(p(z), z)
+    integ = p.integral(z.min(), z.max()) if hasattr(p, "integral") else simps(p(z), z)
     if not np.isclose(integ, 1.0, rtol=0.01):
         warnings.warn(
             f"Filter function p(x) did not integrate to 1 ({integ}). "

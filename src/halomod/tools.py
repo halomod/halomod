@@ -2,11 +2,11 @@
 Modules defining a series of utility functions to perform hankel transformation
 and Fourier transformation from correlation function to power spectrum.
 """
+from __future__ import annotations
 import logging
 import time
 import warnings
 from functools import lru_cache
-from typing import Optional, Union
 
 import numpy as np
 import scipy.integrate as intg
@@ -359,9 +359,10 @@ def populate(
     centres: np.ndarray,
     masses: np.ndarray,
     halomodel=None,
-    profile: Optional[Profile] = None,
-    hodmod: Optional[HOD] = None,
-    edges: Optional[np.ndarray] = None,
+    profile: Profile | None = None,
+    hodmod: HOD | None = None,
+    edges: np.ndarray | None = None,
+    rng = None,
 ):
     """
     Populate a series of DM halos with a tracer, given a HOD model.
@@ -400,8 +401,11 @@ def populate(
 
     masses = np.array(masses)
 
+    if rng is None:
+        rng = np.random.default_rng()
+
     # Define which halos have central galaxies.
-    cgal = np.random.binomial(1, hodmod.central_occupation(masses))
+    cgal = rng.binomial(1, hodmod.central_occupation(masses))
     cmask = cgal > 0
     central_halos = np.arange(len(masses))[cmask]
 
@@ -492,8 +496,8 @@ class ExtendedSpline:
         self,
         x: np.ndarray,
         y: np.ndarray,
-        lower_func: Union[callable, None, str] = None,
-        upper_func: Union[callable, None, str] = None,
+        lower_func: callable | None | str = None,
+        upper_func: callable | None | str = None,
         match_lower: bool = True,
         match_upper: bool = True,
         domain=(-np.inf, np.inf),

@@ -139,4 +139,3 @@ class HaloModelWDM(DMHaloModel, MassFunctionWDM):
 class ProjectedCFWDM(ProjectedCF, HaloModelWDM):
     """Projected Correlation Function for WDM halos."""
 
-    pass

@@ -25,5 +25,3 @@ for a in np.linspace(0.08, 0.4, 20):
     rhos.append(model_ein.halo_profile_rho[:, 200])
     corrs.append(model_ein.corr_auto_tracer)
 
-print(rhos)
-print(corrs)

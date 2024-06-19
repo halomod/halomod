@@ -75,7 +75,7 @@ testpaths = "tests"
 
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py311"
 
 [tool.ruff.lint]
 extend-select = [
@@ -88,18 +88,18 @@ extend-select = [
 #   "D",    # docstyle
    # "ANN"   # type annotations
    "B",    # bugbear
-#   "A",    # builtins
-#   "C4",   # comprehensions
-#   "DTZ",  # datetime
-#   "FA",   # future annotations
-#   "PIE",  # flake8-pie
-#   "T",    # print statements
+   "A",    # builtins
+   "C4",   # comprehensions
+   "DTZ",  # datetime
+   "FA",   # future annotations
+   "PIE",  # flake8-pie
+   "T",    # print statements
 #   "PT",   # pytest-style
-#   "Q",    # quotes
-#   "SIM",  # simplify
-#   "PTH",  # use Pathlib
+   "Q",    # quotes
+   "SIM",  # simplify
+   "PTH",  # use Pathlib
 #   "ERA",  # kill commented code
-#   "NPY",  # numpy-specific rules
+   "NPY",  # numpy-specific rules
 #   "PERF", # performance
 #   # "FURB", # refurb
 #   "RUF",  # ruff-specific rules

@@ -11,8 +11,8 @@ the dark matter haloes, via a HOD.
 The :class:`HaloModel` class is provided as an alias of :class:`TracerHaloModel`.
 """
 import warnings
+from collections.abc import Callable
 from copy import copy
-from typing import Callable, Union
 
 import numpy as np
 import scipy.integrate as intg
@@ -625,7 +625,7 @@ class DMHaloModel(MassFunction):
 
         dens_min = 4 * np.pi * self.mean_density0 * self.halo_overdensity_mean / 3
         p = np.zeros_like(self.k)
-        for i, (k, integ) in enumerate(zip(self.k, integrand)):
+        for i, (k, integ) in enumerate(zip(self.k, integrand, strict=False)):
             if self.force_1halo_turnover:
                 r = np.pi / k / 10  # The 10 is a complete heuristic hack.
                 mmin = max(max_mmin, dens_min * r ** 3)
@@ -778,7 +778,7 @@ class DMHaloModel(MassFunction):
 
     def _get_corr_2h_auto_fnc(
         self, density, mean_density, effective_bias, ukm, mask=None, debias=True
-    ) -> Callable[[Union[float, np.ndarray]], Union[float, np.ndarray]]:
+    ) -> Callable[[float | np.ndarray], float | np.ndarray]:
         """Get a callable returning the 2-halo term of an auto-correlation."""
         power_primitive = self._get_power_2h_primitive(
             density, mean_density, effective_bias, ukm, mask=mask, debias=debias
@@ -795,7 +795,7 @@ class DMHaloModel(MassFunction):
     @cached_quantity
     def corr_2h_auto_matter_fnc(
         self,
-    ) -> Callable[[Union[float, np.ndarray]], Union[float, np.ndarray]]:
+    ) -> Callable[[float | np.ndarray], float | np.ndarray]:
         """A callable returning the 2-halo term of the matter auto-correlation at arbitrary k."""
         tools.norm_warn(self)
         return self._get_corr_2h_auto_fnc(
@@ -809,7 +809,7 @@ class DMHaloModel(MassFunction):
     @property
     def corr_2h_auto_matter(
         self,
-    ) -> Callable[[Union[float, np.ndarray]], Union[float, np.ndarray]]:
+    ) -> Callable[[float | np.ndarray], float | np.ndarray]:
         """The 2-halo term of the matter auto-correlation."""
         return self.corr_2h_auto_matter_fnc(self.r)
 
@@ -1007,9 +1007,8 @@ class TracerHaloModel(DMHaloModel):
         """Updates any parameter passed."""
         if "tracer_density" in kwargs:
             self.tracer_density = kwargs.pop("tracer_density")
-        elif "hod_params" in kwargs:
-            if "M_min" in kwargs["hod_params"]:
-                self.tracer_density = None
+        elif "hod_params" in kwargs and "M_min" in kwargs["hod_params"]:
+            self.tracer_density = None
 
         super().update(**kwargs)
 
@@ -1505,7 +1504,7 @@ class TracerHaloModel(DMHaloModel):
             ss_pairs = self.hod.ss_pairs(self.m)
             cs_pairs = self.hod.cs_pairs(self.m)
             for i, (rho, lam) in enumerate(
-                zip(self.tracer_profile_rho, self.tracer_profile_lam)
+                zip(self.tracer_profile_rho, self.tracer_profile_lam, strict=False)
             ):
                 c[i] = tools.spline_integral(
                     self.m,
@@ -1604,7 +1603,7 @@ class TracerHaloModel(DMHaloModel):
         """
         p = np.zeros_like(self.k)
         for i, (ut, uh) in enumerate(
-            zip(self.tracer_profile_ukm, self.halo_profile_ukm)
+            zip(self.tracer_profile_ukm, self.halo_profile_ukm, strict=False)
         ):
             p[i] = tools.spline_integral(
                 self.m,
@@ -1650,7 +1649,7 @@ class TracerHaloModel(DMHaloModel):
         bt = np.zeros_like(self.k)
         bm = np.zeros_like(self.k)
         for i, (ut, um) in enumerate(
-            zip(self.tracer_profile_ukm, self.halo_profile_ukm)
+            zip(self.tracer_profile_ukm, self.halo_profile_ukm, strict=False)
         ):
             bt[i] = tools.spline_integral(
                 self.m,
@@ -1782,4 +1781,3 @@ HaloModel = TracerHaloModel
 class NGException(Exception):
     """Exception raised when mean tracer density errors in computation."""
 
-    pass

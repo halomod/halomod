@@ -12,7 +12,7 @@ from hmf.density_field.filters import Filter
 from hmf.halos.mass_definitions import MassDefinition
 
 
-@pytest.mark.parametrize("model", (TracerHaloModel, DMHaloModel))
+@pytest.mark.parametrize("model", [TracerHaloModel, DMHaloModel])
 def test_default_actually_inits(model):
     model()
 
@@ -48,7 +48,7 @@ def test_tr_model_instances(thm):
 
 @pytest.mark.parametrize(
     "quantity",
-    (
+    [
         "corr_linear_mm",
         "corr_halofit_mm",
         "corr_1h_auto_matter",
@@ -63,7 +63,7 @@ def test_tr_model_instances(thm):
         "corr_cross_tracer_matter",
         "corr_2h_auto_tracer",
         # 'halo_profile_rho', 'halo_profile_lam', 'tracer_profile_rho', 'tracer_profile_lam')
-    ),
+    ],
 )
 def test_monotonic_dec(thm: TracerHaloModel, quantity):
     # Ensure it's going down (or potentially 1e-5 level numerical noise going up)
@@ -139,27 +139,6 @@ def test_setting_default_tracers_same_model():
     assert hm.tracer_profile.params == hm.halo_profile.params
     assert hm.halo_concentration.params == hm.tracer_concentration.params
 
-
-@pytest.mark.parametrize(
-    "dep,new",
-    [
-        ("corr_gg_1h", "corr_1h_auto_tracer"),
-        ("corr_gg_2h", "corr_2h_auto_tracer"),
-        ("corr_gg", "corr_auto_tracer"),
-        ("power_gg_1h", "power_1h_auto_tracer"),
-        ("power_gg_2h", "power_2h_auto_tracer"),
-        ("power_gg", "power_auto_tracer"),
-        ("corr_mm_1h", "corr_1h_auto_matter"),
-        ("corr_mm_2h", "corr_2h_auto_matter"),
-        ("corr_mm", "corr_auto_matter"),
-        ("power_mm_1h", "power_1h_auto_matter"),
-        ("power_mm_2h", "power_2h_auto_matter"),
-        ("power_mm", "power_auto_matter"),
-    ],
-)
-def test_deprecated(thm: TracerHaloModel, dep, new):
-    with pytest.warns(UserWarning):
-        assert np.all(getattr(thm, dep) == getattr(thm, new))
 
 
 @pytest.mark.parametrize(

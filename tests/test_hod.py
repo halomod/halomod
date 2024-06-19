@@ -30,7 +30,7 @@ def test_zehavi_max():
 
 @pytest.mark.parametrize(
     "hodr",
-    (hod.Spinelli19,),
+    [hod.Spinelli19],
 )
 def test_positive_hod(hodr):
     hm = TracerHaloModel(hod_model=hodr)

@@ -1,5 +1,5 @@
 """Unit tests of the bias module."""
-
+from __future__ import annotations
 import numpy as np
 import pytest
 from halomod import DMHaloModel, bias
@@ -70,7 +70,7 @@ def test_monotonic_bias(bias_model, hmf: MassFunction):
 
 
 @pytest.mark.parametrize(
-    "hmf_bias,col_bias",
+    ("hmf_bias", "col_bias"),
     [
         (bias.Mo96, "cole89"),
         (bias.Jing98, "jing98"),
