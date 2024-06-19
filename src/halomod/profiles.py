@@ -281,7 +281,7 @@ class Profile(Component):
                 c_1 = c[indx]
                 points = zeros[(c_0 < zeros) & (zeros < c_1)]
                 integral = quad(
-                    lambda x: x * self._f(x) * np.sin(k * x) / k,
+                    lambda x: x * self._f(x) * np.sin(k * x) / k,  # noqa: B023
                     c_0,
                     c_1,
                     points=points,
@@ -1019,7 +1019,8 @@ class Einasto(Profile):
 
         if self.params["alpha"] != 0.18 and self.params["use_interp"]:
             warnings.warn(
-                "Einasto interpolation for p(K,c) is only defined for alpha=0.18, switching off."
+                "Einasto interpolation for p(K,c) is only defined for alpha=0.18, switching off.",
+                stacklevel=2,
             )
             self.params["use_interp"] = False
 

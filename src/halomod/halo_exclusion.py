@@ -16,7 +16,8 @@ try:
 except ImportError:  # pragma: no cover
     USE_NUMBA = False
     warnings.warn(
-        "Warning: Some Halo-Exclusion models have significant speedup when using Numba"
+        "Warning: Some Halo-Exclusion models have significant speedup when using Numba",
+        stacklevel=2,
     )
 
 

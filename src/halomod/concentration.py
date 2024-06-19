@@ -131,7 +131,8 @@ class CMRelation(Component):
             warnings.warn(
                 f"Requested mass definition '{mdef}' is not in native definitions for "
                 f"the '{self.__class__.__name__}' CMRelation. No mass conversion will be "
-                f"performed, so results will be wrong. Using '{self.mdef}'."
+                f"performed, so results will be wrong. Using '{self.mdef}'.",
+                stacklevel=2,
             )
 
         super().__init__(**model_parameters)
@@ -165,7 +166,7 @@ class CMRelation(Component):
                 r, self.mean_density0
             )  # TODO *(1+z)**3 ????
         else:
-            warnings.warn("Minimization failed :(")
+            warnings.warn("Minimization failed :(", stacklevel=2)
             return 0
 
     def cm(self, m, z=0):
@@ -593,7 +594,8 @@ class Ludlow16Empirical(CMRelation):
 
     def cm(self, m, z=0):
         warnings.warn(
-            "Only use Ludlow16Empirical c(m,z) relation when using Planck-like cosmology"
+            "Only use Ludlow16Empirical c(m,z) relation when using Planck-like cosmology",
+            stacklevel=2,
         )
         # May be better to use real nu, but we'll do what they do in the paper
         # r = self.filter.mass_to_radius(m, self.mean_density0)
@@ -621,6 +623,7 @@ class Ludlow2016(Ludlow16):
         warnings.warn(
             "This class is deprecated -- use Ludlow16 instead.",
             category=DeprecationWarning,
+            stacklevel=2,
         )
         super().__init__(*args, **kwargs)
 
@@ -632,5 +635,6 @@ class Ludlow2016Empirical(Ludlow16Empirical):
         warnings.warn(
             "This class is deprecated -- use Ludlow16Empirical instead.",
             category=DeprecationWarning,
+            stacklevel=2,
         )
         super().__init__(*args, **kwargs)

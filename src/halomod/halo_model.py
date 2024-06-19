@@ -246,7 +246,8 @@ class DMHaloModel(MassFunction):
             warnings.warn(
                 "rmax is larger than the interpolation table maximum "
                 f"[{10**self._logr_table_max:.2e}]. Larger values will yield zero "
-                "correlation."
+                "correlation.",
+                stacklevel=2,
             )
         return val
 
@@ -477,7 +478,8 @@ class DMHaloModel(MassFunction):
         elif self.hc_spectrum == "nonlinear":
             warnings.warn(
                 "Warning: using halofit for tracer stats is only valid up to"
-                + " quasi-linear scales k<~1 (h/Mpc)."
+                + " quasi-linear scales k<~1 (h/Mpc).",
+                stacklevel=2,
             )
             return self.nonlinear_power_fnc
         else:
@@ -833,7 +835,8 @@ class DMHaloModel(MassFunction):
         if np.any(mask):
             warnings.warn(
                 "power_2h_auto_tracer for k < 1e-2 is not computed directly, but "
-                "is rather just the linear power * effective bias."
+                "is rather just the linear power * effective bias.",
+                stacklevel=2,
             )
             out[mask] = self.power[mask] * effective_bias
 
@@ -1098,7 +1101,8 @@ class TracerHaloModel(DMHaloModel):
         if self.hod.mmin < self.Mmin:
             warnings.warn(
                 "The HOD is defined to lower masses than currently calculated. "
-                "Please set Mmin lower."
+                "Please set Mmin lower.",
+                stacklevel=2,
             )
 
         return self.m >= 10 ** self.hod.mmin
@@ -1728,7 +1732,7 @@ class TracerHaloModel(DMHaloModel):
         based on a known mean galaxy density.
         """
 
-        self.power  # This just makes sure the power is gotten and copied
+        _ = self.power  # This just makes sure the power is gotten and copied
         c = self.clone(hod_params={"M_min": self.Mmin}, dlog10m=0.01)
 
         integrand = c.m[c._tm] * c.dndm[c._tm] * c.total_occupation[c._tm]
@@ -1769,81 +1773,6 @@ class TracerHaloModel(DMHaloModel):
             mmin = res.x[0]
 
         return mmin
-
-    # =============================
-    # For Compatibility
-    # =============================
-    @property
-    def corr_gg_1h(self):
-        """See :func:`corr_1h_auto_tracer`."""
-        warnings.warn("This method is deprecated in favour of corr_1h_auto_tracer")
-        return self.corr_1h_auto_tracer
-
-    @property
-    def corr_gg_2h(self):
-        """See :func:`corr_2h_auto_tracer`."""
-        warnings.warn("This method is deprecated in favour of corr_2h_auto_tracer")
-        return self.corr_2h_auto_tracer
-
-    @property
-    def corr_gg(self):
-        """See :func:`corr_auto_tracer`."""
-        warnings.warn("This method is deprecated in favour of corr_auto_tracer")
-        return self.corr_auto_tracer
-
-    @property
-    def power_gg_1h(self):
-        """See :func:`corr_auto_tracer`."""
-        warnings.warn("This method is deprecated in favour of power_1h_auto_tracer")
-        return self.power_1h_auto_tracer
-
-    @property
-    def power_gg_2h(self):
-        """See :func:`power_2h_auto_tracer`."""
-        warnings.warn("This method is deprecated in favour of power_2h_auto_tracer")
-        return self.power_2h_auto_tracer
-
-    @property
-    def power_gg(self):
-        """See :func:`power_auto_tracer`."""
-        warnings.warn("This method is deprecated in favour of power_auto_tracer")
-        return self.power_auto_tracer
-
-    @property
-    def corr_mm_1h(self):
-        """See :func:`corr_1h_auto_matter`."""
-        warnings.warn("This method is deprecated in favour of corr_1h_auto_matter")
-        return self.corr_1h_auto_matter
-
-    @property
-    def corr_mm_2h(self):
-        """See :func:`corr_2h_auto_matter`."""
-        warnings.warn("This method is deprecated in favour of corr_2h_auto_matter")
-        return self.corr_2h_auto_matter
-
-    @property
-    def corr_mm(self):
-        """See :func:`corr_auto_matter`."""
-        warnings.warn("This method is deprecated in favour of corr_auto_matter")
-        return self.corr_auto_matter
-
-    @property
-    def power_mm_1h(self):
-        """See :func:`power_1h_auto_matter`."""
-        warnings.warn("This method is deprecated in favour of power_1h_auto_matter")
-        return self.power_1h_auto_matter
-
-    @property
-    def power_mm_2h(self):
-        """See :func:`power_2h_auto_matter`."""
-        warnings.warn("This method is deprecated in favour of power_2h_auto_matter")
-        return self.power_2h_auto_matter
-
-    @property
-    def power_mm(self):
-        """See :func:`power_auto_matter`."""
-        warnings.warn("This method is deprecated in favour of power_auto_matter")
-        return self.power_auto_matter
 
 
 # For compatibility

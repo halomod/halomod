@@ -539,7 +539,8 @@ class ExtendedSpline:
             if not np.all(y > 0) or np.all(y < 0):
                 warnings.warn(
                     "to use a power-law, y must be all positive or negative. "
-                    "Switching to zero extrapolation."
+                    "Switching to zero extrapolation.",
+                    stacklevel=2,
                 )
                 return _zero
             neg = y[0] < 0
@@ -624,11 +625,13 @@ def spline_integral(
     """
     if xmin and xmin < x.min():
         warnings.warn(
-            f"Extrapolation occurs in integral! xmin={xmin} while x.min() ={x.min()}"
+            f"Extrapolation occurs in integral! xmin={xmin} while x.min() ={x.min()}",
+            stacklevel=2,
         )
     if xmax and xmax > x.max():
         warnings.warn(
-            f"Extrapolation occurs in integral! xmax={xmax} while x.max() ={x.max()}"
+            f"Extrapolation occurs in integral! xmax={xmax} while x.max() ={x.max()}",
+            stacklevel=2,
         )
 
     if log:
@@ -648,7 +651,8 @@ def norm_warn(self):
         warnings.warn(
             f"You are using an un-normalized mass function "
             f"({self.hmf_model.__name__}). Matter correlations are not "
-            "well-defined."
+            "well-defined.",
+            stacklevel=2,
         )
 
     if self.hmf_model not in self.bias.pair_hmf:
@@ -656,5 +660,6 @@ def norm_warn(self):
             f"You are using an un-normalized mass function and bias function pair."
             f"Bias {self.bias_model.__name__} has the following paired HMF model: "
             f"{self.bias_model.pair_hmf}. Matter correlations are not "
-            "well-defined."
+            "well-defined.",
+            stacklevel=2,
         )

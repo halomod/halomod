@@ -62,7 +62,7 @@ class TestAngularCF:
         return [
             2
             * dblquad(
-                lambda u, x: ((u ** 2 + x ** 2 * t ** 2) / r0 ** 2) ** (-gamma / 2),
+                lambda u, x: ((u ** 2 + x ** 2 * t ** 2) / r0 ** 2) ** (-gamma / 2),  # noqa: B023
                 a=1000,
                 b=2000,
                 gfun=0,
@@ -81,7 +81,7 @@ class TestAngularCF:
                 [
                     2
                     * quad(
-                        lambda u: ((u ** 2 + xx ** 2 * t ** 2) / r0 ** 2)
+                        lambda u: ((u ** 2 + xx ** 2 * t ** 2) / r0 ** 2)  # noqa: B023
                         ** (-gamma / 2),
                         a=0,
                         b=np.inf,

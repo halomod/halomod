@@ -276,7 +276,8 @@ class AngularCF(HaloModel):
         if self.z < zmin or self.z > zmax:
             warnings.warn(
                 f"Your specified redshift (z={self.z}) is not within your selection "
-                f"function, z=({zmin},{zmax})"
+                f"function, z=({zmin},{zmax})",
+                stacklevel=2,
             )
 
         if p1 is None:
@@ -482,7 +483,8 @@ def _check_p(p, z):
     if not np.isclose(integ, 1.0, rtol=0.01):
         warnings.warn(
             f"Filter function p(x) did not integrate to 1 ({integ}). "
-            "Tentatively re-normalising."
+            "Tentatively re-normalising.",
+            stacklevel=2,
         )
         return lambda z: p(z) / integ
     else:
