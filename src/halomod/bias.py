@@ -58,7 +58,7 @@ Constructing and using a colossus-based halo bias::
     >>> comparat = bias.make_colossus_bias(model="comparat17")
     >>> hm = HaloModel(bias_model=comparat)
 """
-
+from __future__ import annotations
 import numpy as np
 from astropy.cosmology import FLRW, Planck15
 from colossus.lss.bias import haloBiasFromNu
