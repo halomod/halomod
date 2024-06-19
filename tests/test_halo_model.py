@@ -1,6 +1,4 @@
-"""
-Integration-style tests of the full HaloModel class.
-"""
+"""Integration-style tests of the full HaloModel class."""
 import numpy as np
 import pytest
 from halomod import DMHaloModel, TracerHaloModel
@@ -71,7 +69,7 @@ def test_monotonic_dec(thm: TracerHaloModel, quantity):
 
 
 def test_halo_power():
-    """Tests the halo centre power spectrum"""
+    """Tests the halo centre power spectrum."""
     hm = TracerHaloModel(bias_model="UnityBias")
     assert np.allclose(
         hm.power_hh(hm.k_hm[:10]), hm.power_2h_auto_matter[:10], rtol=1e-2
@@ -79,7 +77,7 @@ def test_halo_power():
 
 
 def test_setting_default_tracers_conc():
-    """Tests setting default tracer parameters based on halo parameters"""
+    """Tests setting default tracer parameters based on halo parameters."""
     hm = TracerHaloModel(
         halo_profile_model="NFW",
         tracer_profile_model="CoredNFW",
@@ -96,7 +94,7 @@ def test_setting_default_tracers_conc():
 
 
 def test_setting_default_tracers_conc_set_params():
-    """Tests setting default tracer parameters based on halo parameters"""
+    """Tests setting default tracer parameters based on halo parameters."""
     hm = TracerHaloModel(
         halo_profile_model="NFW",
         tracer_profile_model="NFW",
@@ -114,7 +112,7 @@ def test_setting_default_tracers_conc_set_params():
 
 
 def test_setting_default_tracers_prof():
-    """Tests setting default tracer parameters based on halo parameters"""
+    """Tests setting default tracer parameters based on halo parameters."""
     hm = TracerHaloModel(
         halo_profile_model="GeneralizedNFW",
         tracer_profile_model="NFW",

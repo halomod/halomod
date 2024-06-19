@@ -74,9 +74,8 @@ DEFAULT_COSMO = Cosmology()
 
 @pluggable
 class CMRelation(Component):
-    r"""
-    Base-class for Concentration-Mass relations
-    """
+    r"""Base-class for Concentration-Mass relations."""
+
     _pdocs = r"""
 
         Parameters
@@ -243,6 +242,7 @@ class Bullock01(CMRelation):
     .. [1] Bullock, J.S. et al., " Profiles of dark haloes: evolution, scatter and
            environment ", https://ui.adsabs.harvard.edu/abs/1996MNRAS.282..347M.
     """
+
     _defaults = {"F": 0.01, "K": 3.4}
     native_mdefs = (SOCritical(),)
 
@@ -287,6 +287,7 @@ class Bullock01Power(CMRelation):
            evolution, scatter and environment ",
            https://ui.adsabs.harvard.edu/abs/1996MNRAS.282..347M.
     """
+
     _defaults = {"a": 9.0, "b": -0.13, "c": 1.0, "ms": None}
     native_mdefs = (SOCritical(),)
 
@@ -435,6 +436,7 @@ class Zehavi11(Bullock01Power):
            The Dependence on Color and Luminosity",
            https://ui.adsabs.harvard.edu/abs/2011ApJ...736...59Z.
     """
+
     _defaults = {"a": 11.0, "b": -0.13, "c": 1.0, "ms": 2.26e12}
 
 
@@ -460,6 +462,7 @@ class Ludlow16(CMRelation):
             of cold and warm dark matter haloes ",
             https://ui.adsabs.harvard.edu/abs/2016MNRAS.460.1214L.
     """
+
     # Note: only defined for NFW for now.
     _defaults = {
         "f": 0.02,  # Fraction of mass assembled at "formation"
@@ -560,6 +563,7 @@ class Ludlow16Empirical(CMRelation):
             of cold and warm dark matter haloes ",
             https://ui.adsabs.harvard.edu/abs/2016MNRAS.460.1214L.
     """
+
     _defaults = {
         "c0_0": 3.395,
         "c0_z": -0.215,

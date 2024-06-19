@@ -65,9 +65,7 @@ SO_MEAN = SOMean()
 
 
 def ginc(a, x):
-    r"""
-    ``gamma(a)*gammainc(a,x)``
-    """
+    r"""``gamma(a)*gammainc(a,x)``."""
     return gamma(a) * gammainc(a, x)
 
 
@@ -196,7 +194,7 @@ class Profile(Component):
 
     def _h(self, c=None, m=None) -> [float, np.ndarray]:
         """
-        The integral of f(x)*x^2 out to c
+        The integral of f(x)*x^2 out to c.
 
         .. note:: This function should be replaced with an analytic solution if
                   possible in derived classes.
@@ -226,7 +224,7 @@ class Profile(Component):
 
     def _p(self, K: np.ndarray, c: np.ndarray):
         r"""
-        The reduced dimensionless fourier-transform of the halo_profile
+        The reduced dimensionless fourier-transform of the halo_profile.
 
         This function should not need to be called by the user in general.
 
@@ -249,7 +247,6 @@ class Profile(Component):
         radial co-ordinate `r/r_s`. This is simply the scaled 3D fourier transform
         of the profile, taken to a Hankel transform.
         """
-
         c = np.atleast_1d(c)
         if K.ndim < 2:
             # should be len(k) * len(rs)
@@ -303,7 +300,7 @@ class Profile(Component):
 
     def _rho_s(self, c, r_s=None, norm=None):
         """
-        The amplitude factor of the halo_profile
+        The amplitude factor of the halo_profile.
 
         Parameters
         ----------
@@ -352,7 +349,7 @@ class Profile(Component):
 
     def u(self, k, m, norm="m", c=None, coord="k"):
         """
-        The (optionally normalised) Fourier-transform of the density halo_profile
+        The (optionally normalised) Fourier-transform of the density halo_profile.
 
         Parameters
         ----------
@@ -411,7 +408,7 @@ class Profile(Component):
 
     def cdf(self, r, c=None, m=None, coord="r"):
         """
-        The cumulative distribution function, :math:`m(<x)/m_v`
+        The cumulative distribution function, :math:`m(<x)/m_v`.
 
         Parameters
         ----------
@@ -430,9 +427,7 @@ class Profile(Component):
         return self._h(x) / self._h(c)
 
     def cm_relation(self, m: [float, np.ndarray]) -> [float, np.ndarray]:
-        """
-        The halo_concentration-mass relation
-        """
+        """The halo_concentration-mass relation."""
         return self._cm_relation.cm(m, self.z)
 
     def _get_r_variables(self, r, m, c=None, coord="r"):
@@ -537,9 +532,7 @@ class Profile(Component):
 
 
 class ProfileInf(Profile, abstract=True):
-    """
-    An extended halo_profile (not truncated at x=c)
-    """
+    """An extended halo_profile (not truncated at x=c)."""
 
     def rho(self, r, m, norm=None, c=None, coord="r"):
         """
@@ -568,7 +561,7 @@ class ProfileInf(Profile, abstract=True):
 
     def u(self, k, m, norm="m", c=None, coord="k"):
         """
-        The fourier-transform of the density halo_profile
+        The fourier-transform of the density halo_profile.
 
         Parameters
         ----------
@@ -598,7 +591,7 @@ class ProfileInf(Profile, abstract=True):
 
     def _p(self, K: np.ndarray, c: np.ndarray):
         """
-        The dimensionless fourier-transform of the halo_profile
+        The dimensionless fourier-transform of the halo_profile.
 
         This should be replaced by an analytic function if possible.
         """
@@ -731,9 +724,7 @@ class NFW(Profile):
 
 
 class NFWInf(NFW, ProfileInf):
-    r"""
-    The same as NFW profile, but not truncated at x=c.
-    """
+    r"""The same as NFW profile, but not truncated at x=c."""
 
     def _p(self, K, c=None):
         bs, bc = sp.sici(K)
@@ -785,9 +776,7 @@ class Hernquist(Profile):
 
 
 class HernquistInf(Hernquist, ProfileInf):
-    r"""
-    The same as Hernquist profile, but not truncated at x=c.
-    """
+    r"""The same as Hernquist profile, but not truncated at x=c."""
 
     def _p(self, K):
         si, ci = sp.sici(K)
@@ -842,9 +831,7 @@ class Moore(Profile):
 
 
 class MooreInf(Moore, ProfileInf):
-    r"""
-    The same with Moore, but not truncated at x=c.
-    """
+    r"""The same with Moore, but not truncated at x=c."""
 
     def _p(self, K):
         def G(k):
@@ -925,6 +912,7 @@ class GeneralizedNFW(Profile):
     .. [1] Zhao, H., "Analytical models for galactic nuclei",
            https://ui.adsabs.harvard.edu/abs/1996MNRAS.278..488Z.
     """
+
     _defaults = {"alpha": 1}
 
     def _f(self, x):
@@ -943,9 +931,7 @@ class GeneralizedNFW(Profile):
 
 
 class GeneralizedNFWInf(GeneralizedNFW, ProfileInf):
-    r"""
-    The same with generalized NFW, but not truncated at x=c.
-    """
+    r"""The same with generalized NFW, but not truncated at x=c."""
 
     def _p(self, K):
         def G(k):

@@ -1,6 +1,4 @@
-"""
-Simple tests for the integration scheme for ProjectedCF.
-"""
+"""Simple tests for the integration scheme for ProjectedCF."""
 import numpy as np
 from astropy.cosmology import Planck15, z_at_value
 from astropy.units import Mpc
@@ -120,7 +118,7 @@ class TestAngularCF:
         assert np.allclose(num, anl, rtol=5e-2)
 
     def test_against_blake(self):
-        """Simple order-of-magnitude test of ACF against Blake+08 (Fig 4)"""
+        """Simple order-of-magnitude test of ACF against Blake+08 (Fig 4)."""
         acf = AngularCF(
             z=0.475,
             zmin=0.45,

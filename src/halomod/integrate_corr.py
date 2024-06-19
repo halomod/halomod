@@ -375,9 +375,7 @@ class AngularCF(HaloModel):
 
     @cached_quantity
     def zvec(self):
-        """
-        Redshift distribution grid.
-        """
+        """Redshift distribution grid."""
         return np.linspace(self.zmin, self.zmax, self.znum)
 
     @cached_quantity

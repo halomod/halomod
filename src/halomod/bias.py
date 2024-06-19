@@ -109,6 +109,7 @@ class Bias(Component):
         Hubble parameter in units of 100 km/s/Mpc.
 
     """
+
     #: The HMF model that pairs with this bias in the peak-background split
     pair_hmf = ()
 
@@ -200,6 +201,7 @@ class Mo96(Bias):
            of dark matter haloes", https://ui.adsabs.harvard.edu/abs/1996MNRAS.282..347M,
            1996
     """
+
     pair_hmf = (ff.PS,)
 
     def bias(self):
@@ -271,6 +273,7 @@ class ST99(Bias):
     .. [1] Sheth, R. K.. and Tormen, G., "Large-scale bias and the peak background
            split", https://ui.adsabs.harvard.edu/abs/1999MNRAS.308..119S, 1999
     """
+
     pair_hmf = (ff.SMT,)
     _defaults = {"q": 0.707, "p": 0.3}
 
@@ -315,6 +318,7 @@ class SMT01(Bias):
            the number and spatial distribution of dark matter haloes",
            https://ui.adsabs.harvard.edu/abs/2001MNRAS.323....1S, 2001
     """
+
     pair_hmf = (ff.SMT,)
     _defaults = {"a": 0.707, "b": 0.5, "c": 0.6}
 
@@ -545,6 +549,7 @@ class Manera10(ST99):
             inaccuracy of the peak-background split ",
             https://ui.adsabs.harvard.edu/abs/2010MNRAS.402..589M, 2010
     """
+
     pair_hmf = (ff.Manera,)
     _defaults = {"q": 0.709, "p": 0.248}
 
@@ -654,6 +659,7 @@ class Tinker10PBSplit(Bias):
         Bias from the same study but without the constraint of the peak-background
         split formalism.
     """
+
     _defaults = {  # --- alpha
         "alpha_200": 0.368,
         "alpha_300": 0.363,

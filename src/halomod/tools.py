@@ -3,6 +3,7 @@ Modules defining a series of utility functions to perform hankel transformation
 and Fourier transformation from correlation function to power spectrum.
 """
 from __future__ import annotations
+
 import logging
 import time
 import warnings
@@ -29,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 @lru_cache(maxsize=25)
 def _get_sumspace(h: float, nmin: int, nmax: int):
-    r"""Function used in hankel transformation to get the parts of the integral sum"""
+    r"""Function used in hankel transformation to get the parts of the integral sum."""
     roots = np.arange(nmin, nmax)
     t = h * roots
     s = np.pi * np.sinh(t)
@@ -51,7 +52,7 @@ def hankel_transform(
     atol=1e-8,
     rtol=1e-8,
 ):
-    r"""Function to do the hankel tranformation"""
+    r"""Function to do the hankel tranformation."""
     if trns_var_name not in "kr":
         raise ValueError("trns_var_name must be either 'k' or 'r'.")
 
@@ -452,7 +453,7 @@ def populate(
     indx = np.concatenate(([0], np.cumsum(sgal))) + ncen
 
     def fill_array(i):
-        r"""Function to populate the field with ith tracer"""
+        r"""Function to populate the field with ith tracer."""
         m, n, ctr = masses[i], sgal[i], centres[i]
         pos[indx[i] : indx[i + 1], :] = profile.populate(n, m, centre=ctr)
 
@@ -529,7 +530,7 @@ class ExtendedSpline:
         )
 
     def _get_extension_func(self, fnc, x, y, match, match_x):
-        """Function to generate the extended spline"""
+        """Function to generate the extended spline."""
         if callable(fnc):
             if not match:
                 return fnc
@@ -560,7 +561,7 @@ class ExtendedSpline:
             raise ValueError("Invalid choice for lower or upper func")
 
     def __call__(self, x):
-        """Function to call the output"""
+        """Function to call the output."""
         if np.isscalar(x):
             if x < self.xmin:
                 return self.lfunc(x)

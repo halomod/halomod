@@ -1,6 +1,4 @@
-"""
-Contains WDM versions of all models and frameworks
-"""
+"""Contains WDM versions of all models and frameworks."""
 import sys
 
 import numpy as np
@@ -67,7 +65,7 @@ class HaloModelWDM(DMHaloModel, MassFunctionWDM):
 
     @cached_quantity
     def power_auto_matter(self):
-        """Auto power spectrum of dark matter"""
+        """Auto power spectrum of dark matter."""
         return (
             (1 - self.f_halos) ** 2 * self.power_auto_matter_ss
             + 2 * (1 - self.f_halos) * self.f_halos * self.power_auto_matter_sh
@@ -102,7 +100,7 @@ class HaloModelWDM(DMHaloModel, MassFunctionWDM):
 
     @cached_quantity
     def bias_smooth(self):
-        """Bias of smooth component of the field
+        """Bias of smooth component of the field.
 
         Eq. 35 from Smith and Markovic 2011.
         """
@@ -110,24 +108,24 @@ class HaloModelWDM(DMHaloModel, MassFunctionWDM):
 
     @cached_quantity
     def mean_density_halos(self):
-        """Mean density of matter in halos"""
+        """Mean density of matter in halos."""
         return self.rho_gtm[0]
 
     @cached_quantity
     def mean_density_smooth(self):
-        """Mean density of matter outside halos"""
+        """Mean density of matter outside halos."""
         return (1 - self.f_halos) * self.mean_density
 
     @parameter("model")
     def halo_concentration_model(self, val):
-        """A halo_concentration-mass relation"""
+        """A halo_concentration-mass relation."""
         if isinstance(val, str) and val.endswith("WDM"):
             return CMRelationWDMRescaled(val)
         return get_mdl(val, "CMRelation")
 
     @cached_quantity
     def halo_concentration(self):
-        """Halo Concentration"""
+        """Halo Concentration."""
         cm = super().halo_concentration
 
         if hasattr(cm, "m_hm"):

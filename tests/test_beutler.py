@@ -3,6 +3,7 @@ Direct tests of the halo model code against known values from Beutler+2013, with
 intermediate data provided by David Palomara using his own halo model code.
 """
 from __future__ import annotations
+
 from pathlib import Path
 
 import numpy as np

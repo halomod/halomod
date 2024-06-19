@@ -82,7 +82,7 @@ extend-select = [
   "E",    # pycodestyle
   "W",    # pycodestyle warning
   "UP",   # pyupgrade
-#   "C90",  # mccabe complexity
+  "C90",  # mccabe complexity
    "I",    # isort
 #   "N",    # pep8-naming
 #   "D",    # docstyle
@@ -100,8 +100,8 @@ extend-select = [
    "PTH",  # use Pathlib
 #   "ERA",  # kill commented code
    "NPY",  # numpy-specific rules
-#   "PERF", # performance
-#   # "FURB", # refurb
+   "PERF", # performance
+   # "FURB", # refurb
 #   "RUF",  # ruff-specific rules
 ]
 ignore = [

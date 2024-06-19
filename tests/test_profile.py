@@ -1,6 +1,4 @@
-"""
-Test various halo profile properties.
-"""
+"""Test various halo profile properties."""
 import numpy as np
 import pytest
 from halomod import TracerHaloModel
@@ -114,7 +112,7 @@ def test_decreasing_convolution(profile):
     ],
 )
 def test_ukm_low_k(profile):
-    """Test that all fourier transforms, when normalised by mass, are 1 at low k"""
+    """Test that all fourier transforms, when normalised by mass, are 1 at low k."""
     k = np.array([1e-10])
     m = np.logspace(10, 18, 100)
 

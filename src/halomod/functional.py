@@ -1,6 +1,4 @@
-r"""
-Module defining functional approaches to generating halo model quantities.
-"""
+r"""Module defining functional approaches to generating halo model quantities."""
 
 from hmf import Framework, get_hmf
 

@@ -134,7 +134,7 @@ class _HODCross(ABC, Component):
         ) * h2.sigma_satellite(m) * self.R_cs(m)
 
     def sc_cross_pairs(self, m):
-        r"""The average value of cross-pairs in a halo of mass m,
+        r"""The average value of cross-pairs in a halo of mass m,.
 
         Notes
         -----
@@ -148,7 +148,7 @@ class _HODCross(ABC, Component):
 
 
 class ConstantCorr(_HODCross):
-    """Correlation relation for constant cross-correlation pairs"""
+    """Correlation relation for constant cross-correlation pairs."""
 
     _defaults = {"R_ss": 0.0, "R_cs": 0.0, "R_sc": 0.0}
 
@@ -210,12 +210,12 @@ class CrossCorrelations(Framework):
 
     @subframework
     def halo_model_1(self) -> TracerHaloModel:
-        """Halo Model of the first tracer"""
+        """Halo Model of the first tracer."""
         return TracerHaloModel(**self._halo_model_1_params)
 
     @subframework
     def halo_model_2(self) -> TracerHaloModel:
-        """Halo Model of the second tracer"""
+        """Halo Model of the second tracer."""
         return TracerHaloModel(**self._halo_model_2_params)
 
     # ===========================================================================
@@ -223,7 +223,7 @@ class CrossCorrelations(Framework):
     # ===========================================================================
     @cached_quantity
     def cross_hod(self):
-        """HOD model of the cross-correlation"""
+        """HOD model of the cross-correlation."""
         return self.cross_hod_model(
             [self.halo_model_1.hod, self.halo_model_2.hod], **self.cross_hod_params
         )
@@ -264,7 +264,7 @@ class CrossCorrelations(Framework):
 
     @cached_quantity
     def corr_1h_cross_fnc(self):
-        """The 1-halo term of the cross correlation"""
+        """The 1-halo term of the cross correlation."""
         corr = tools.hankel_transform(
             self.power_1h_cross_fnc, self.halo_model_1._r_table, "r"
         )
@@ -277,7 +277,7 @@ class CrossCorrelations(Framework):
 
     @cached_quantity
     def corr_1h_cross(self):
-        """The 1-halo term of the cross correlation"""
+        """The 1-halo term of the cross correlation."""
         return self.corr_1h_cross_fnc(self.halo_model_1.r)
 
     @cached_quantity

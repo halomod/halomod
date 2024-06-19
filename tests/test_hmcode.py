@@ -22,7 +22,7 @@ MassFunction.ERROR_ON_BAD_MDEF = False
 
 
 def read_power(fname: Path):
-    """Read the power.dat file from HMcode"""
+    """Read the power.dat file from HMcode."""
     # Each column is the power at a different redshift.
     with fname.open() as fl:
         line = fl.readline().split("#####")[-1].split("        ")[1:]

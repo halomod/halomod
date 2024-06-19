@@ -4,7 +4,6 @@ from halomod.cross_correlations import ConstantCorr, CrossCorrelations
 
 def test_cross_same():
     """Test if using two components that are the same gives the same as an auto corr."""
-
     cross = CrossCorrelations(
         cross_hod_model=ConstantCorr,
         halo_model_1_params={

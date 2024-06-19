@@ -34,7 +34,7 @@ def test_ogata_powerlaw_fnc():
 
 
 def test_ogata_powerlaw_trunc():
-    "Test that power_to_corr still works on a truncated spectrum"
+    """Test that power_to_corr still works on a truncated spectrum."""
     k = np.logspace(-1, 1, 100)
     power = k ** -1.5
 
@@ -49,7 +49,7 @@ def test_ogata_powerlaw_trunc():
 
 
 def test_ogata_powerlaw_upper_trunc():
-    "Test that power_to_corr still works on a truncated spectrum"
+    """Test that power_to_corr still works on a truncated spectrum."""
     k = np.logspace(-1, 2, 1000)
     power = np.where(k < 10, k ** -1.5, 0)
 
@@ -139,7 +139,7 @@ def test_populate_runs_without_central_cond():
 
 @pytest.fixture(scope="module")
 def xy():
-    """Simple power-law vector"""
+    """Simple power-law vector."""
     x = np.logspace(0, 1, 100)
     y = x ** -2
     return x, y

@@ -1,6 +1,4 @@
-"""
-Various direct tests of the halo exclusion classes.
-"""
+"""Various direct tests of the halo exclusion classes."""
 import numpy as np
 import pytest
 from halomod.halo_exclusion import (
@@ -54,7 +52,7 @@ def test_no_exclusion():
 
 @pytest.mark.parametrize("integ", [dblsimps_, dbltrapz_])
 def test_dbl_simps_(integ):
-    """Test a simple integration"""
+    """Test a simple integration."""
     arr1 = np.outer(np.arange(7).astype("float64"), np.arange(7).astype("float64"))
     arr2 = np.outer(np.arange(8).astype("float64"), np.arange(8).astype("float64"))
     num1 = integ(arr1, dx=1, dy=1)

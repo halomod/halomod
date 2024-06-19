@@ -225,7 +225,7 @@ class DMHaloModel(MassFunction):
 
     @parameter("model")
     def halo_concentration_model(self, val):
-        """A halo_concentration-mass relation"""
+        """A halo_concentration-mass relation."""
         return get_mdl(val, CMRelation)
 
     @parameter("param")
@@ -346,9 +346,7 @@ class DMHaloModel(MassFunction):
 
     @cached_quantity
     def r(self):
-        """
-        Scales at which correlation functions are computed [Mpc/h].
-        """
+        """Scales at which correlation functions are computed [Mpc/h]."""
         if hasattr(self.rmin, "__len__"):
             return np.array(self.rmin)
         elif self.rlog:
@@ -622,7 +620,6 @@ class DMHaloModel(MassFunction):
     # ===========================================================================
     def _do_1halo_integral(self, max_mmin, integrand, mean_dens):
         """Do the 1-halo integral for some quantity, doing the turnover trick."""
-
         dens_min = 4 * np.pi * self.mean_density0 * self.halo_overdensity_mean / 3
         p = np.zeros_like(self.k)
         for i, (k, integ) in enumerate(zip(self.k, integrand, strict=False)):
@@ -1187,7 +1184,7 @@ class TracerHaloModel(DMHaloModel):
 
     @cached_quantity
     def hod(self):
-        """A class representing the HOD"""
+        """A class representing the HOD."""
         return self.hod_model(
             cosmo=self.cosmo,
             cm_relation=self.tracer_concentration,
@@ -1273,16 +1270,12 @@ class TracerHaloModel(DMHaloModel):
 
     @cached_quantity
     def mean_tracer_den_unit(self):
-        """
-        The mean density of the tracer, in the units defined in the HOD.
-        """
+        """The mean density of the tracer, in the units defined in the HOD."""
         return self.mean_tracer_den * self.hod.unit_conversion(self.cosmo, self.z)
 
     @cached_quantity
     def bias_effective_tracer(self):
-        """
-        The tracer occupation-weighted halo bias factor (Tinker 2005).
-        """
+        """The tracer occupation-weighted halo bias factor (Tinker 2005)."""
         # Integrand is just the density of galaxies at mass m by bias
         b = tools.spline_integral(
             self.m,
@@ -1293,9 +1286,7 @@ class TracerHaloModel(DMHaloModel):
 
     @cached_quantity
     def mass_effective(self):
-        """
-        Average host-halo mass (in log10 units).
-        """
+        """Average host-halo mass (in log10 units)."""
         # Integrand is just the density of galaxies at mass m by m
         m = tools.spline_integral(
             self.m, self.m * self.dndm * self._total_occupation, xmin=self.tracer_mmin
@@ -1394,7 +1385,6 @@ class TracerHaloModel(DMHaloModel):
 
         Note: May not exist for every kind of tracer.
         """
-
         ss_pairs = self.hod.ss_pairs(self.m)
         if self.tracer_profile.has_lam:
             c = np.zeros_like(self._r_table)
@@ -1483,9 +1473,7 @@ class TracerHaloModel(DMHaloModel):
 
     @cached_quantity
     def power_1h_auto_tracer_fnc(self):
-        """
-        A callable returning the total 1-halo term of the tracer auto power spectrum.
-        """
+        """A callable returning the total 1-halo term of the tracer auto power spectrum."""
         return lambda k: (
             self.power_1h_cs_auto_tracer_fnc(k) + self.power_1h_ss_auto_tracer_fnc(k)
         )
@@ -1622,9 +1610,7 @@ class TracerHaloModel(DMHaloModel):
 
     @property
     def power_1h_cross_tracer_matter(self):
-        """
-        The total 1-halo cross-power spectrum between tracer and matter.
-        """
+        """The total 1-halo cross-power spectrum between tracer and matter."""
         return self.power_1h_cross_tracer_matter_fnc(self.k_hm)
 
     @cached_quantity
@@ -1730,7 +1716,6 @@ class TracerHaloModel(DMHaloModel):
         Calculate the minimum mass of a halo to contain a (central) galaxy
         based on a known mean galaxy density.
         """
-
         _ = self.power  # This just makes sure the power is gotten and copied
         c = self.clone(hod_params={"M_min": self.Mmin}, dlog10m=0.01)
 

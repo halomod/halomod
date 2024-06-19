@@ -190,7 +190,7 @@ class HODNoCentral(HOD, abstract=True):
         self._central = False
 
     def nc(self, m):
-        """Density of Central Tracer"""
+        """Density of Central Tracer."""
         return 0
 
     def cs_pairs(self, m):
@@ -210,7 +210,7 @@ class HODBulk(HODNoCentral, abstract=True):
     """Base class for HODs with no discrete tracers, just an assignment of tracer to the halo."""
 
     def ns(self, m):
-        """Density of Satellite Tracer"""
+        """Density of Satellite Tracer."""
         return 0
 
     def ss_pairs(self, m):
@@ -229,19 +229,19 @@ class HODPoisson(HOD, abstract=True):
     """
 
     def nc(self, m):
-        """Amplitude of central tracer per tracer source"""
+        """Amplitude of central tracer per tracer source."""
         return self.central_occupation(m) / self._tracer_per_central(m)
 
     def ns(self, m):
-        """Amplitude of satellite tracer per tracer source"""
+        """Amplitude of satellite tracer per tracer source."""
         return self.satellite_occupation(m) / self._tracer_per_satellite(m)
 
     def _tracer_per_central(self, m):
-        """Number of tracer per central tracer source"""
+        """Number of tracer per central tracer source."""
         return 1
 
     def _tracer_per_satellite(self, m):
-        """Number of tracer per satellite tracer source"""
+        """Number of tracer per satellite tracer source."""
         return self._tracer_per_central(m)
 
     def ss_pairs(self, m):
@@ -289,24 +289,20 @@ class Zehavi05(HODPoisson):
     sharp_cut = True
 
     def _central_occupation(self, m):
-        """
-        Amplitude of central tracer at mass M
-        """
+        """Amplitude of central tracer at mass M."""
         n_c = np.ones_like(m)
         n_c[m < 10 ** self.params["M_min"]] = 0
 
         return n_c
 
     def _satellite_occupation(self, m):
-        """
-        Amplitude of satellite tracer at mass M
-        """
+        """Amplitude of satellite tracer at mass M."""
         return (m / 10 ** self.params["M_1"]) ** self.params["alpha"]
 
 
 class Zheng05(HODPoisson):
     """
-    Five-parameter model of Zheng (2005)
+    Five-parameter model of Zheng (2005).
 
     Parameters
     ----------
@@ -338,17 +334,13 @@ class Zheng05(HODPoisson):
     }
 
     def _central_occupation(self, m):
-        """
-        Amplitude of central tracer at mass M
-        """
+        """Amplitude of central tracer at mass M."""
         return 0.5 * (
             1 + sp.erf((np.log10(m) - self.params["M_min"]) / self.params["sig_logm"])
         )
 
     def _satellite_occupation(self, m):
-        """
-        Amplitude of satellite tracer at mass M
-        """
+        """Amplitude of satellite tracer at mass M."""
         ns = np.zeros_like(m)
         ns[m > 10 ** self.params["M_0"]] = (
             (m[m > 10 ** self.params["M_0"]] - 10 ** self.params["M_0"])
@@ -358,7 +350,7 @@ class Zheng05(HODPoisson):
 
     @property
     def mmin(self):
-        """Minimum turnover mass for tracer"""
+        """Minimum turnover mass for tracer."""
         return self.params["M_min"] - 5 * self.params["sig_logm"]
 
 
@@ -411,9 +403,7 @@ class Contreras13(HODPoisson):
     }
 
     def _central_occupation(self, m):
-        """
-        Amplitude of central tracer at mass M
-        """
+        """Amplitude of central tracer at mass M."""
         return self.params["fcb"] * (1 - self.params["fca"]) * np.exp(
             -np.log10(m / 10 ** self.params["M_min"]) ** 2
             / (2 * (self.params["x"] * self.params["sig_logm"]) ** 2)
@@ -427,9 +417,7 @@ class Contreras13(HODPoisson):
         )
 
     def _satellite_occupation(self, m):
-        """
-        Amplitude of satellite tracer at mass M
-        """
+        """Amplitude of satellite tracer at mass M."""
         return (
             self.params["fs"]
             * (
@@ -470,9 +458,7 @@ class Tinker05(Zehavi05):
     central_condition_inherent = True
 
     def _satellite_occupation(self, m):
-        """
-        Amplitude of satellite tracer at mass M
-        """
+        """Amplitude of satellite tracer at mass M."""
         out = self.central_occupation(m)
         return (
             out
@@ -492,9 +478,7 @@ class Zehavi05WithMax(Zehavi05):
     }
 
     def _central_occupation(self, m):
-        """
-        Amplitude of central tracer at mass M
-        """
+        """Amplitude of central tracer at mass M."""
         n_c = np.zeros_like(m)
         n_c[
             np.logical_and(
@@ -505,9 +489,7 @@ class Zehavi05WithMax(Zehavi05):
         return n_c
 
     def _satellite_occupation(self, m):
-        """
-        Amplitude of satellite tracer at mass M
-        """
+        """Amplitude of satellite tracer at mass M."""
         return (m / 10 ** self.params["M_1"]) ** self.params["alpha"]
 
 
@@ -532,30 +514,27 @@ class Zehavi05Marked(Zehavi05WithMax):
         return np.sqrt(self._tracer_per_central(m) * co * (1 - co))
 
     def _tracer_per_central(self, m):
-        """Number of tracer per central tracer source"""
+        """Number of tracer per central tracer source."""
         return 10 ** self.params["logA"]
 
     def _central_occupation(self, m):
-        """
-        Amplitude of central tracer at mass M
-        """
+        """Amplitude of central tracer at mass M."""
         return super()._central_occupation(
             m
         ) * self._tracer_per_central(m)
 
     def _satellite_occupation(self, m):
-        """
-        Amplitude of satellite tracer at mass M
-        """
+        """Amplitude of satellite tracer at mass M."""
         return super()._satellite_occupation(
             m
         ) * self._tracer_per_satellite(m)
 
 
 class ContinuousPowerLaw(HODBulk):
-    """
-    A continuous HOD which is tuned to match the Zehavi05 total occupation except for normalisation.
-    """
+    """A continuous HOD which is tuned to match the Zehavi05 total occupation.
+
+      (except for normalisation)
+      """
 
     _defaults = {
         "M_min": 11.6222,
@@ -568,9 +547,7 @@ class ContinuousPowerLaw(HODBulk):
     sharp_cut = True
 
     def _satellite_occupation(self, m):
-        """
-        Amplitude of satellite tracer at mass M
-        """
+        """Amplitude of satellite tracer at mass M."""
         alpha = self.params["alpha"]
         M_1 = 10 ** self.params["M_1"]
         A = 10 ** self.params["logA"]
@@ -594,9 +571,7 @@ class Constant(HODBulk):
     _defaults = {"logA": 0, "M_min": 11.0, "sigma_A": 0}
 
     def _satellite_occupation(self, m):
-        """
-        Amplitude of satellite tracer at mass M
-        """
+        """Amplitude of satellite tracer at mass M."""
         return np.where(m > 10 ** self.params["M_min"], 10 ** self.params["logA"], 0)
 
     def sigma_satellite(self, m):
@@ -643,9 +618,7 @@ class Spinelli19(HODPoisson):
     central_condition_inherent = False
 
     def _central_occupation(self, m):
-        """
-        Amplitude of central tracer at mass M
-        """
+        """Amplitude of central tracer at mass M."""
         alpha = self.params["alpha"]
         beta = self.params["beta"]
         m_1 = 10 ** self.params["M_1"]
@@ -661,9 +634,7 @@ class Spinelli19(HODPoisson):
         return out
 
     def _satellite_occupation(self, m):
-        """
-        Amplitude of satellite tracer at mass M
-        """
+        """Amplitude of satellite tracer at mass M."""
         alpha = self.params["alpha_sat"]
         beta = self.params["beta_sat"]
         amp = 10 ** self.params["M_0"]
@@ -692,7 +663,7 @@ class Spinelli19(HODPoisson):
         return temp_conv
 
     def _tracer_per_central(self, M):
-        """Number of tracer per central tracer source"""
+        """Number of tracer per central tracer source."""
         n_c = np.zeros_like(M)
         n_c[
             np.logical_and(
@@ -703,7 +674,7 @@ class Spinelli19(HODPoisson):
         return n_c
 
     def _tracer_per_satellite(self, M):
-        """Number of tracer per satellite tracer source"""
+        """Number of tracer per satellite tracer source."""
         n_s = np.zeros_like(M)
         index = np.logical_and(
             10 ** self.params["M_min_counts"] <= M,
