@@ -621,7 +621,7 @@ class DMHaloModel(MassFunction):
         """Do the 1-halo integral for some quantity, doing the turnover trick."""
         dens_min = 4 * np.pi * self.mean_density0 * self.halo_overdensity_mean / 3
         p = np.zeros_like(self.k)
-        for i, (k, integ) in enumerate(zip(self.k, integrand, strict=False)):
+        for i, (k, integ) in enumerate(zip(self.k, integrand)):
             if self.force_1halo_turnover:
                 r = np.pi / k / 10  # The 10 is a complete heuristic hack.
                 mmin = max(max_mmin, dens_min * r**3)
@@ -1443,9 +1443,7 @@ class TracerHaloModel(DMHaloModel):
 
             ss_pairs = self.hod.ss_pairs(self.m)
             cs_pairs = self.hod.cs_pairs(self.m)
-            for i, (rho, lam) in enumerate(
-                zip(self.tracer_profile_rho, self.tracer_profile_lam, strict=False)
-            ):
+            for i, (rho, lam) in enumerate(zip(self.tracer_profile_rho, self.tracer_profile_lam)):
                 c[i] = tools.spline_integral(
                     self.m,
                     self.dndm
@@ -1538,9 +1536,7 @@ class TracerHaloModel(DMHaloModel):
         between tracer and matter.
         """
         p = np.zeros_like(self.k)
-        for i, (ut, uh) in enumerate(
-            zip(self.tracer_profile_ukm, self.halo_profile_ukm, strict=False)
-        ):
+        for i, (ut, uh) in enumerate(zip(self.tracer_profile_ukm, self.halo_profile_ukm)):
             p[i] = tools.spline_integral(
                 self.m,
                 self.dndm
@@ -1575,9 +1571,7 @@ class TracerHaloModel(DMHaloModel):
         # Do this the simple way for now
         bt = np.zeros_like(self.k)
         bm = np.zeros_like(self.k)
-        for i, (ut, um) in enumerate(
-            zip(self.tracer_profile_ukm, self.halo_profile_ukm, strict=False)
-        ):
+        for i, (ut, um) in enumerate(zip(self.tracer_profile_ukm, self.halo_profile_ukm)):
             bt[i] = tools.spline_integral(
                 self.m,
                 self.dndm * self.halo_bias * self._total_occupation * ut,

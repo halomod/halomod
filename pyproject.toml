@@ -33,7 +33,7 @@ classifiers = [
 dependencies = [
     "hmf>=3.3.4",
     "mpmath",
-    "numpy",
+    "numpy<2.0",
     "scipy",
     "colossus",
     "hankel",
@@ -75,7 +75,7 @@ testpaths = "tests"
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py39"
 
 [tool.ruff.lint]
 extend-select = [
