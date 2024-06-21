@@ -109,7 +109,7 @@ def test_populate_runs_with_central_cond():
 def test_populate_runs_without_central_cond():
     rng = np.random.default_rng(1234)
 
-    nhalos = 100
+    nhalos = 150
     boxsize = 100
     centres = boxsize * rng.random((nhalos, 3))  # centres between 0 - 100 Mpc
     masses = 10 ** (10 + 5 * rng.random(nhalos))  # masses between 1e10 and 1e15
@@ -128,10 +128,12 @@ def test_populate_runs_without_central_cond():
     assert ncen <= len(pos)
 
     # Test that the first ncen galaxies are at halo centres.
-    for i in range(ncen):
-        assert np.allclose(pos[i], centres[halo[i]])
+    assert np.allclose(pos[:ncen], centres[halo[:ncen]])
 
     # Test that the central condition is False
+    # Test that there are some satellite galaxies in halos that have no central.
+    # This _could_ randomly be False depending on the seed, but the seed chosen seems
+    # to work.
     assert not all(h in halo[:ncen] for h in halo[ncen:])
 
 
