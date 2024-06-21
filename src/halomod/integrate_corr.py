@@ -86,7 +86,7 @@ class ProjectedCF(HaloModel):
     @cached_quantity
     def rp(self):
         """Array of projected radius bins."""
-        if isinstance(self.rp_min, list | np.ndarray):
+        if isinstance(self.rp_min, (list, np.ndarray)):
             rp = np.array(self.rp_min)
         else:
             if self.rp_log:
