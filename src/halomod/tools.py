@@ -408,7 +408,7 @@ def populate(
     # Using ns gives the correct answer for both central condition and not.
     # Note that other parts of the algorithm also need to be changed if central condition
     # is not true.
-    sgal = poisson.rvs(hodmod.ns(masses))
+    sgal = poisson.rvs(hodmod.ns(masses), random_state=rng)
 
     # Get an array ready, hopefully speeds things up a bit
     ncen = np.sum(cgal)
@@ -445,7 +445,7 @@ def populate(
     def fill_array(i):
         r"""Function to populate the field with ith tracer."""
         m, n, ctr = masses[i], sgal[i], centres[i]
-        pos[indx[i] : indx[i + 1], :] = profile.populate(n, m, centre=ctr)
+        pos[indx[i] : indx[i + 1], :] = profile.populate(n, m, centre=ctr, rng=rng)
 
     if HAVE_POOL:
         mp.ProcessingPool(mp.cpu_count()).map(fill_array, list(range(len(masses))))
