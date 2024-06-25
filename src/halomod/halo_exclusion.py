@@ -1,5 +1,7 @@
 """Module defining halo model components for halo exclusion."""
 
+from __future__ import annotations
+
 import warnings
 
 import numpy as np

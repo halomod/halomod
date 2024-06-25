@@ -109,7 +109,7 @@ def test_populate_runs_with_central_cond():
 def test_populate_runs_without_central_cond():
     rng = np.random.default_rng(1234)
 
-    nhalos = 150
+    nhalos = 300
     boxsize = 100
     centres = boxsize * rng.random((nhalos, 3))  # centres between 0 - 100 Mpc
     masses = 10 ** (10 + 5 * rng.random(nhalos))  # masses between 1e10 and 1e15
