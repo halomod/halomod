@@ -183,7 +183,7 @@ class NoExclusion(Exclusion):
 
     def integrate(self):
         """Integrate the :meth:`raw_integrand` over mass."""
-        return intg.simps(self.raw_integrand(), dx=self.dlnx) ** 2
+        return intg.simpson(self.raw_integrand(), dx=self.dlnx) ** 2
 
 
 class Sphere(Exclusion):
@@ -210,7 +210,7 @@ class Sphere(Exclusion):
         """The modified density, under new limits."""
         density = np.outer(np.ones_like(self.r), self.density * self.m)
         density[self.mask] = 0
-        return intg.simps(density, dx=self.dlnx, even="first")
+        return intg.simpson(density, dx=self.dlnx, even="first")
 
     @cached_property
     def mask(self):
@@ -226,7 +226,7 @@ class Sphere(Exclusion):
         """Integrate the :meth:`raw_integrand` over mass."""
         integ = self.raw_integrand()  # r,k,m
         integ.transpose((1, 0, 2))[:, self.mask] = 0
-        return intg.simps(integ, dx=self.dlnx, even="first") ** 2
+        return intg.simpson(integ, dx=self.dlnx, even="first") ** 2
 
 
 class DblSphere(Sphere):
@@ -258,8 +258,8 @@ class DblSphere(Sphere):
         for i, _ in enumerate(self.r):
             integrand = np.outer(self.density * self.m, np.ones_like(self.density))
             integrand[self.mask[i]] = 0
-            out[i] = intg.simps(
-                intg.simps(integrand, dx=self.dlnx, even="first"),
+            out[i] = intg.simpson(
+                intg.simpson(integrand, dx=self.dlnx, even="first"),
                 dx=self.dlnx,
                 even="first",
             )
@@ -279,7 +279,7 @@ def integrate_dblsphere(integ, mask, dx):
         for ir in range(mask.shape[0]):
             integrand[ir] = np.outer(integ[ir, ik, :], integ[ir, ik, :])
         integrand[mask] = 0
-        out[:, ik] = intg.simps(intg.simps(integrand, dx=dx, even="first"), dx=dx, even="first")
+        out[:, ik] = intg.simpson(intg.simpson(integrand, dx=dx, even="first"), dx=dx, even="first")
     return out
 
 
@@ -364,7 +364,7 @@ class DblEllipsoid(DblSphere):
         for ik in range(integ.shape[1]):
             for ir in range(len(self.r)):
                 integrand[ir] = self.prob[ir] * np.outer(integ[ir, ik, :], integ[ir, ik, :])
-            out[:, ik] = intg.simps(intg.simps(integrand, dx=self.dlnx), dx=self.dlnx)
+            out[:, ik] = intg.simpson(intg.simpson(integrand, dx=self.dlnx), dx=self.dlnx)
         return out
 
 
@@ -468,8 +468,7 @@ class NgMatched(DblEllipsoid):
     def mask(self):
         """Mask Function for matching density."""
         integrand = self.density * self.m
-        # cumint = cumsimps(integrand,dx = self.dlnx)
-        cumint = intg.cumtrapz(integrand, dx=self.dlnx, initial=0)  # len m
+        cumint = intg.cumulative_trapezoid(integrand, dx=self.dlnx, initial=0)  # len m
         cumint = np.outer(np.ones_like(self.r), cumint)  # r,m
         return np.where(
             cumint > 1.0001 * np.outer(self.density_mod, np.ones_like(self.m)),
@@ -481,7 +480,7 @@ class NgMatched(DblEllipsoid):
         """Integrate the :meth:`raw_integrand` over mass."""
         integ = self.raw_integrand()  # r,k,m
         integ.transpose((1, 0, 2))[:, self.mask] = 0
-        return intg.simps(integ, dx=self.dlnx) ** 2
+        return intg.simpson(integ, dx=self.dlnx) ** 2
 
 
 if USE_NUMBA:
@@ -493,8 +492,7 @@ if USE_NUMBA:
         def mask(self):
             """Mask Function for matching density."""
             integrand = self.density * self.m
-            # cumint = cumsimps(integrand,dx = self.dlnx)
-            cumint = intg.cumtrapz(integrand, dx=self.dlnx, initial=0)  # len m
+            cumint = intg.cumulative_trapezoid(integrand, dx=self.dlnx, initial=0)  # len m
             cumint = np.outer(np.ones_like(self.r), cumint)  # r,m
             return np.where(
                 cumint > 1.0001 * np.outer(self.density_mod, np.ones_like(self.m)),
@@ -506,7 +504,7 @@ if USE_NUMBA:
             """Integrate the :meth:`raw_integrand` over mass."""
             integ = self.raw_integrand()  # r,k,m
             integ.transpose((1, 0, 2))[:, self.mask] = 0
-            return intg.simps(integ, dx=self.dlnx) ** 2
+            return intg.simpson(integ, dx=self.dlnx) ** 2
 
 
 def cumsimps(func, dx):

@@ -587,9 +587,9 @@ class DMHaloModel(MassFunction):
                 return spl(mn)
 
             mask = np.logical_and(self.m >= 10**mn, self.m <= 10**mx)
-            return intg.simps(self.halo_bias[mask] * self.dndm[mask], self.m[mask]) / intg.simps(
-                self.dndm[mask], self.m[mask]
-            )
+            return intg.simpson(
+                self.halo_bias[mask] * self.dndm[mask], x=self.m[mask]
+            ) / intg.simpson(self.dndm[mask], self.m[mask])
 
         return get_b(mmin, mmax) * get_b(mmin2, mmax2) * self._power_halo_centres_fnc(k)
 
@@ -1670,14 +1670,14 @@ class TracerHaloModel(DMHaloModel):
             mmin = spline_int(np.log(ng)) / np.log(10)
         else:
             # Anything else requires us to do some optimization unfortunately.
-            integral = intg.simps(integrand, dx=np.log(c.m[1] / c.m[0]))
+            integral = intg.simpson(integrand, dx=np.log(c.m[1] / c.m[0]))
             if integral < ng:
                 raise NGException(density_message.format(integral))
 
             def model(mmin):
                 c.update(hod_params={"M_min": mmin})
                 integrand = c.m[c._tm] * c.dndm[c._tm] * c.total_occupation[c._tm]
-                integral = intg.simps(integrand, dx=np.log(c.m[1] / c.m[0]))
+                integral = intg.simpson(integrand, dx=np.log(c.m[1] / c.m[0]))
                 return abs(integral - ng)
 
             res = minimize(model, 12.0, tol=1e-3, method="Nelder-Mead", options={"maxiter": 200})

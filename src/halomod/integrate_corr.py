@@ -11,7 +11,7 @@ import warnings
 import numpy as np
 from hmf import Cosmology as csm
 from hmf import cached_quantity, parameter
-from scipy.integrate import simps
+from scipy.integrate import simpson
 from scipy.interpolate import InterpolatedUnivariateSpline as _spline
 
 from .halo_model import HaloModel
@@ -177,7 +177,7 @@ def projected_corr_gal(
         # Integrate
         integ_corr = fit(y + rp)
         integrand = (y + rp) * integ_corr / np.sqrt((y + 2 * rp) * y)
-        p[i] = simps(integrand, y) * 2
+        p[i] = simpson(integrand, x=y) * 2
 
     return p
 
@@ -469,7 +469,7 @@ class AngularCF(HaloModel):
 
 def _check_p(p, z):
     """If False, cancels checking the normalisation of :func:`p1` and :func:`p2`."""
-    integ = p.integral(z.min(), z.max()) if hasattr(p, "integral") else simps(p(z), z)
+    integ = p.integral(z.min(), z.max()) if hasattr(p, "integral") else simpson(p(z), x=z)
     if not np.isclose(integ, 1.0, rtol=0.01):
         warnings.warn(
             f"Filter function p(x) did not integrate to 1 ({integ}). "
@@ -578,4 +578,4 @@ def angular_corr_gal(
         "kij,i->kij", xi(R, **xi_kw).reshape((len(theta), len(x), len(u))), p_integ
     )
 
-    return 2 * simps(simps(integrand, u), x)
+    return 2 * simpson(simpson(integrand, x=u), x=x)

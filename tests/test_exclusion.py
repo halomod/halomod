@@ -18,7 +18,7 @@ from halomod.halo_exclusion import (
     makeW,
     outer,
 )
-from scipy.integrate import simps
+from scipy.integrate import simpson
 
 
 def test_makeW():
@@ -129,10 +129,9 @@ def test_dbl_sphere(dbl_sphere):
     intg = excl.integrate().flatten()
 
     den = np.sqrt(
-        simps(
-            simps(np.outer(density * m, np.ones_like(density)), dx=excl.dlnx, even="first"),
+        simpson(
+            simpson(np.outer(density * m, np.ones_like(density)), dx=excl.dlnx),
             dx=excl.dlnx,
-            even="first",
         )
     )
 

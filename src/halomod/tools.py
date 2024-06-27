@@ -322,7 +322,7 @@ def power_to_corr(power_func: callable, r: np.ndarray) -> np.ndarray:
         P = power_func(lnk)
         integ = P * np.exp(lnk) ** 2 * np.sin(np.exp(lnk) * rr) / rr
 
-        corr[i] = (0.5 / np.pi**2) * intg.simps(integ, dx=dlnk)
+        corr[i] = (0.5 / np.pi**2) * intg.simpson(integ, dx=dlnk)
 
     return corr
 

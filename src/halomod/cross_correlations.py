@@ -252,7 +252,7 @@ class CrossCorrelations(Framework):
             + u2 * self.cross_hod.cs_cross_pairs(m)
         )
 
-        p = intg.simps(integ, m)
+        p = intg.simpson(integ, x=m)
 
         p /= hm1.mean_tracer_den * hm2.mean_tracer_den
         return tools.ExtendedSpline(hm1.k, p, lower_func="power_law", upper_func="power_law")
@@ -289,13 +289,13 @@ class CrossCorrelations(Framework):
         bias = hm1.halo_bias
 
         # Do this the simple way for now
-        b1 = intg.simps(
+        b1 = intg.simpson(
             hm1.dndm[hm1._tm] * bias[hm1._tm] * hm1.total_occupation[hm1._tm] * u1,
-            hm1.m[hm1._tm],
+            x=hm1.m[hm1._tm],
         )
-        b2 = intg.simps(
+        b2 = intg.simpson(
             hm2.dndm[hm2._tm] * bias[hm2._tm] * hm2.total_occupation[hm2._tm] * u2,
-            hm2.m[hm2._tm],
+            x=hm2.m[hm2._tm],
         )
 
         p = (
