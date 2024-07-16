@@ -63,10 +63,10 @@ from __future__ import annotations
 
 import numpy as np
 from astropy.cosmology import FLRW, Planck15
+from colossus.cosmology.cosmology import fromAstropy
 from colossus.lss.bias import haloBiasFromNu
 from hmf import Component
 from hmf._internals import pluggable
-from hmf.cosmology.cosmo import astropy_to_colossus
 from hmf.halos.mass_definitions import SOMean
 from hmf.mass_function import fitting_functions as ff
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
@@ -814,7 +814,8 @@ def make_colossus_bias(model="comparat17", mdef=SO_MEAN, **defaults):
 
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
-            astropy_to_colossus(self.cosmo, sigma8=self.sigma_8, ns=self.n)
+
+            fromAstropy(self.cosmo, sigma8=self.sigma_8, ns=self.n)
 
         def bias(self):
             return haloBiasFromNu(

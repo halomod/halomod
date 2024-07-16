@@ -476,7 +476,7 @@ class DMHaloModel(MassFunction):
             return self.linear_power_fnc
         elif self.hc_spectrum == "nonlinear":
             warnings.warn(
-                "Warning: using halofit for tracer stats is only valid up to"
+                "Using halofit for tracer stats is only valid up to"
                 + " quasi-linear scales k<~1 (h/Mpc).",
                 stacklevel=2,
             )
@@ -589,7 +589,7 @@ class DMHaloModel(MassFunction):
             mask = np.logical_and(self.m >= 10**mn, self.m <= 10**mx)
             return intg.simpson(
                 self.halo_bias[mask] * self.dndm[mask], x=self.m[mask]
-            ) / intg.simpson(self.dndm[mask], self.m[mask])
+            ) / intg.simpson(self.dndm[mask], x=self.m[mask])
 
         return get_b(mmin, mmax) * get_b(mmin2, mmax2) * self._power_halo_centres_fnc(k)
 
@@ -660,7 +660,9 @@ class DMHaloModel(MassFunction):
             lam = self.halo_profile_lam
             integrand = self.dndm * self.m**3 * lam
 
-            table = intg.trapz(integrand, dx=np.log(10) * self.dlog10m) / self.mean_density0**2 - 1
+            table = (
+                intg.trapezoid(integrand, dx=np.log(10) * self.dlog10m) / self.mean_density0**2 - 1
+            )
         else:
             table = tools.hankel_transform(self.power_1h_auto_matter_fnc, self._r_table, "r")
 
@@ -930,10 +932,6 @@ class TracerHaloModel(DMHaloModel):
     tracer_density: float, optional
         Total density of the tracer, in the units specified by the HOD model. This
         can be used to set the minimum halo mass of the HOD.
-    force_1halo_turnover : bool, optional
-        Whether to force the 1-halo term to turnover on large scales. THis induces a
-        heuristic modification which ensures that the 1-halo term does not grow
-        larger than the two-halo term on very large scales.
 
     Other Parameters
     ----------------
@@ -949,7 +947,6 @@ class TracerHaloModel(DMHaloModel):
         tracer_concentration_model=None,
         tracer_concentration_params=None,
         tracer_density=None,
-        force_1halo_turnover=True,
         **halomodel_kwargs,
     ):
         super().__init__(**halomodel_kwargs)
@@ -966,7 +963,6 @@ class TracerHaloModel(DMHaloModel):
             tracer_concentration_params or {},
         )
 
-        self.force_1halo_turnover = force_1halo_turnover
         # A special argument, making it possible to define M_min by mean density
         self.tracer_density = tracer_density
 

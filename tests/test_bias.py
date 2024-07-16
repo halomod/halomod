@@ -71,6 +71,8 @@ def test_monotonic_bias(bias_model, hmf: MassFunction):
     assert diff.min() >= -2e-2
 
 
+@pytest.mark.filterwarnings("ignore:Your input mass definition")
+@pytest.mark.filterwarnings("ignore:Astropy cosmology class contains massive neutrinos")
 @pytest.mark.parametrize(
     ("hmf_bias", "col_bias"),
     [
@@ -83,6 +85,8 @@ def test_monotonic_bias(bias_model, hmf: MassFunction):
     ],
 )
 def test_bias_against_colossus(hmf_bias, col_bias):
+    # don't care that the mdef isn't compatible with the HMF, because we're not testing
+    # the HMF.
     if col_bias in ["seljak04", "jing98"]:
         pytest.skip("Uses nonlinear mass which has to be investigated.")
 

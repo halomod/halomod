@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 from halomod import DMHaloModel
 from halomod.wdm import HaloModelWDM
 
@@ -31,7 +32,10 @@ def test_cmz_wdm():
     assert np.all(cdm.cmz_relation[cdm.m <= wdm.wdm.m_hm] > wdm.cmz_relation[wdm.m <= wdm.wdm.m_hm])
 
 
+@pytest.mark.filterwarnings("ignore:Your input mass definition")
 def test_ludlow_cmz_wdm():
+    # SOCritical(200) does not match the SMT HMF, but that's OK here, we don't care
+    # about the actual mass function.
     wdm = HaloModelWDM(
         hmf_model="SMT",
         z=0,

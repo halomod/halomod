@@ -33,8 +33,14 @@ test_matrix = product(tested_params, quantities)
 test_matrix = [(t[0][0], t[0][1], t[1]) for t in test_matrix]
 
 
+@pytest.mark.filterwarnings("ignore:Requested mass definition")
+@pytest.mark.filterwarnings("ignore:You are using an un-normalized mass function")
+@pytest.mark.filterwarnings("ignore:Using halofit for tracer stats")
+@pytest.mark.filterwarnings("ignore:to use a power-law, y must be all positive")
 @pytest.mark.parametrize(("z", "params", "quantity"), test_matrix)
 def test_regression_quantity_tracerhm(tr, z, params, quantity):
+    # Since this is a regression test, we don't care that the mass definition
+    # doesn't match the Ludlow16 relation.
     print("Testing for params = ", params)
     tr.update(z=z, **params)
 

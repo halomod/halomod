@@ -13,7 +13,7 @@ from halomod.tools import (
 
 
 def test_ogata_powerlaw():
-    k = np.logspace(-4, 2, 100)
+    k = np.logspace(-4, 4.2, 500)
     power = k**-1.5
 
     r = np.logspace(-1, 1, 5)
@@ -64,7 +64,7 @@ def test_ogata_powerlaw_upper_trunc():
 
 
 def test_ogata_powerlaw_matrix():
-    k = np.logspace(-4, 2, 100)
+    k = np.logspace(-4, 4.2, 500)
     power = np.array([i * k**-1.5 for i in range(1, 6)])
     print(power.shape)
     r = np.logspace(-1, 1, 5)

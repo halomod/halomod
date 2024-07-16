@@ -10,6 +10,7 @@ used (https://github.com/steven-murray/hmcode) which has a branch in which more
 information is written out.
 """
 
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -39,36 +40,44 @@ def hmcode_data(datadir):
     return {"k": k, "z": z, "p": data}
 
 
-hm = DMHaloModel(
-    exclusion_model=None,
-    sd_bias_model=None,
-    transfer_model="EH_BAO",
-    cosmo_params={
-        "Tcmb0": 2.725,  # Line 596
-        "Om0": 0.3,  # Line 587
-        "Ob0": 0.05,  # Line 589
-        "H0": 70.0,  # Line 591
-    },
-    hc_spectrum="linear",
-    halo_concentration_model="Bullock01",
-    halo_concentration_params={"K": 4, "F": 0.01},  # Line 376
-    hmf_model="SMT",
-    sigma_8=0.8,  # Line 593
-    n=0.96,  # Line 594
-    Mmin=2,  # Line 795
-    Mmax=18,  # Line 796,
-    lnk_min=np.log(1e-3),  # Line 50
-    lnk_max=np.log(1e2),  # Line 51
-    dlnk=0.01,
-    dlog10m=16 / 256,
-    mdef_model="SOMean",
-    disable_mass_conversion=True,
-    force_1halo_turnover=False,
-)
+@pytest.fixture(scope="module")
+def hm():
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", category=UserWarning, message="Your input mass definition"
+        )
+        return DMHaloModel(
+            exclusion_model=None,
+            sd_bias_model=None,
+            transfer_model="EH_BAO",
+            cosmo_params={
+                "Tcmb0": 2.725,  # Line 596
+                "Om0": 0.3,  # Line 587
+                "Ob0": 0.05,  # Line 589
+                "H0": 70.0,  # Line 591
+            },
+            hc_spectrum="linear",
+            halo_concentration_model="Bullock01",
+            halo_concentration_params={"K": 4, "F": 0.01},  # Line 376
+            hmf_model="SMT",
+            sigma_8=0.8,  # Line 593
+            n=0.96,  # Line 594
+            Mmin=2,  # Line 795
+            Mmax=18,  # Line 796,
+            lnk_min=np.log(1e-3),  # Line 50
+            lnk_max=np.log(1e2),  # Line 51
+            dlnk=0.01,
+            dlog10m=16 / 256,
+            mdef_model="SOMean",
+            disable_mass_conversion=True,
+            force_1halo_turnover=False,
+        )
 
 
+@pytest.mark.filterwarnings("ignore:Requested mass definition")
+@pytest.mark.filterwarnings("ignore:You are using an un-normalized mass function")
 @pytest.mark.parametrize("iz", range(16))
-def test_hmcode(hmcode_data, iz, plt):
+def test_hmcode(hm, hmcode_data, iz, plt):
     z = hmcode_data["z"][iz]
 
     fac = hmcode_data["k"] ** 3 / (2 * np.pi**2)

@@ -210,7 +210,7 @@ class Sphere(Exclusion):
         """The modified density, under new limits."""
         density = np.outer(np.ones_like(self.r), self.density * self.m)
         density[self.mask] = 0
-        return intg.simpson(density, dx=self.dlnx, even="first")
+        return intg.simpson(density, dx=self.dlnx)
 
     @cached_property
     def mask(self):
@@ -226,7 +226,7 @@ class Sphere(Exclusion):
         """Integrate the :meth:`raw_integrand` over mass."""
         integ = self.raw_integrand()  # r,k,m
         integ.transpose((1, 0, 2))[:, self.mask] = 0
-        return intg.simpson(integ, dx=self.dlnx, even="first") ** 2
+        return intg.simpson(integ, dx=self.dlnx) ** 2
 
 
 class DblSphere(Sphere):
@@ -259,9 +259,8 @@ class DblSphere(Sphere):
             integrand = np.outer(self.density * self.m, np.ones_like(self.density))
             integrand[self.mask[i]] = 0
             out[i] = intg.simpson(
-                intg.simpson(integrand, dx=self.dlnx, even="first"),
+                intg.simpson(integrand, dx=self.dlnx),
                 dx=self.dlnx,
-                even="first",
             )
         return np.sqrt(out)
 
@@ -279,7 +278,7 @@ def integrate_dblsphere(integ, mask, dx):
         for ir in range(mask.shape[0]):
             integrand[ir] = np.outer(integ[ir, ik, :], integ[ir, ik, :])
         integrand[mask] = 0
-        out[:, ik] = intg.simpson(intg.simpson(integrand, dx=dx, even="first"), dx=dx, even="first")
+        out[:, ik] = intg.simpson(intg.simpson(integrand, dx=dx), dx=dx)
     return out
 
 

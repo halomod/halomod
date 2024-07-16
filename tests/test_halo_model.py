@@ -1,5 +1,7 @@
 """Integration-style tests of the full HaloModel class."""
 
+import warnings
+
 import numpy as np
 import pytest
 from halomod import DMHaloModel, TracerHaloModel
@@ -24,7 +26,13 @@ def dmhm():
 @pytest.fixture(scope="module")
 def thm():
     return TracerHaloModel(
-        rmin=0.01, rmax=50, rnum=20, transfer_model="EH", hc_spectrum="nonlinear"
+        rmin=0.01,
+        rmax=50,
+        rnum=20,
+        transfer_model="EH",
+        hc_spectrum="nonlinear",
+        bias_model="Mo96",
+        hmf_model="PS",
     )
 
 
@@ -45,6 +53,9 @@ def test_tr_model_instances(thm):
     assert isinstance(thm.hod, HOD)
 
 
+@pytest.mark.filterwarnings(
+    "ignore:Using halofit for tracer stats is only valid up to quasi-linear scales"
+)
 @pytest.mark.parametrize(
     "quantity",
     [
@@ -104,6 +115,7 @@ def test_setting_default_tracers_conc_set_params():
             "C": 657,
         },
         transfer_model="EH",
+        mdef_model="SOCritical",
     )
 
     assert hm.tracer_concentration.params["f"] == 0.03
@@ -131,6 +143,7 @@ def test_setting_default_tracers_same_model():
         halo_concentration_model="Ludlow16",
         tracer_concentration_model="Ludlow16",
         transfer_model="EH",
+        mdef_model="SOCritical",
     )
 
     assert hm.tracer_profile.params == hm.halo_profile.params
@@ -170,6 +183,9 @@ def test_large_scale_bias(dmhm):
     assert np.isclose(dm2.power_2h_auto_matter[0], dm2.linear_power_fnc(dm2.k_hm[0]), rtol=1e-4)
 
     # Now do a non-pb split
-    dm2.bias_model = "Tinker10"
-    print(dm2.halo_profile.u(dm2.k_hm[0], dm2.m, c=dm2.cmz_relation))
-    assert np.isclose(dm2.power_2h_auto_matter[0], dm2.linear_power_fnc(dm2.k_hm[0]), rtol=1e-4)
+    dm2.update(bias_model="Tinker10")
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", "You are using an un-normalized mass function and bias function"
+        )
+        assert np.isclose(dm2.power_2h_auto_matter[0], dm2.linear_power_fnc(dm2.k_hm[0]), rtol=1e-4)

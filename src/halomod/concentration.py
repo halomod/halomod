@@ -53,10 +53,11 @@ from __future__ import annotations
 import warnings
 
 import numpy as np
+from colossus.cosmology.cosmology import fromAstropy
 from colossus.halo import concentration
 from hmf import Component
 from hmf._internals import pluggable
-from hmf.cosmology.cosmo import Cosmology, astropy_to_colossus
+from hmf.cosmology.cosmo import Cosmology
 from hmf.cosmology.growth_factor import GrowthFactor
 from hmf.density_field.filters import Filter
 from hmf.halos.mass_definitions import (
@@ -196,7 +197,11 @@ def make_colossus_cm(model="diemer15", **defaults):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             # TODO: may want a more accurate way of passing sigma8 and ns here.
-            astropy_to_colossus(self.cosmo.cosmo, sigma8=0.8, ns=1)
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore", "Astropy cosmology class contains massive neutrinos"
+                )
+                fromAstropy(self.cosmo.cosmo, sigma8=0.8, ns=1)
 
         def cm(self, m, z=0):
             return concentration.concentration(
@@ -588,10 +593,6 @@ class Ludlow16Empirical(CMRelation):
         ) / self.growth.growth_factor(z)
 
     def cm(self, m, z=0):
-        warnings.warn(
-            "Only use Ludlow16Empirical c(m,z) relation when using Planck-like cosmology",
-            stacklevel=2,
-        )
         # May be better to use real nu, but we'll do what they do in the paper
         # r = self.filter.mass_to_radius(m, self.mean_density0)
         # nu = self.filter.nu(r,self.delta_c)/self.growth.growth_factor(z)

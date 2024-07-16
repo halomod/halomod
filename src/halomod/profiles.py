@@ -212,7 +212,7 @@ class Profile(Component):
         x, dx = np.linspace(1e-6, np.max(c), 2000, retstep=True)
         integrand = self._f(x) * x**2
 
-        integ = intg.cumtrapz(integrand, dx=dx, initial=0)
+        integ = intg.cumulative_simpson(integrand, dx=dx, initial=0)
 
         if not hasattr(c, "__len__"):
             return integ[-1]
