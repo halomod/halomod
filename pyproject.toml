@@ -31,7 +31,7 @@ classifiers = [
 	"Topic :: Scientific/Engineering :: Astronomy",
 ]
 dependencies = [
-    "hmf>=3.3.4",
+    "hmf@git+https://github.com/halomod/hmf@warnings-tests",
     "mpmath",
     "numpy<2.0",
     "scipy",
