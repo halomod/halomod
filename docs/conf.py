@@ -11,7 +11,7 @@
 
 import time
 
-from importlib_metadata import version as _version
+from importlib.metadata import version as _version
 
 # -- General configuration -----------------------------------------------------
 
