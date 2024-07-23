@@ -46,6 +46,8 @@ docs = [
 	"Sphinx>=1.7.5",
 	"numpydoc>=0.8.0",
 	"nbsphinx",
+    "ipython",
+    "furo",
 ]
 tests = [
 	"coverage>=4.5.1",
