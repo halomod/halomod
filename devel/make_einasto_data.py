@@ -1,7 +1,8 @@
 """
-Module to do the Fourier Transform of the Einasto profile numerically and cache results for later use.
+Module to Fourier Transform the Einasto profile numerically and cache results for later use.
 
-We save a binary file to the data directory to be read in, but also some ASCII files for long-term use.
+We save a binary file to the data directory to be read in, but also some ASCII files
+for long-term use.
 """
 
 import numpy as np
@@ -9,7 +10,7 @@ from scipy.interpolate import InterpolatedUnivariateSpline as spline
 
 
 def f(x, a=0.18):
-    return np.exp((-2 / a) * (x ** a - 1))
+    return np.exp((-2 / a) * (x**a - 1))
 
 
 def _p(K, c):

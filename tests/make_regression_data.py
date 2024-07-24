@@ -2,11 +2,12 @@
 Make regression-testing data (this data is tested in `test_regression.py` -- see that
 module for more information).
 """
-import numpy as np
+
 import sys
 from hashlib import md5
 from pathlib import Path
 
+import numpy as np
 from halomod import TracerHaloModel
 
 base_options = {
@@ -134,9 +135,7 @@ if __name__ == "__main__":
     # Read the command line instructions
     force = "--force" in sys.argv
     if "--param-sets" in sys.argv:
-        param_sets = [
-            int(x) for x in sys.argv[sys.argv.index("--param-sets") + 1].split(",")
-        ]
+        param_sets = [int(x) for x in sys.argv[sys.argv.index("--param-sets") + 1].split(",")]
     else:
         param_sets = range(len(tested_params))
 
@@ -146,7 +145,6 @@ if __name__ == "__main__":
         datadir.mkdir(parents=True)
 
     for indx in param_sets:
-
         z, params = tested_params[indx]
         print(f"Doing redshift {z} and params: ")
         print("\t" + "\t".join(f"{k}: {v}\n" for k, v in params.items()))
@@ -182,6 +180,6 @@ if __name__ == "__main__":
             np.save(fname, data)
 
         # Make a little readme in the directory
-        with open(param_dir / "params.yaml", "w") as fl:
+        with Path(param_dir / "params.yaml").open("w") as fl:
             params.update(z=z)
             yaml.dump(params, fl)

@@ -1,26 +1,32 @@
 r"""
 Module defining halo density profile.
 
-The halo density profile is used to describe the density distribution of dark matter or a specific type of tracer within a dark matter halo. It is usually descirbed as a function
+The halo density profile is used to describe the density distribution of dark matter or
+a specific type of tracer within a dark matter halo. It is usually descirbed as a function
 
 ``rho(r|rho_s,r_s) = rho_s f(x=r/r_s)``
 
-Here ``rho_s`` is the amplitude of the density, ``r_s = r_vir/c`` is related to the concentration and the virial radius of the halo.
+Here ``rho_s`` is the amplitude of the density, ``r_s = r_vir/c`` is related to the
+concentration and the virial radius of the halo.
 
-The profile used in power spectrum calculation is usually the Fourier Transformed one, which is usually a function of ``u(K=kr_s)``.
+The profile used in power spectrum calculation is usually the Fourier Transformed one,
+which is usually a function of ``u(K=kr_s)``.
 
 Profile models are defined as :class:`~hmf.Component` instances -- that is,
 they are flexible models that the user can subclass and use in the halo model framework.
-See :class:`Profile` for instructions on how to use ``Profile`` models. The following notes
-will mostly describe how to use various models provided in the literature.
+See :class:`Profile` for instructions on how to use ``Profile`` models. The following
+notes will mostly describe how to use various models provided in the literature.
 
-All models are specified in terms of the ``f(x)``, and analytically transformed to Fourier space, if
-an analytical formulae can be obtained.
+All models are specified in terms of the ``f(x)``, and analytically transformed to
+Fourier space, if an analytical formulae can be obtained.
 
 As with all ``Component`` subclasses, arbitrary user-specified variables can be received
 by defining them in the `_defaults` class-level dictionary.
 
-The module also defines a :class:`ProfileInf`, which does not truncate the dark matter halo at ``x=c``. Mathematically, it does not require a concentration-mass relation as an input. Here, an arbitary :class:`~halomod.CMRelation` should be plugged in, and results will remain the same.
+The module also defines a :class:`ProfileInf`, which does not truncate the dark matter
+halo at ``x=c``. Mathematically, it does not require a concentration-mass relation as
+an input. Here, an arbitary :class:`~halomod.CMRelation` should be plugged in, and
+results will remain the same.
 
 Examples
 --------
@@ -38,31 +44,31 @@ You can also specify a different profile for tracer if you're working with
 Notice that tracer density profile density should be used only in inverse volume or
 dimensionless unit.
 """
+
+from __future__ import annotations
+
+import warnings
+from pathlib import Path
+
 import hankel
 import mpmath
 import numpy as np
-import os
 import scipy.integrate as intg
 import scipy.special as sp
-import warnings
 from astropy.cosmology import Planck15
+from hmf import Component
+from hmf._internals import pluggable
+from hmf.halos.mass_definitions import SOMean
 from scipy.integrate import quad
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 from scipy.interpolate import RectBivariateSpline
 from scipy.special import gamma, gammainc, sici
-from typing import Union
-
-from hmf import Component
-from hmf._internals import pluggable
-from hmf.halos.mass_definitions import SOMean
 
 SO_MEAN = SOMean()
 
 
 def ginc(a, x):
-    r"""
-    ``gamma(a)*gammainc(a,x)``
-    """
+    r"""``gamma(a)*gammainc(a,x)``."""
     return gamma(a) * gammainc(a, x)
 
 
@@ -94,10 +100,7 @@ class Profile(Component):
 
     _defaults = {}
 
-    def __init__(
-        self, cm_relation, mdef=SO_MEAN, z=0.0, cosmo=Planck15, **model_parameters
-    ):
-
+    def __init__(self, cm_relation, mdef=SO_MEAN, z=0.0, cosmo=Planck15, **model_parameters):
         self.mdef = mdef
         self.delta_halo = self.mdef.halo_overdensity_mean(z, cosmo)
         self.z = z
@@ -106,7 +109,7 @@ class Profile(Component):
         self.mean_density0 = mdef.mean_density(0, cosmo=cosmo)
         self.has_lam = hasattr(self, "_l")
 
-        super(Profile, self).__init__(**model_parameters)
+        super().__init__(**model_parameters)
 
     def halo_mass_to_radius(self, m, at_z=False):
         """Return the halo radius corresponding to ``m``.
@@ -117,8 +120,8 @@ class Profile(Component):
         # I'm not absolutely sure that it's correct to use mean_density0 here,
         # rather than mean_dens (i.e. a function of redshift). Using mean_density0
         # lines up with HMCode, which I kind of trust, but it seems odd to me that
-        # the radius of a halo of a given mass at a given redshift should only depend on the
-        # background density at z=0.
+        # the radius of a halo of a given mass at a given redshift should only depend on
+        # the background density at z=0.
         dens = self.mean_dens if at_z else self.mean_density0
         return (3 * m / (4 * np.pi * self.delta_halo * dens)) ** (1.0 / 3.0)
 
@@ -126,7 +129,7 @@ class Profile(Component):
         """Return the halo mass corresponding to ``r``."""
         dens = self.mean_dens if at_z else self.mean_density0
 
-        return 4 * np.pi * r ** 3 * self.delta_halo * dens / 3
+        return 4 * np.pi * r**3 * self.delta_halo * dens / 3
 
     def _rs_from_m(self, m, c=None, at_z=False):
         """
@@ -144,9 +147,7 @@ class Profile(Component):
         r = self.halo_mass_to_radius(m, at_z=at_z)
         return r / c
 
-    def scale_radius(
-        self, m: Union[float, np.ndarray], at_z: bool = False
-    ) -> Union[float, np.ndarray]:
+    def scale_radius(self, m: float | np.ndarray, at_z: bool = False) -> float | np.ndarray:
         """
         Return the scale radius for a halo of mass m.
 
@@ -191,7 +192,7 @@ class Profile(Component):
 
     def _h(self, c=None, m=None) -> [float, np.ndarray]:
         """
-        The integral of f(x)*x^2 out to c
+        The integral of f(x)*x^2 out to c.
 
         .. note:: This function should be replaced with an analytic solution if
                   possible in derived classes.
@@ -209,9 +210,9 @@ class Profile(Component):
             c = self.cm_relation(m)
 
         x, dx = np.linspace(1e-6, np.max(c), 2000, retstep=True)
-        integrand = self._f(x) * x ** 2
+        integrand = self._f(x) * x**2
 
-        integ = intg.cumtrapz(integrand, dx=dx, initial=0)
+        integ = intg.cumulative_simpson(integrand, dx=dx, initial=0)
 
         if not hasattr(c, "__len__"):
             return integ[-1]
@@ -221,7 +222,7 @@ class Profile(Component):
 
     def _p(self, K: np.ndarray, c: np.ndarray):
         r"""
-        The reduced dimensionless fourier-transform of the halo_profile
+        The reduced dimensionless fourier-transform of the halo_profile.
 
         This function should not need to be called by the user in general.
 
@@ -244,13 +245,10 @@ class Profile(Component):
         radial co-ordinate `r/r_s`. This is simply the scaled 3D fourier transform
         of the profile, taken to a Hankel transform.
         """
-
         c = np.atleast_1d(c)
         if K.ndim < 2:
-            if len(K) != len(c):
-                K = np.atleast_2d(K)  # should be len(k) * len(rs)
-            else:
-                K = np.atleast_2d(K).T
+            # should be len(k) * len(rs)
+            K = np.atleast_2d(K) if len(K) != len(c) else np.atleast_2d(K).T
 
         assert K.ndim == 2
         assert K.shape[1] == len(c)
@@ -275,7 +273,7 @@ class Profile(Component):
                 c_1 = c[indx]
                 points = zeros[(c_0 < zeros) & (zeros < c_1)]
                 integral = quad(
-                    lambda x: x * self._f(x) * np.sin(k * x) / k,
+                    lambda x: x * self._f(x) * np.sin(k * x) / k,  # noqa: B023
                     c_0,
                     c_1,
                     points=points,
@@ -284,9 +282,7 @@ class Profile(Component):
 
                 # If its not the minimum c, add it to the previous integrand.
                 if i:
-                    intermediate_res[indx, j] = (
-                        intermediate_res[sort_indx[i - 1], j] + integral
-                    )
+                    intermediate_res[indx, j] = intermediate_res[sort_indx[i - 1], j] + integral
                 else:
                     intermediate_res[indx, j] = integral
 
@@ -300,7 +296,7 @@ class Profile(Component):
 
     def _rho_s(self, c, r_s=None, norm=None):
         """
-        The amplitude factor of the halo_profile
+        The amplitude factor of the halo_profile.
 
         Parameters
         ----------
@@ -314,11 +310,11 @@ class Profile(Component):
             The scale radius. This is only required if ``norm`` is "m".
         """
         if norm is None:
-            rho = c ** 3 * self.delta_halo * self.mean_dens / (3 * self._h(c))
+            rho = c**3 * self.delta_halo * self.mean_dens / (3 * self._h(c))
         elif norm == "m":
-            rho = 1.0 / (4 * np.pi * r_s ** 3 * self._h(c))
+            rho = 1.0 / (4 * np.pi * r_s**3 * self._h(c))
         elif norm == "rho":
-            rho = c ** 3 * self.delta_halo / (3 * self._h(c))
+            rho = c**3 * self.delta_halo / (3 * self._h(c))
 
         return self._reduce(rho)
 
@@ -349,7 +345,7 @@ class Profile(Component):
 
     def u(self, k, m, norm="m", c=None, coord="k"):
         """
-        The (optionally normalised) Fourier-transform of the density halo_profile
+        The (optionally normalised) Fourier-transform of the density halo_profile.
 
         Parameters
         ----------
@@ -399,7 +395,7 @@ class Profile(Component):
         if self.has_lam:
             c, r_s, x = self._get_r_variables(r, m, c, coord)
             if norm in [None, "m"]:
-                lam = self._l(x, c) * r_s ** 3 * self._rho_s(c, r_s, norm) ** 2
+                lam = self._l(x, c) * r_s**3 * self._rho_s(c, r_s, norm) ** 2
             else:
                 raise ValueError("norm must be None or 'm'")
         else:
@@ -408,7 +404,7 @@ class Profile(Component):
 
     def cdf(self, r, c=None, m=None, coord="r"):
         """
-        The cumulative distribution function, :math:`m(<x)/m_v`
+        The cumulative distribution function, :math:`m(<x)/m_v`.
 
         Parameters
         ----------
@@ -427,9 +423,7 @@ class Profile(Component):
         return self._h(x) / self._h(c)
 
     def cm_relation(self, m: [float, np.ndarray]) -> [float, np.ndarray]:
-        """
-        The halo_concentration-mass relation
-        """
+        """The halo_concentration-mass relation."""
         return self._cm_relation.cm(m, self.z)
 
     def _get_r_variables(self, r, m, c=None, coord="r"):
@@ -493,7 +487,7 @@ class Profile(Component):
         except IndexError:
             return x.dtype.type(x)
 
-    def populate(self, n, m, c=None, centre=None):
+    def populate(self, n, m, c=None, centre=None, rng=None):
         """
         Populate a halo with the current halo profile of mass ``m`` with ``n`` tracers.
 
@@ -513,6 +507,9 @@ class Profile(Component):
         pos : (N,3)-array
             Array of positions of the tracers, centred around (0,0,0).
         """
+        if rng is None:
+            rng = np.random.default_rng()
+
         if centre is None:
             centre = np.zeros(3)
 
@@ -521,19 +518,17 @@ class Profile(Component):
         cdf = self.cdf(x, c, m, coord="x")
         spl = spline(cdf, x, k=3)
 
-        rnd = np.random.uniform(size=n)
+        rnd = rng.uniform(size=n)
         x = spl(rnd)
 
         r = r_s * x
-        pos = np.random.normal(size=(3, n))
-        pos *= r / np.sqrt(np.sum(pos ** 2, axis=0))
+        pos = rng.normal(size=(3, n))
+        pos *= r / np.sqrt(np.sum(pos**2, axis=0))
         return pos.T + centre
 
 
 class ProfileInf(Profile, abstract=True):
-    """
-    An extended halo_profile (not truncated at x=c)
-    """
+    """An extended halo_profile (not truncated at x=c)."""
 
     def rho(self, r, m, norm=None, c=None, coord="r"):
         """
@@ -562,7 +557,7 @@ class ProfileInf(Profile, abstract=True):
 
     def u(self, k, m, norm="m", c=None, coord="k"):
         """
-        The fourier-transform of the density halo_profile
+        The fourier-transform of the density halo_profile.
 
         Parameters
         ----------
@@ -592,7 +587,7 @@ class ProfileInf(Profile, abstract=True):
 
     def _p(self, K: np.ndarray, c: np.ndarray):
         """
-        The dimensionless fourier-transform of the halo_profile
+        The dimensionless fourier-transform of the halo_profile.
 
         This should be replaced by an analytic function if possible.
         """
@@ -631,7 +626,7 @@ class ProfileInf(Profile, abstract=True):
         c, r_s, x = self._get_r_variables(r, m, c, coord)
         if self.has_lam:
             if norm in [None, "m"]:
-                lam = self._l(x) * r_s ** 3 * self._rho_s(c, r_s, norm) ** 2
+                lam = self._l(x) * r_s**3 * self._rho_s(c, r_s, norm) ** 2
             else:
                 raise ValueError("norm must be None or 'm'")
         else:
@@ -671,11 +666,7 @@ class NFW(Profile):
     def _p(self, K, c=None):
         bs, bc = sp.sici(K)
         asi, ac = sp.sici((1 + c) * K)
-        return (
-            np.sin(K) * (asi - bs)
-            - np.sin(c * K) / ((1 + c) * K)
-            + np.cos(K) * (ac - bc)
-        )
+        return np.sin(K) * (asi - bs) - np.sin(c * K) / ((1 + c) * K) + np.cos(K) * (ac - bc)
 
     def _l(self, x, c):
         x = np.atleast_1d(x)
@@ -698,13 +689,9 @@ class NFW(Profile):
             # c_lo = c[mask]
             a_lo = 1.0 / c[mask]
 
-            f2_lo = (
-                -4 * (1 + a_lo) + 2 * a_lo * x_lo * (1 + 2 * a_lo) + (a_lo * x_lo) ** 2
-            )
+            f2_lo = -4 * (1 + a_lo) + 2 * a_lo * x_lo * (1 + 2 * a_lo) + (a_lo * x_lo) ** 2
             f2_lo /= 2 * (x_lo * (1 + a_lo)) ** 2 * (2 + x_lo)
-            f3_lo = (
-                np.log((1 + a_lo - a_lo * x_lo) * (1 + x_lo) / (1 + a_lo)) / x_lo ** 3
-            )
+            f3_lo = np.log((1 + a_lo - a_lo * x_lo) * (1 + x_lo) / (1 + a_lo)) / x_lo**3
             f4 = np.log(1 + x_lo) / (x_lo * (2 + x_lo) ** 2)
             result[mask] = 4 * np.pi * (f2_lo + f3_lo + f4)
         # And high values
@@ -713,30 +700,23 @@ class NFW(Profile):
             x_hi = x[mask]
             a_hi = 1.0 / c[mask]
 
-            f2_hi = np.log((1 + a_hi) / (a_hi + a_hi * x_hi - 1)) / (
-                x_hi * (2 + x_hi) ** 2
-            )
-            f3_hi = (x_hi * a_hi ** 2 - 2 * a_hi) / (
-                2 * x_hi * (1 + a_hi) ** 2 * (2 + x_hi)
-            )
+            f2_hi = np.log((1 + a_hi) / (a_hi + a_hi * x_hi - 1)) / (x_hi * (2 + x_hi) ** 2)
+            f3_hi = (x_hi * a_hi**2 - 2 * a_hi) / (2 * x_hi * (1 + a_hi) ** 2 * (2 + x_hi))
             result[mask] = 4 * np.pi * (f2_hi + f3_hi)
 
         return result
 
 
 class NFWInf(NFW, ProfileInf):
-    r"""
-    The same as NFW profile, but not truncated at x=c.
-    """
+    r"""The same as NFW profile, but not truncated at x=c."""
 
     def _p(self, K, c=None):
         bs, bc = sp.sici(K)
         return 0.5 * ((np.pi - 2 * bs) * np.sin(K) - 2 * np.cos(K) * bc)
 
     def _l(self, x, c=None):
-
-        f1 = 8 * np.pi / (x ** 2 * (x + 2))
-        f2 = ((x ** 2 + 2 * x + 2) * np.log(1 + x)) / (x * (x + 2)) - 1
+        f1 = 8 * np.pi / (x**2 * (x + 2))
+        f2 = ((x**2 + 2 * x + 2) * np.log(1 + x)) / (x * (x + 2)) - 1
 
         return f1 * f2
 
@@ -764,24 +744,21 @@ class Hernquist(Profile):
         return 1.0 / (x * (1 + x) ** 3)
 
     def _h(self, c):
-        return c ** 2 / (2 * (1 + c) ** 2)
+        return c**2 / (2 * (1 + c) ** 2)
 
     def _p(self, K, c):
-
         sk, ck = sp.sici(K)
         skp, ckp = sp.sici(K + c * K)
 
         f1 = K * ck * np.sin(K) - K * np.cos(K) * sk - 1
         f2 = -((1 + c) * K * np.cos(c * K) + np.sin(c * K)) / (1 + c) ** 2
-        f3 = K ** 2 * (ckp * np.sin(K) - np.cos(K) * skp)
+        f3 = K**2 * (ckp * np.sin(K) - np.cos(K) * skp)
 
         return (-K / 2 * f1 + 0.5 * (f2 + f3)) / K
 
 
 class HernquistInf(Hernquist, ProfileInf):
-    r"""
-    The same as Hernquist profile, but not truncated at x=c.
-    """
+    r"""The same as Hernquist profile, but not truncated at x=c."""
 
     def _p(self, K):
         si, ci = sp.sici(K)
@@ -789,11 +766,10 @@ class HernquistInf(Hernquist, ProfileInf):
         return 0.25 * (2 - K * (2 * ci * np.sin(K) + np.cos(K) * (np.pi - 2 * si)))
 
     def _l(self, x):
+        h1 = (24 + 60 * x + 56 * x**2 + 24 * x**3 + 6 * x**4 + x**5) / (1 + x)
+        h2 = 12 * (1 + x) * (2 + 2 * x + x**2) * np.log(1 + x) / x
 
-        h1 = (24 + 60 * x + 56 * x ** 2 + 24 * x ** 3 + 6 * x ** 4 + x ** 5) / (1 + x)
-        h2 = 12 * (1 + x) * (2 + 2 * x + x ** 2) * np.log(1 + x) / x
-
-        return 4 * np.pi * 4 * (h1 - h2) / (x ** 4 * (2 + x) ** 4)
+        return 4 * np.pi * 4 * (h1 - h2) / (x**4 * (2 + x) ** 4)
 
 
 class Moore(Profile):
@@ -819,62 +795,55 @@ class Moore(Profile):
     """
 
     def _f(self, x):
-        return 1.0 / (x ** 1.5 * (1 + x ** 1.5))
+        return 1.0 / (x**1.5 * (1 + x**1.5))
 
     def _h(self, c):
-        return 2.0 * np.log(1 + c ** 1.5) / 3
+        return 2.0 * np.log(1 + c**1.5) / 3
 
     def cm_relation(self, m):
-        c = super(Moore, self).cm_relation(m)
+        c = super().cm_relation(m)
         c = (c / 1.7) ** 0.9
 
         return c
 
     def _rs_from_m(self, m, c=None):
-        r_s = super(Moore, self)._rs_from_m(m, c)
+        r_s = super()._rs_from_m(m, c)
         return r_s * c / (c / 1.7) ** 0.9
 
 
 class MooreInf(Moore, ProfileInf):
-    r"""
-    The same with Moore, but not truncated at x=c.
-    """
+    r"""The same with Moore, but not truncated at x=c."""
 
     def _p(self, K):
         def G(k):
-            return (
-                mpmath.meijerg(
-                    [[1.0 / 2.0, 3.0 / 4.0, 1.0], []],
+            return mpmath.meijerg(
+                [[1.0 / 2.0, 3.0 / 4.0, 1.0], []],
+                [
                     [
-                        [
-                            1.0 / 12.0,
-                            1.0 / 4.0,
-                            5.0 / 12.0,
-                            0.5,
-                            3.0 / 4.0,
-                            3.0 / 4.0,
-                            1.0,
-                        ],
-                        [-1.0 / 12.0, 7.0 / 12.0],
+                        1.0 / 12.0,
+                        1.0 / 4.0,
+                        5.0 / 12.0,
+                        0.5,
+                        3.0 / 4.0,
+                        3.0 / 4.0,
+                        1.0,
                     ],
-                    k ** 6 / 46656.0,
-                )
-                / (4 * np.sqrt(3) * np.pi ** (5 / 2) * k)
-            )
+                    [-1.0 / 12.0, 7.0 / 12.0],
+                ],
+                k**6 / 46656.0,
+            ) / (4 * np.sqrt(3) * np.pi ** (5 / 2) * k)
 
         if K.ndim == 2:
             K1 = np.reshape(K, -1)
             K1.sort()
         else:
             K1 = K
-        res = np.zeros(len(K[K < 10 ** 3.2]))
-        for i, k in enumerate(K1[K1 < 10 ** 3.2]):
+        res = np.zeros(len(K[K < 10**3.2]))
+        for i, k in enumerate(K1[K1 < 10**3.2]):
             res[i] = G(k)
 
-        fit = spline(np.log(K1[K1 < 10 ** 3.2]), np.log(res), k=1)
-        res = np.reshape(
-            np.exp(fit(np.log(np.reshape(K, -1)))), (len(K[:, 0]), len(K[0, :]))
-        )
+        fit = spline(np.log(K1[K1 < 10**3.2]), np.log(res), k=1)
+        res = np.reshape(np.exp(fit(np.log(np.reshape(K, -1)))), (len(K[:, 0]), len(K[0, :])))
 
         return res
 
@@ -891,10 +860,10 @@ class Constant(Profile):
         return 1.0
 
     def _h(self, c):
-        return c ** 3 / 3.0
+        return c**3 / 3.0
 
     def _p(self, K, c):
-        return (-c * K * np.cos(c * K) + np.sin(c * K)) / K ** 3
+        return (-c * K * np.cos(c * K) + np.sin(c * K)) / K**3
 
 
 class GeneralizedNFW(Profile):
@@ -919,6 +888,7 @@ class GeneralizedNFW(Profile):
     .. [1] Zhao, H., "Analytical models for galactic nuclei",
            https://ui.adsabs.harvard.edu/abs/1996MNRAS.278..488Z.
     """
+
     _defaults = {"alpha": 1}
 
     def _f(self, x):
@@ -937,40 +907,33 @@ class GeneralizedNFW(Profile):
 
 
 class GeneralizedNFWInf(GeneralizedNFW, ProfileInf):
-    r"""
-    The same with generalized NFW, but not truncated at x=c.
-    """
+    r"""The same with generalized NFW, but not truncated at x=c."""
 
     def _p(self, K):
         def G(k):
-            return (
-                mpmath.meijerg(
+            return mpmath.meijerg(
+                [
                     [
-                        [
-                            (self.params["alpha"] - 2) / 2.0,
-                            (self.params["alpha"] - 1) / 2.0,
-                        ],
-                        [],
+                        (self.params["alpha"] - 2) / 2.0,
+                        (self.params["alpha"] - 1) / 2.0,
                     ],
-                    [[0, 0, 0.5], [-0.5]],
-                    k ** 2 / 4,
-                )
-                / (np.sqrt(np.pi) * sp.gamma(3 - self.params["alpha"]))
-            )
+                    [],
+                ],
+                [[0, 0, 0.5], [-0.5]],
+                k**2 / 4,
+            ) / (np.sqrt(np.pi) * sp.gamma(3 - self.params["alpha"]))
 
         if len(K.shape) == 2:
             K1 = np.reshape(K, -1)
             K1.sort()
         else:
             K1 = K
-        res = np.zeros(len(K[K < 10 ** 3.2]))
-        for i, k in enumerate(K1[K1 < 10 ** 3.2]):
+        res = np.zeros(len(K[K < 10**3.2]))
+        for i, k in enumerate(K1[K1 < 10**3.2]):
             res[i] = G(k)
 
-        fit = spline(np.log(K1[K1 < 10 ** 3.2]), np.log(res), k=1)
-        res = np.reshape(
-            np.exp(fit(np.log(np.reshape(K, -1)))), (len(K[:, 0]), len(K[0, :]))
-        )
+        fit = spline(np.log(K1[K1 < 10**3.2]), np.log(res), k=1)
+        res = np.reshape(np.exp(fit(np.log(np.reshape(K, -1)))), (len(K[:, 0]), len(K[0, :])))
 
         return res
 
@@ -990,7 +953,8 @@ class Einasto(Profile):
     -----
     This is an empirical form which is a special case of the formula in [1]_:
 
-    .. math:: \rho(r) = \rho_s{\rm exp}\bigg[-\frac{2}{\alpha}\Big(\big(\frac{r}{r_s}\big)^\alpha-1\Big)\bigg]
+    .. math:: \rho(r) = \rho_s{\rm exp}
+              \bigg[-\frac{2}{\alpha}\Big(\big(\frac{r}{r_s}\big)^\alpha-1\Big)\bigg]
 
     Other Parameters
     ----------------
@@ -1012,27 +976,23 @@ class Einasto(Profile):
 
         if self.params["alpha"] != 0.18 and self.params["use_interp"]:
             warnings.warn(
-                "Einasto interpolation for p(K,c) is only defined for alpha=0.18, switching off."
+                "Einasto interpolation for p(K,c) is only defined for alpha=0.18, switching off.",
+                stacklevel=2,
             )
             self.params["use_interp"] = False
 
     def _f(self, x):
         a = self.params["alpha"]
-        return np.exp((-2.0 / a) * (x ** a - 1))
+        return np.exp((-2.0 / a) * (x**a - 1))
 
     def _h(self, c):
         a = self.params["alpha"]
-        return (
-            np.exp(2 / a)
-            * (2 / a) ** (-3.0 / a)
-            * ginc(3.0 / a, (2.0 / a) * c ** a)
-            / a
-        )
+        return np.exp(2 / a) * (2 / a) ** (-3.0 / a) * ginc(3.0 / a, (2.0 / a) * c**a) / a
 
     def _p(self, K, c):
         if self.params["use_interp"]:
-            data_path = os.path.join(os.path.dirname(__file__), "data")
-            data = np.load(os.path.join(data_path, "uKc_einasto.npz"))
+            data_path = Path(__file__).parent / "data"
+            data = np.load(data_path / "uKc_einasto.npz")
 
             pk = data["pk"]
             _k = data["K"]
@@ -1042,19 +1002,16 @@ class Einasto(Profile):
             if np.isscalar(K):
                 K = np.atleast_2d(K)
             if K.ndim < 2:
-                if len(K) != len(c):
-                    K = np.atleast_2d(K).T  # should be len(rs) x len(k)
-                else:
-                    K = np.atleast_2d(K)
+                # should be len(rs) x len(k)
+                K = np.atleast_2d(K).T if len(K) != len(c) else np.atleast_2d(K)
+
             pk[pk <= 0] = 1e-8
 
             spl = RectBivariateSpline(np.log(_k), np.log(_c), np.log(pk))
             cc = np.repeat(c, K.shape[0])
-            return np.exp(
-                self._reduce(spl.ev(np.log(K.flatten()), np.log(cc)).reshape(K.shape))
-            )
+            return np.exp(self._reduce(spl.ev(np.log(K.flatten()), np.log(cc)).reshape(K.shape)))
         else:  # Numerical version.
-            return super(Einasto, self)._p(K, c)
+            return super()._p(K, c)
 
 
 class CoredNFW(Profile):
@@ -1146,9 +1103,5 @@ class PowerLawWithExpCut(ProfileInf):
             return (
                 -1
                 / K
-                * (
-                    (a ** 2 + K ** 2) ** (b / 2 - 1)
-                    * gamma(2 - b)
-                    * np.sin((b - 2) * np.arctan(K / a))
-                )
+                * ((a**2 + K**2) ** (b / 2 - 1) * gamma(2 - b) * np.sin((b - 2) * np.arctan(K / a)))
             )

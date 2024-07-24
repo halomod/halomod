@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
-from matplotlib.style import use
-
 from halomod import TracerHaloModel
+from matplotlib.style import use
 
 use("seaborn-paper")
 

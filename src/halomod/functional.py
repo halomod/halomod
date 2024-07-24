@@ -1,7 +1,6 @@
-r"""
-Module defining functional approaches to generating halo model quantities.
-"""
-from typing import List, Optional
+r"""Module defining functional approaches to generating halo model quantities."""
+
+from __future__ import annotations
 
 from hmf import Framework, get_hmf
 
@@ -9,12 +8,8 @@ from .halo_model import HaloModel
 
 
 def get_halomodel(
-    required_attrs,
-    get_label=True,
-    kls=HaloModel,
-    fast_kwargs: Optional[dict] = None,
-    **kwargs
-) -> List[Framework]:
+    required_attrs, get_label=True, kls=HaloModel, fast_kwargs: dict | None = None, **kwargs
+) -> list[Framework]:
     r"""
     Yield framework instances for all combinations of parameters supplied.
 

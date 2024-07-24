@@ -1,11 +1,7 @@
-"""
-Various direct tests of the halo exclusion classes.
-"""
-import pytest
+"""Various direct tests of the halo exclusion classes."""
 
 import numpy as np
-from scipy.integrate import simps
-
+import pytest
 from halomod.halo_exclusion import (
     DblEllipsoid,
     DblEllipsoid_,
@@ -22,6 +18,7 @@ from halomod.halo_exclusion import (
     makeW,
     outer,
 )
+from scipy.integrate import simpson
 
 
 def test_makeW():
@@ -54,9 +51,9 @@ def test_no_exclusion():
     assert np.allclose(excl.integrate(), 0.9999e20, rtol=1e-4)
 
 
-@pytest.mark.parametrize("integ", (dblsimps_, dbltrapz_))
+@pytest.mark.parametrize("integ", [dblsimps_, dbltrapz_])
 def test_dbl_simps_(integ):
-    """Test a simple integration"""
+    """Test a simple integration."""
     arr1 = np.outer(np.arange(7).astype("float64"), np.arange(7).astype("float64"))
     arr2 = np.outer(np.arange(8).astype("float64"), np.arange(8).astype("float64"))
     num1 = integ(arr1, dx=1, dy=1)
@@ -96,7 +93,7 @@ def test_spherical_exclusion():
     assert np.allclose(num.flatten(), analytic, rtol=1e-3)
 
 
-@pytest.mark.parametrize("dbl_sphere", (DblSphere, DblSphere_))
+@pytest.mark.parametrize("dbl_sphere", [DblSphere, DblSphere_])
 def test_dbl_sphere(dbl_sphere):
     """Test simple uniform integral for double-spherical exclusion."""
     m = np.logspace(10, 15, 1001)
@@ -132,12 +129,9 @@ def test_dbl_sphere(dbl_sphere):
     intg = excl.integrate().flatten()
 
     den = np.sqrt(
-        simps(
-            simps(
-                np.outer(density * m, np.ones_like(density)), dx=excl.dlnx, even="first"
-            ),
+        simpson(
+            simpson(np.outer(density * m, np.ones_like(density)), dx=excl.dlnx),
             dx=excl.dlnx,
-            even="first",
         )
     )
 
@@ -145,7 +139,7 @@ def test_dbl_sphere(dbl_sphere):
     assert np.allclose(den, excl.density_mod[-1])
 
 
-@pytest.mark.parametrize("dbl_ellipsoid", (DblEllipsoid, DblEllipsoid_))
+@pytest.mark.parametrize("dbl_ellipsoid", [DblEllipsoid, DblEllipsoid_])
 def test_dbl_ellipsoid_large_r(dbl_ellipsoid):
     m = np.logspace(10, 15, 200)
     integrand = np.outer(np.ones(3), (m / 1e10) ** -2)  # shape (k, m)
@@ -179,9 +173,7 @@ def test_dbl_ellipsoid_large_r(dbl_ellipsoid):
         )
     )
 
-    assert np.allclose(
-        no_excl.integrate().flatten(), excl.integrate().flatten(), rtol=1e-3
-    )
+    assert np.allclose(no_excl.integrate().flatten(), excl.integrate().flatten(), rtol=1e-3)
     assert np.allclose(den, excl.density_mod, rtol=1e-3)
 
 
@@ -210,7 +202,7 @@ def test_dbl_ellipsoid_small_r():
     excl.integrate().flatten()
 
 
-@pytest.mark.parametrize("ng_matched", (NgMatched, NgMatched_))
+@pytest.mark.parametrize("ng_matched", [NgMatched, NgMatched_])
 def test_ng_matched_large_r(ng_matched):
     m = np.logspace(10, 15, 200)
     integrand = np.outer(np.ones(3), (m / 1e10) ** -2)  # shape (k, m)
