@@ -5,6 +5,10 @@ on: push
 jobs:
   labeler:
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      content: read
+
     steps:
       - name: Check out the repository
         uses: actions/checkout@v4
