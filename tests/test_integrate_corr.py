@@ -1,15 +1,13 @@
-"""
-Simple tests for the integration scheme for ProjectedCF.
-"""
+"""Simple tests for the integration scheme for ProjectedCF."""
+
 import numpy as np
 from astropy.cosmology import Planck15, z_at_value
 from astropy.units import Mpc
+from halomod import ProjectedCF, projected_corr_gal
+from halomod.integrate_corr import AngularCF, angular_corr_gal
 from mpmath import hyp2f1
 from scipy.integrate import dblquad, quad
 from scipy.special import gamma
-
-from halomod import ProjectedCF, projected_corr_gal
-from halomod.integrate_corr import AngularCF, angular_corr_gal
 
 hyp2f1A = np.frompyfunc(lambda a, b, c, z: float(hyp2f1(a, b, c, z)), 4, 1)
 
@@ -24,11 +22,8 @@ def wprp_power_law_lim(rp, r0, g, rmax):
         * (rp * rmax / r0) ** -g
         * gamma((g - 1) / 2)
         * (
-            gamma(0.5) * rp * rmax ** g
-            - rp ** g
-            * rmax
-            * gamma(g / 2)
-            * hyp2f1A(0.5, (g - 1) / 2, (g + 1) / 2, rp ** 2 / rmax ** 2)
+            gamma(0.5) * rp * rmax**g
+            - rp**g * rmax * gamma(g / 2) * hyp2f1A(0.5, (g - 1) / 2, (g + 1) / 2, rp**2 / rmax**2)
         )
     ).astype("float")
 
@@ -63,7 +58,7 @@ class TestAngularCF:
         return [
             2
             * dblquad(
-                lambda u, x: ((u ** 2 + x ** 2 * t ** 2) / r0 ** 2) ** (-gamma / 2),
+                lambda u, x: ((u**2 + x**2 * t**2) / r0**2) ** (-gamma / 2),  # noqa: B023
                 a=1000,
                 b=2000,
                 gfun=0,
@@ -82,7 +77,7 @@ class TestAngularCF:
                 [
                     2
                     * quad(
-                        lambda u: ((u ** 2 + xx ** 2 * t ** 2) / r0 ** 2)
+                        lambda u: ((u**2 + xx**2 * t**2) / r0**2)  # noqa: B023
                         ** (-gamma / 2),
                         a=0,
                         b=np.inf,
@@ -121,7 +116,7 @@ class TestAngularCF:
         assert np.allclose(num, anl, rtol=5e-2)
 
     def test_against_blake(self):
-        """Simple order-of-magnitude test of ACF against Blake+08 (Fig 4)"""
+        """Simple order-of-magnitude test of ACF against Blake+08 (Fig 4)."""
         acf = AngularCF(
             z=0.475,
             zmin=0.45,

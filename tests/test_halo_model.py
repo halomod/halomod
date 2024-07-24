@@ -1,10 +1,9 @@
-"""
-Integration-style tests of the full HaloModel class.
-"""
-import pytest
+"""Integration-style tests of the full HaloModel class."""
+
+import warnings
 
 import numpy as np
-
+import pytest
 from halomod import DMHaloModel, TracerHaloModel
 from halomod.bias import Bias
 from halomod.concentration import CMRelation
@@ -14,7 +13,7 @@ from hmf.density_field.filters import Filter
 from hmf.halos.mass_definitions import MassDefinition
 
 
-@pytest.mark.parametrize("model", (TracerHaloModel, DMHaloModel))
+@pytest.mark.parametrize("model", [TracerHaloModel, DMHaloModel])
 def test_default_actually_inits(model):
     model()
 
@@ -27,7 +26,13 @@ def dmhm():
 @pytest.fixture(scope="module")
 def thm():
     return TracerHaloModel(
-        rmin=0.01, rmax=50, rnum=20, transfer_model="EH", hc_spectrum="nonlinear"
+        rmin=0.01,
+        rmax=50,
+        rnum=20,
+        transfer_model="EH",
+        hc_spectrum="nonlinear",
+        bias_model="Mo96",
+        hmf_model="PS",
     )
 
 
@@ -48,9 +53,12 @@ def test_tr_model_instances(thm):
     assert isinstance(thm.hod, HOD)
 
 
+@pytest.mark.filterwarnings(
+    "ignore:Using halofit for tracer stats is only valid up to quasi-linear scales"
+)
 @pytest.mark.parametrize(
     "quantity",
-    (
+    [
         "corr_linear_mm",
         "corr_halofit_mm",
         "corr_1h_auto_matter",
@@ -65,7 +73,7 @@ def test_tr_model_instances(thm):
         "corr_cross_tracer_matter",
         "corr_2h_auto_tracer",
         # 'halo_profile_rho', 'halo_profile_lam', 'tracer_profile_rho', 'tracer_profile_lam')
-    ),
+    ],
 )
 def test_monotonic_dec(thm: TracerHaloModel, quantity):
     # Ensure it's going down (or potentially 1e-5 level numerical noise going up)
@@ -73,15 +81,13 @@ def test_monotonic_dec(thm: TracerHaloModel, quantity):
 
 
 def test_halo_power():
-    """Tests the halo centre power spectrum"""
+    """Tests the halo centre power spectrum."""
     hm = TracerHaloModel(bias_model="UnityBias")
-    assert np.allclose(
-        hm.power_hh(hm.k_hm[:10]), hm.power_2h_auto_matter[:10], rtol=1e-2
-    )
+    assert np.allclose(hm.power_hh(hm.k_hm[:10]), hm.power_2h_auto_matter[:10], rtol=1e-2)
 
 
 def test_setting_default_tracers_conc():
-    """Tests setting default tracer parameters based on halo parameters"""
+    """Tests setting default tracer parameters based on halo parameters."""
     hm = TracerHaloModel(
         halo_profile_model="NFW",
         tracer_profile_model="CoredNFW",
@@ -98,7 +104,7 @@ def test_setting_default_tracers_conc():
 
 
 def test_setting_default_tracers_conc_set_params():
-    """Tests setting default tracer parameters based on halo parameters"""
+    """Tests setting default tracer parameters based on halo parameters."""
     hm = TracerHaloModel(
         halo_profile_model="NFW",
         tracer_profile_model="NFW",
@@ -109,6 +115,7 @@ def test_setting_default_tracers_conc_set_params():
             "C": 657,
         },
         transfer_model="EH",
+        mdef_model="SOCritical",
     )
 
     assert hm.tracer_concentration.params["f"] == 0.03
@@ -116,7 +123,7 @@ def test_setting_default_tracers_conc_set_params():
 
 
 def test_setting_default_tracers_prof():
-    """Tests setting default tracer parameters based on halo parameters"""
+    """Tests setting default tracer parameters based on halo parameters."""
     hm = TracerHaloModel(
         halo_profile_model="GeneralizedNFW",
         tracer_profile_model="NFW",
@@ -136,32 +143,11 @@ def test_setting_default_tracers_same_model():
         halo_concentration_model="Ludlow16",
         tracer_concentration_model="Ludlow16",
         transfer_model="EH",
+        mdef_model="SOCritical",
     )
 
     assert hm.tracer_profile.params == hm.halo_profile.params
     assert hm.halo_concentration.params == hm.tracer_concentration.params
-
-
-@pytest.mark.parametrize(
-    "dep,new",
-    [
-        ("corr_gg_1h", "corr_1h_auto_tracer"),
-        ("corr_gg_2h", "corr_2h_auto_tracer"),
-        ("corr_gg", "corr_auto_tracer"),
-        ("power_gg_1h", "power_1h_auto_tracer"),
-        ("power_gg_2h", "power_2h_auto_tracer"),
-        ("power_gg", "power_auto_tracer"),
-        ("corr_mm_1h", "corr_1h_auto_matter"),
-        ("corr_mm_2h", "corr_2h_auto_matter"),
-        ("corr_mm", "corr_auto_matter"),
-        ("power_mm_1h", "power_1h_auto_matter"),
-        ("power_mm_2h", "power_2h_auto_matter"),
-        ("power_mm", "power_auto_matter"),
-    ],
-)
-def test_deprecated(thm: TracerHaloModel, dep, new):
-    with pytest.warns(UserWarning):
-        assert np.all(getattr(thm, dep) == getattr(thm, new))
 
 
 @pytest.mark.parametrize(
@@ -184,7 +170,6 @@ def test_raiseerror(thm: TracerHaloModel, attr):
 
 
 def test_large_scale_bias(dmhm):
-
     # First do the easiest case of a peak-background split
     dm2 = dmhm.clone(
         hc_spectrum="linear",
@@ -195,13 +180,12 @@ def test_large_scale_bias(dmhm):
     )
 
     print(dm2.halo_profile.u(dm2.k_hm[0], dm2.m, c=dm2.cmz_relation))
-    assert np.isclose(
-        dm2.power_2h_auto_matter[0], dm2.linear_power_fnc(dm2.k_hm[0]), rtol=1e-4
-    )
+    assert np.isclose(dm2.power_2h_auto_matter[0], dm2.linear_power_fnc(dm2.k_hm[0]), rtol=1e-4)
 
     # Now do a non-pb split
-    dm2.bias_model = "Tinker10"
-    print(dm2.halo_profile.u(dm2.k_hm[0], dm2.m, c=dm2.cmz_relation))
-    assert np.isclose(
-        dm2.power_2h_auto_matter[0], dm2.linear_power_fnc(dm2.k_hm[0]), rtol=1e-4
-    )
+    dm2.update(bias_model="Tinker10")
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", "You are using an un-normalized mass function and bias function"
+        )
+        assert np.isclose(dm2.power_2h_auto_matter[0], dm2.linear_power_fnc(dm2.k_hm[0]), rtol=1e-4)

@@ -10,22 +10,22 @@ used (https://github.com/steven-murray/hmcode) which has a branch in which more
 information is written out.
 """
 
-import pytest
-
-import numpy as np
-from matplotlib import pyplot
+import warnings
 from pathlib import Path
 
+import numpy as np
+import pytest
 from halomod import DMHaloModel
 from hmf import MassFunction
+from matplotlib import pyplot
 
 MassFunction.ERROR_ON_BAD_MDEF = False
 
 
 def read_power(fname: Path):
-    """Read the power.dat file from HMcode"""
+    """Read the power.dat file from HMcode."""
     # Each column is the power at a different redshift.
-    with open(fname, "r") as fl:
+    with fname.open() as fl:
         line = fl.readline().split("#####")[-1].split("        ")[1:]
         redshifts = [float(x) for x in line]
 
@@ -40,39 +40,47 @@ def hmcode_data(datadir):
     return {"k": k, "z": z, "p": data}
 
 
-hm = DMHaloModel(
-    exclusion_model=None,
-    sd_bias_model=None,
-    transfer_model="EH_BAO",
-    cosmo_params={
-        "Tcmb0": 2.725,  # Line 596
-        "Om0": 0.3,  # Line 587
-        "Ob0": 0.05,  # Line 589
-        "H0": 70.0,  # Line 591
-    },
-    hc_spectrum="linear",
-    halo_concentration_model="Bullock01",
-    halo_concentration_params={"K": 4, "F": 0.01},  # Line 376
-    hmf_model="SMT",
-    sigma_8=0.8,  # Line 593
-    n=0.96,  # Line 594
-    Mmin=2,  # Line 795
-    Mmax=18,  # Line 796,
-    lnk_min=np.log(1e-3),  # Line 50
-    lnk_max=np.log(1e2),  # Line 51
-    dlnk=0.01,
-    dlog10m=16 / 256,
-    mdef_model="SOMean",
-    disable_mass_conversion=True,
-    force_1halo_turnover=False,
-)
+@pytest.fixture(scope="module")
+def hm():
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", category=UserWarning, message="Your input mass definition"
+        )
+        return DMHaloModel(
+            exclusion_model=None,
+            sd_bias_model=None,
+            transfer_model="EH_BAO",
+            cosmo_params={
+                "Tcmb0": 2.725,  # Line 596
+                "Om0": 0.3,  # Line 587
+                "Ob0": 0.05,  # Line 589
+                "H0": 70.0,  # Line 591
+            },
+            hc_spectrum="linear",
+            halo_concentration_model="Bullock01",
+            halo_concentration_params={"K": 4, "F": 0.01},  # Line 376
+            hmf_model="SMT",
+            sigma_8=0.8,  # Line 593
+            n=0.96,  # Line 594
+            Mmin=2,  # Line 795
+            Mmax=18,  # Line 796,
+            lnk_min=np.log(1e-3),  # Line 50
+            lnk_max=np.log(1e2),  # Line 51
+            dlnk=0.01,
+            dlog10m=16 / 256,
+            mdef_model="SOMean",
+            disable_mass_conversion=True,
+            force_1halo_turnover=False,
+        )
 
 
+@pytest.mark.filterwarnings("ignore:Requested mass definition")
+@pytest.mark.filterwarnings("ignore:You are using an un-normalized mass function")
 @pytest.mark.parametrize("iz", range(16))
-def test_hmcode(hmcode_data, iz, plt):
+def test_hmcode(hm, hmcode_data, iz, plt):
     z = hmcode_data["z"][iz]
 
-    fac = hmcode_data["k"] ** 3 / (2 * np.pi ** 2)
+    fac = hmcode_data["k"] ** 3 / (2 * np.pi**2)
     hm.update(z=z)
     halomod = hm.power_auto_matter_fnc(hmcode_data["k"]) * fac
 
@@ -102,8 +110,7 @@ def test_hmcode(hmcode_data, iz, plt):
 
         ax[1].plot(
             hmcode_data["k"],
-            hmcode_data["p"][:, iz] / (fac * hm.power_auto_matter_fnc(hmcode_data["k"]))
-            - 1,
+            hmcode_data["p"][:, iz] / (fac * hm.power_auto_matter_fnc(hmcode_data["k"])) - 1,
         )
         ax[1].axhline(0.03, color="k", ls="--")
         ax[1].axhline(-0.03, color="k", ls="--")

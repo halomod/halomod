@@ -2,16 +2,19 @@
 Modules defining a series of utility functions to perform hankel transformation
 and Fourier transformation from correlation function to power spectrum.
 """
+
+from __future__ import annotations
+
 import logging
-import numpy as np
-import scipy.integrate as intg
 import time
 import warnings
 from functools import lru_cache
+
+import numpy as np
+import scipy.integrate as intg
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 from scipy.interpolate import UnivariateSpline as uspline
 from scipy.stats import poisson
-from typing import List, Optional, Union
 
 from .hod import HOD
 from .profiles import Profile
@@ -28,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 @lru_cache(maxsize=25)
 def _get_sumspace(h: float, nmin: int, nmax: int):
-    r"""Function used in hankel transformation to get the parts of the integral sum"""
+    r"""Function used in hankel transformation to get the parts of the integral sum."""
     roots = np.arange(nmin, nmax)
     t = h * roots
     s = np.pi * np.sinh(t)
@@ -42,7 +45,7 @@ def _get_sumspace(h: float, nmin: int, nmax: int):
 
 
 def hankel_transform(
-    f: [callable, List[callable]],
+    f: [callable, list[callable]],
     trns_var: np.ndarray,
     trns_var_name: str,
     h=0.005,
@@ -50,7 +53,7 @@ def hankel_transform(
     atol=1e-8,
     rtol=1e-8,
 ):
-    r"""Function to do the hankel tranformation"""
+    r"""Function to do the hankel tranformation."""
     if trns_var_name not in "kr":
         raise ValueError("trns_var_name must be either 'k' or 'r'.")
 
@@ -80,9 +83,9 @@ def hankel_transform(
         out[ir] = res
 
     if trns_var_name == "r":
-        return out / (2 * np.pi ** 2 * trns_var ** 3)
+        return out / (2 * np.pi**2 * trns_var**3)
     else:
-        return out * 4 * np.pi / trns_var ** 3
+        return out * 4 * np.pi / trns_var**3
 
 
 def power_to_corr_ogata(
@@ -158,9 +161,7 @@ def power_to_corr_ogata(
         lower_mask = logk < lnk.min()
         if power_pos[0]:
             result[lower_mask] = np.exp(
-                (np.log(p[1]) - np.log(p[0]))
-                * (logk[lower_mask] - lnk[0])
-                / (lnk[1] - lnk[0])
+                (np.log(p[1]) - np.log(p[0])) * (logk[lower_mask] - lnk[0]) / (lnk[1] - lnk[0])
                 + np.log(p[0])
             )
         else:
@@ -173,9 +174,7 @@ def power_to_corr_ogata(
             if p[-1] <= 0 or p[-2] <= 0:
                 raise ValueError("Something went horribly wrong")
             result[upper_mask] = np.exp(
-                (np.log(p[-1]) - np.log(p[-2]))
-                * (logk[upper_mask] - lnk[-1])
-                / (lnk[-1] - lnk[-2])
+                (np.log(p[-1]) - np.log(p[-2])) * (logk[upper_mask] - lnk[-1]) / (lnk[-1] - lnk[-2])
                 + np.log(p[-1])
             )
         else:
@@ -225,10 +224,7 @@ def power_to_corr_ogata(
                     )
                     warn_upper = False
 
-                if (
-                    not np.isclose(cumsum[-1], cumsum[-2], atol=atol, rtol=rtol)
-                    and warn_conv
-                ):
+                if not np.isclose(cumsum[-1], cumsum[-2], atol=atol, rtol=rtol) and warn_conv:
                     warnings.warn(
                         f"Hankel transform of {func} did not converge for {v[1]}={rr:.2e}. "
                         f"It is likely that higher {v[1]} will also not converge. "
@@ -240,12 +236,10 @@ def power_to_corr_ogata(
 
                 out[ir] = cumsum[-1]
 
-    return out / (2 * np.pi ** 2 * r ** 3)
+    return out / (2 * np.pi**2 * r**3)
 
 
-def corr_to_power_ogata(
-    corr, r, k, h=0.005, power_pos=(True, False), atol=1e-15, rtol=1e-3
-):
+def corr_to_power_ogata(corr, r, k, h=0.005, power_pos=(True, False), atol=1e-15, rtol=1e-3):
     """
     Convert an isotropic 3D correlation function to a power spectrum.
 
@@ -272,7 +266,7 @@ def corr_to_power_ogata(
     """
     return (
         8
-        * np.pi ** 3
+        * np.pi**3
         * power_to_corr_ogata(
             corr, r, k, h, power_pos=power_pos, atol=atol, rtol=rtol, _reverse=True
         )
@@ -322,15 +316,13 @@ def power_to_corr(power_func: callable, r: np.ndarray) -> np.ndarray:
         maxk = max(501.5 * np.pi / rr, min_k)
 
         # Now we calculate the requisite number of steps to have a good dk at hi-k.
-        nk = np.ceil(
-            np.log(maxk / mink) / np.log(maxk / (maxk - np.pi / (minsteps * rr)))
-        )
+        nk = np.ceil(np.log(maxk / mink) / np.log(maxk / (maxk - np.pi / (minsteps * rr))))
 
         lnk, dlnk = np.linspace(np.log(mink), np.log(maxk), int(nk), retstep=True)
         P = power_func(lnk)
         integ = P * np.exp(lnk) ** 2 * np.sin(np.exp(lnk) * rr) / rr
 
-        corr[i] = (0.5 / np.pi ** 2) * intg.simps(integ, dx=dlnk)
+        corr[i] = (0.5 / np.pi**2) * intg.simpson(integ, dx=dlnk)
 
     return corr
 
@@ -351,16 +343,17 @@ def exclusion_window(k: np.ndarray, r: float) -> np.ndarray:
         The top-hat window function in fourier space.
     """
     x = k * r
-    return 3 * (np.sin(x) - x * np.cos(x)) / x ** 3
+    return 3 * (np.sin(x) - x * np.cos(x)) / x**3
 
 
 def populate(
     centres: np.ndarray,
     masses: np.ndarray,
     halomodel=None,
-    profile: Optional[Profile] = None,
-    hodmod: Optional[HOD] = None,
-    edges: Optional[np.ndarray] = None,
+    profile: Profile | None = None,
+    hodmod: HOD | None = None,
+    edges: np.ndarray | None = None,
+    rng=None,
 ):
     """
     Populate a series of DM halos with a tracer, given a HOD model.
@@ -399,8 +392,11 @@ def populate(
 
     masses = np.array(masses)
 
+    if rng is None:
+        rng = np.random.default_rng()
+
     # Define which halos have central galaxies.
-    cgal = np.random.binomial(1, hodmod.central_occupation(masses))
+    cgal = rng.binomial(1, hodmod.central_occupation(masses))
     cmask = cgal > 0
     central_halos = np.arange(len(masses))[cmask]
 
@@ -412,7 +408,7 @@ def populate(
     # Using ns gives the correct answer for both central condition and not.
     # Note that other parts of the algorithm also need to be changed if central condition
     # is not true.
-    sgal = poisson.rvs(hodmod.ns(masses))
+    sgal = poisson.rvs(hodmod.ns(masses), random_state=rng)
 
     # Get an array ready, hopefully speeds things up a bit
     ncen = np.sum(cgal)
@@ -447,9 +443,9 @@ def populate(
     indx = np.concatenate(([0], np.cumsum(sgal))) + ncen
 
     def fill_array(i):
-        r"""Function to populate the field with ith tracer"""
+        r"""Function to populate the field with ith tracer."""
         m, n, ctr = masses[i], sgal[i], centres[i]
-        pos[indx[i] : indx[i + 1], :] = profile.populate(n, m, centre=ctr)
+        pos[indx[i] : indx[i + 1], :] = profile.populate(n, m, centre=ctr, rng=rng)
 
     if HAVE_POOL:
         mp.ProcessingPool(mp.cpu_count()).map(fill_array, list(range(len(masses))))
@@ -491,8 +487,8 @@ class ExtendedSpline:
         self,
         x: np.ndarray,
         y: np.ndarray,
-        lower_func: Union[callable, None, str] = None,
-        upper_func: Union[callable, None, str] = None,
+        lower_func: callable | None | str = None,
+        upper_func: callable | None | str = None,
         match_lower: bool = True,
         match_upper: bool = True,
         domain=(-np.inf, np.inf),
@@ -524,7 +520,7 @@ class ExtendedSpline:
         )
 
     def _get_extension_func(self, fnc, x, y, match, match_x):
-        """Function to generate the extended spline"""
+        """Function to generate the extended spline."""
         if callable(fnc):
             if not match:
                 return fnc
@@ -537,7 +533,9 @@ class ExtendedSpline:
             assert np.all(x > 0), "to use a power-law, x must be >= 0"
             if not np.all(y > 0) or np.all(y < 0):
                 warnings.warn(
-                    "to use a power-law, y must be all positive or negative. Switching to zero extrapolation."
+                    "to use a power-law, y must be all positive or negative. "
+                    "Switching to zero extrapolation.",
+                    stacklevel=2,
                 )
                 return _zero
             neg = y[0] < 0
@@ -553,7 +551,7 @@ class ExtendedSpline:
             raise ValueError("Invalid choice for lower or upper func")
 
     def __call__(self, x):
-        """Function to call the output"""
+        """Function to call the output."""
         if np.isscalar(x):
             if x < self.xmin:
                 return self.lfunc(x)
@@ -622,11 +620,13 @@ def spline_integral(
     """
     if xmin and xmin < x.min():
         warnings.warn(
-            f"Extrapolation occurs in integral! xmin={xmin} while x.min() ={x.min()}"
+            f"Extrapolation occurs in integral! xmin={xmin} while x.min() ={x.min()}",
+            stacklevel=2,
         )
     if xmax and xmax > x.max():
         warnings.warn(
-            f"Extrapolation occurs in integral! xmax={xmax} while x.max() ={x.max()}"
+            f"Extrapolation occurs in integral! xmax={xmax} while x.max() ={x.max()}",
+            stacklevel=2,
         )
 
     if log:
@@ -646,7 +646,8 @@ def norm_warn(self):
         warnings.warn(
             f"You are using an un-normalized mass function "
             f"({self.hmf_model.__name__}). Matter correlations are not "
-            "well-defined."
+            "well-defined.",
+            stacklevel=2,
         )
 
     if self.hmf_model not in self.bias.pair_hmf:
@@ -654,5 +655,6 @@ def norm_warn(self):
             f"You are using an un-normalized mass function and bias function pair."
             f"Bias {self.bias_model.__name__} has the following paired HMF model: "
             f"{self.bias_model.pair_hmf}. Matter correlations are not "
-            "well-defined."
+            "well-defined.",
+            stacklevel=2,
         )

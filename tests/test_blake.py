@@ -2,37 +2,42 @@
 Test a specific model against data provided by Chris Blake from his own halo modelling
 code, used in Blake+08 (modelling of SDSS sources).
 """
-import pytest
+
+import warnings
 
 import numpy as np
-from scipy.interpolate import InterpolatedUnivariateSpline as spline
-
+import pytest
 from halomod import TracerHaloModel
 from halomod.hod import Zehavi05
+from scipy.interpolate import InterpolatedUnivariateSpline as spline
 
 
 @pytest.fixture(scope="module")
 def hod():
-    return TracerHaloModel(
-        dlog10m=0.02,
-        lnk_min=np.log(1e-8),
-        lnk_max=np.log(20000),
-        dlnk=0.01,
-        cosmo_params={"Ob0": 0.04545, "Om0": 0.2732, "H0": 70.0},
-        n=0.966,
-        sigma_8=0.8,
-        z=0.0369,
-        hod_model=Zehavi05,
-        hod_params={"alpha": 1.214, "M_1": 13.396, "M_min": 12.0478},
-        hc_spectrum="nonlinear",
-        hmf_model="Jenkins",
-        bias_model="Tinker05",
-        sd_bias_model="TinkerSD05",
-        exclusion_model="Sphere",
-        halo_concentration_model="Duffy08",
-        takahashi=0,
-        transfer_model="EH",
-    )
+    with warnings.catch_warnings():
+        # We don't care here that the mdef is weird, because it's a regression test.
+        warnings.filterwarnings("ignore", "Requested mass definition")
+
+        return TracerHaloModel(
+            dlog10m=0.02,
+            lnk_min=np.log(1e-8),
+            lnk_max=np.log(20000),
+            dlnk=0.01,
+            cosmo_params={"Ob0": 0.04545, "Om0": 0.2732, "H0": 70.0},
+            n=0.966,
+            sigma_8=0.8,
+            z=0.0369,
+            hod_model=Zehavi05,
+            hod_params={"alpha": 1.214, "M_1": 13.396, "M_min": 12.0478},
+            hc_spectrum="nonlinear",
+            hmf_model="Jenkins",
+            bias_model="Tinker05",
+            sd_bias_model="TinkerSD05",
+            exclusion_model="Sphere",
+            halo_concentration_model="Duffy08",
+            takahashi=0,
+            transfer_model="EH",
+        )
 
 
 # ===============================================================================

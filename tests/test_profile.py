@@ -1,10 +1,7 @@
-"""
-Test various halo profile properties.
-"""
-import pytest
+"""Test various halo profile properties."""
 
 import numpy as np
-
+import pytest
 from halomod import TracerHaloModel
 from halomod import profiles as pf
 from halomod.concentration import Bullock01Power
@@ -40,7 +37,7 @@ def thmnum():
 
 @pytest.mark.parametrize(
     "profile",
-    (
+    [
         pf.NFW,
         pf.NFWInf,
         pf.CoredNFW,
@@ -51,7 +48,7 @@ def thmnum():
         pf.Moore,
         pf.MooreInf,
         pf.PowerLawWithExpCut,
-    ),
+    ],
 )
 def test_decreasing_profile(profile):
     prof = profile(bullock)
@@ -60,7 +57,7 @@ def test_decreasing_profile(profile):
 
 @pytest.mark.parametrize(
     "profile",
-    (
+    [
         pf.NFW,
         pf.NFWInf,
         pf.CoredNFW,
@@ -71,7 +68,7 @@ def test_decreasing_profile(profile):
         pf.Moore,
         pf.MooreInf,
         pf.PowerLawWithExpCut,
-    ),
+    ],
 )
 def test_increasing_cdf(profile):
     prof = profile(bullock)
@@ -80,7 +77,7 @@ def test_increasing_cdf(profile):
 
 @pytest.mark.parametrize(
     "profile",
-    (
+    [
         pf.NFW,
         pf.NFWInf,
         pf.CoredNFW,
@@ -91,7 +88,7 @@ def test_increasing_cdf(profile):
         pf.Moore,
         pf.MooreInf,
         # pf.PowerLawWithExpCut,
-    ),
+    ],
 )
 def test_decreasing_convolution(profile):
     prof = profile(bullock)
@@ -103,7 +100,7 @@ def test_decreasing_convolution(profile):
 
 @pytest.mark.parametrize(
     "profile",
-    (
+    [
         pf.NFW,
         #        pf.NFWInf,  infinite profile can't be normalised by mass.
         pf.CoredNFW,
@@ -113,10 +110,10 @@ def test_decreasing_convolution(profile):
         pf.Hernquist,
         pf.Moore,
         #        pf.MooreInf,
-    ),
+    ],
 )
 def test_ukm_low_k(profile):
-    """Test that all fourier transforms, when normalised by mass, are 1 at low k"""
+    """Test that all fourier transforms, when normalised by mass, are 1 at low k."""
     k = np.array([1e-10])
     m = np.logspace(10, 18, 100)
 
