@@ -8,7 +8,7 @@ jobs:
   tag-release:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - run: echo "version=$(cat VERSION)" >> $GITHUB_ENV
     - name: Tag commit
       uses: tvdias/github-tagger@v0.0.2
