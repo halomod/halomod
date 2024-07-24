@@ -34,7 +34,9 @@ class TestProjCorr:
     r0 = 3.0
 
     def test_auto_rlim(self):
-        h = ProjectedCF(rp_min=self.rp)  # This should imitate an "infinite" upper bound
+        h = ProjectedCF(
+            rp_min=self.rp, transfer_model="EH"
+        )  # This should imitate an "infinite" upper bound
         xir = (h.r / self.r0) ** -self.gamma
 
         wprp_anl = wprp_power_law(self.rp, self.r0, self.gamma)
@@ -42,7 +44,7 @@ class TestProjCorr:
         assert np.allclose(wprp, wprp_anl, rtol=5e-2)
 
     def test_fixed_rlim(self):
-        h = ProjectedCF(rp_min=self.rp, proj_limit=50.0)
+        h = ProjectedCF(rp_min=self.rp, proj_limit=50.0, transfer_model="EH")
         xir = (h.r / self.r0) ** -self.gamma
 
         wprp_anl = wprp_power_law_lim(self.rp, self.r0, self.gamma, 50.0)
