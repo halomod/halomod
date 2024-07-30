@@ -43,8 +43,6 @@ class DMHaloModel(MassFunction):
 
     """
 
-    rlog = True
-
     def __init__(
         self,
         rmin=0.01,
