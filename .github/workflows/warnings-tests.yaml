@@ -5,12 +5,9 @@ name: Warnings Tests
 # Also, only test on pull requests into master/dev.
 on:
   push:
-    tags-ignore:
-      - 'v*'
   pull_request:
     branches:
-      - 'master'
-      - 'dev'
+      - 'main'
 
 jobs:
   tests:
@@ -31,7 +28,7 @@ jobs:
       - uses: actions/checkout@master
         with:
           fetch-depth: 1
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
       - uses: fortran-lang/setup-fortran@v1

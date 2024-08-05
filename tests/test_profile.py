@@ -27,12 +27,14 @@ class NFWnumInf(pf.ProfileInf):
 
 @pytest.fixture(scope="module")
 def thm():
-    return TracerHaloModel(rmin=0.01, rmax=50, rnum=20)
+    return TracerHaloModel(rmin=0.01, rmax=50, rnum=20, transfer_model="EH")
 
 
 @pytest.fixture(scope="module")
 def thmnum():
-    return TracerHaloModel(rmin=0.01, rmax=50, rnum=20, halo_profile_model=NFWnum)
+    return TracerHaloModel(
+        rmin=0.01, rmax=50, rnum=20, halo_profile_model=NFWnum, transfer_model="EH"
+    )
 
 
 @pytest.mark.parametrize(

@@ -40,7 +40,7 @@ def test_ludlow_vs_colossus(lu16):
 
 
 def test_lud16_scalarm():
-    mf = MassFunction()
+    mf = MassFunction(transfer_model="EH")
     L16Colossus = cm.make_colossus_cm(model="ludlow16")
     l16 = cm.Ludlow16(filter0=mf.normalised_filter)
     l16c = L16Colossus(filter0=mf.normalised_filter)
@@ -63,6 +63,6 @@ def test_lud16_scalarm():
 )
 def test_decreasing_cm(cmr):
     # mass definition is not right for all these, but it doesn't matter for this test.
-    hm = TracerHaloModel(halo_concentration_model=cmr)
+    hm = TracerHaloModel(halo_concentration_model=cmr, transfer_model="EH")
     m = np.logspace(10, 15, 100)
     assert np.all(np.diff(hm.halo_concentration.cm(m, z=0)) <= 0)

@@ -33,7 +33,7 @@ def test_zehavi_max():
     [hod.Spinelli19],
 )
 def test_positive_hod(hodr):
-    hm = TracerHaloModel(hod_model=hodr)
+    hm = TracerHaloModel(hod_model=hodr, transfer_model="EH")
     m = np.logspace(10, 15, 100)
     assert np.all(hm.hod.central_occupation(m) >= 0)
     assert np.all(hm.hod.satellite_occupation(m) >= 0)

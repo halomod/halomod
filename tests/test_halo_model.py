@@ -15,7 +15,7 @@ from hmf.halos.mass_definitions import MassDefinition
 
 @pytest.mark.parametrize("model", [TracerHaloModel, DMHaloModel])
 def test_default_actually_inits(model):
-    model()
+    model(transfer_model="EH")
 
 
 @pytest.fixture(scope="module")
@@ -82,7 +82,7 @@ def test_monotonic_dec(thm: TracerHaloModel, quantity):
 
 def test_halo_power():
     """Tests the halo centre power spectrum."""
-    hm = TracerHaloModel(bias_model="UnityBias")
+    hm = TracerHaloModel(bias_model="UnityBias", transfer_model="EH")
     assert np.allclose(hm.power_hh(hm.k_hm[:10]), hm.power_2h_auto_matter[:10], rtol=1e-2)
 
 
