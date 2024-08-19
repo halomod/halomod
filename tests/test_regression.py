@@ -13,7 +13,6 @@ from itertools import product
 
 import numpy as np
 import pytest
-from halomod import TracerHaloModel
 from make_regression_data import (
     base_options,
     compress_data,
@@ -22,6 +21,8 @@ from make_regression_data import (
     quantities,
     tested_params,
 )
+
+from halomod import TracerHaloModel
 
 
 @pytest.fixture(scope="module")

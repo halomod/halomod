@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+
 from halomod import TracerHaloModel, hod
 from halomod.hod import Zehavi05, Zehavi05Marked, Zehavi05WithMax
 

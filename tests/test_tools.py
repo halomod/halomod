@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+
 from halomod.concentration import Bullock01Power
 from halomod.hod import Tinker05, Zehavi05
 from halomod.profiles import NFW

@@ -15,9 +15,10 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from halomod import DMHaloModel
 from hmf import MassFunction
 from matplotlib import pyplot
+
+from halomod import DMHaloModel
 
 MassFunction.ERROR_ON_BAD_MDEF = False
 

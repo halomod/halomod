@@ -4,8 +4,9 @@ model vs. the Sigma_cMz_Py code, originally written by Ludlow et al.
 
 import matplotlib.pyplot as plt
 import numpy as np
-from halomod import concentration as cm
 from hmf import MassFunction
+
+from halomod import concentration as cm
 
 # Use the actual power spectrum used in the Sigma_cMz_Py code.
 # Not using this actual power spectrum results in fairly significant differences in sigma(m).

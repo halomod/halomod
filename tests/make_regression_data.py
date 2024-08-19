@@ -8,6 +8,7 @@ from hashlib import md5
 from pathlib import Path
 
 import numpy as np
+
 from halomod import TracerHaloModel
 
 base_options = {
