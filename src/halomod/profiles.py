@@ -419,7 +419,7 @@ class Profile(Component):
             co-ordinates [units Mpc/h]. ``x`` is in units of the scale radius
             (r_vir = c), and ``s`` is in units of the virial radius (r_vir = 1).
         """
-        c, r_s, x = self._get_r_variables(r, m, c, coord)
+        c, _r_s, x = self._get_r_variables(r, m, c, coord)
         return self._h(x) / self._h(c)
 
     def cm_relation(self, m: [float, np.ndarray]) -> [float, np.ndarray]:

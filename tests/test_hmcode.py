@@ -86,7 +86,7 @@ def test_hmcode(hm, hmcode_data, iz, plt):
     halomod = hm.power_auto_matter_fnc(hmcode_data["k"]) * fac
 
     if plt == pyplot:
-        fig, ax = plt.subplots(2, 1, sharex=True)
+        _fig, ax = plt.subplots(2, 1, sharex=True)
 
         ax[0].plot(hmcode_data["k"], hmcode_data["p"][:, iz])
         ax[0].plot(hmcode_data["k"], halomod, ls="--")

@@ -229,7 +229,7 @@ def power_to_corr_ogata(
                         f"Hankel transform of {func} did not converge for {v[1]}={rr:.2e}. "
                         f"It is likely that higher {v[1]} will also not converge. "
                         f"Absolute error estimate = {cumsum[-1] - cumsum[-2]:.2e}. "
-                        f"Relative error estimate = {cumsum[-1]/cumsum[-2] - 1:.2e}",
+                        f"Relative error estimate = {cumsum[-1] / cumsum[-2] - 1:.2e}",
                         stacklevel=2,
                     )
                     warn_conv = False

@@ -78,6 +78,7 @@ testpaths = "tests"
 [tool.ruff]
 line-length = 100
 target-version = "py39"
+exclude  = ['devel']
 
 [tool.ruff.lint]
 extend-select = [
@@ -120,7 +121,9 @@ ignore = [
     "A",  # conf.py can shadow builtins
     "ERA",
 ]
-
+"docs/examples/*.ipynb" = [
+    "T", # allow printing
+]
 [tool.ruff.lint.pydocstyle]
 convention = 'numpy'
 
