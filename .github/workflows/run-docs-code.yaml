@@ -39,7 +39,7 @@ jobs:
       - name: Install Deps
         run: |
           pip install .
-          pip install papermill ipykernel tqdm h5py emcee multiprocess corner
+          pip install papermill ipykernel tqdm h5py emcee multiprocess corner numba
           conda list
 
       - name: Install ipykernel
