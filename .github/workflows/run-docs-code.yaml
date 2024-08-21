@@ -47,7 +47,7 @@ jobs:
 
       - name: Run Notebook
         run: |
-          papermill -k sense docs/tutorials/${{ matrix.demo }}.ipynb output-${{ matrix.demo }}.ipynb
+          papermill -k sense docs/examples/${{ matrix.demo }}.ipynb output-${{ matrix.demo }}.ipynb
 
       - uses: actions/upload-artifact@v4
         if: always()
