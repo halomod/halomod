@@ -9,6 +9,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+
 from halomod.integrate_corr import ProjectedCF
 
 pytestmark = pytest.mark.skip(

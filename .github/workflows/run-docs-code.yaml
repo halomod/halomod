@@ -1,0 +1,56 @@
+name: Run Demo
+on: [push, pull_request]
+
+
+jobs:
+  tests:
+    name: Run Demo
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
+    env:
+      ENV_NAME: citest
+    strategy:
+      fail-fast: false
+      matrix:
+        demo: ["getting_started", "beyond_galaxy", "component-showcase", "cross_correlation", "extension", "wdm"]
+    steps:
+      - uses: actions/checkout@master
+        with:
+          fetch-depth: 1
+
+      - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v3.0.4
+        with:
+          auto-update-conda: true
+          mamba-version: "*"
+          channels: conda-forge,defaults
+          channel-priority: true
+          python-version: "3.12"
+          environment-file: ci/${{ env.ENV_NAME }}.yaml
+          activate-environment: ${{ env.ENV_NAME }}
+
+      - name: Conda Info
+        run: |
+          conda info
+          python --version
+
+      - name: Install Deps
+        run: |
+          pip install .
+          pip install papermill ipykernel tqdm h5py emcee multiprocess corner numba
+          conda list
+
+      - name: Install ipykernel
+        run: python -m ipykernel install --user --name halomod --display-name "halomod"
+
+      - name: Run Notebook
+        run: |
+          papermill -k halomod docs/examples/${{ matrix.demo }}.ipynb output-${{ matrix.demo }}.ipynb
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ matrix.demo }}
+          path: output-${{ matrix.demo }}.ipynb

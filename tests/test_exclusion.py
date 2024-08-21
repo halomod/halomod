@@ -2,6 +2,8 @@
 
 import numpy as np
 import pytest
+from scipy.integrate import simpson
+
 from halomod.halo_exclusion import (
     DblEllipsoid,
     DblEllipsoid_,
@@ -18,7 +20,6 @@ from halomod.halo_exclusion import (
     makeW,
     outer,
 )
-from scipy.integrate import simpson
 
 
 def test_makeW():

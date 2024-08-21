@@ -4,13 +4,14 @@ import warnings
 
 import numpy as np
 import pytest
+from hmf.density_field.filters import Filter
+from hmf.halos.mass_definitions import MassDefinition
+
 from halomod import DMHaloModel, TracerHaloModel
 from halomod.bias import Bias
 from halomod.concentration import CMRelation
 from halomod.hod import HOD
 from halomod.profiles import Profile
-from hmf.density_field.filters import Filter
-from hmf.halos.mass_definitions import MassDefinition
 
 
 @pytest.mark.parametrize("model", [TracerHaloModel, DMHaloModel])

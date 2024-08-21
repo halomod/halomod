@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from halomod import DMHaloModel, bias
 from hmf import MassFunction
 from hmf.halos.mass_definitions import SOMean
+
+from halomod import DMHaloModel, bias
 
 
 @pytest.fixture(scope="module")

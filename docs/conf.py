@@ -10,7 +10,6 @@
 # serve to show the default.
 
 import time
-
 from importlib.metadata import version as _version
 
 # -- General configuration -----------------------------------------------------

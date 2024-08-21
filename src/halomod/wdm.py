@@ -8,7 +8,7 @@ from hmf._internals._framework import get_mdl
 from hmf.alternatives.wdm import MassFunctionWDM
 from scipy import integrate as intg
 
-from .halo_model import DMHaloModel
+from .halo_model import DMHaloModel, TracerHaloModel
 from .integrate_corr import ProjectedCF
 
 
@@ -86,15 +86,15 @@ class HaloModelWDM(DMHaloModel, MassFunctionWDM):
     def power_auto_matter_sh(self) -> np.ndarray:
         """The smooth-halo cross power spectrum."""
         integrand = (
-            self.m * self.dndm * self.halo_bias * self.halo_profile.u(self.k, self.m, norm="m")
+            self.m * self.dndm * self.halo_bias * self.halo_profile.u(self.k_hm, self.m, norm="m")
         )
-        pch = intg.simps(integrand, self.m)
-        return self.bias_smooth * self._power_halo_centres_table * pch / self.rho_gtm[0]
+        pch = intg.simpson(integrand, x=self.m)
+        return self.bias_smooth * self._power_halo_centres_fnc(self.k_hm) * pch / self.rho_gtm[0]
 
     @cached_quantity
     def power_auto_matter_ss(self) -> np.ndarray:
         """The smooth-smooth matter power spectrum."""
-        return self.bias_smooth**2 * self._power_halo_centres_table
+        return self.bias_smooth**2 * self._power_halo_centres_fnc(self.k_hm)
 
     @cached_quantity
     def bias_smooth(self):
@@ -130,6 +130,12 @@ class HaloModelWDM(DMHaloModel, MassFunctionWDM):
             cm.m_hm = self.wdm.m_hm
 
         return cm
+
+
+class TracerHaloModelWDM(TracerHaloModel, HaloModelWDM):
+    def __init__(self, **kw):
+        kw.setdefault("halo_concentration_model", "Ludlow2016")
+        super().__init__(**kw)
 
 
 class ProjectedCFWDM(ProjectedCF, HaloModelWDM):

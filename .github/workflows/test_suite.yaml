@@ -12,7 +12,7 @@ on:
 jobs:
   tests:
     env:
-      ENV_NAME: tests
+      ENV_NAME: citest
       PYTHON: ${{ matrix.python-version }}
       OS: ${{ matrix.os }}
     name: Testing
@@ -51,7 +51,7 @@ jobs:
         run: |
           export PATH="$HOME/miniconda/bin:$PATH"
           source activate $ENV_NAME
-          python -m pytest --cov=hmf --cov-config=.coveragerc --cov-report xml:./coverage.xml --durations=25
+          python -m pytest --cov=halomod --cov-config=.coveragerc --cov-report xml:./coverage.xml --durations=25
 
       - uses: codecov/codecov-action@v4
         with:

@@ -7,9 +7,10 @@ import warnings
 
 import numpy as np
 import pytest
+from scipy.interpolate import InterpolatedUnivariateSpline as spline
+
 from halomod import TracerHaloModel
 from halomod.hod import Zehavi05
-from scipy.interpolate import InterpolatedUnivariateSpline as spline
 
 
 @pytest.fixture(scope="module")
