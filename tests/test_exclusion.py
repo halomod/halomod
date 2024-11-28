@@ -2,23 +2,22 @@
 
 import numpy as np
 import pytest
-from scipy.integrate import simpson
 
+from halomod import TracerHaloModel
 from halomod.halo_exclusion import (
     DblEllipsoid,
     DblEllipsoid_,
     DblSphere,
     DblSphere_,
+    Exclusion,
     NgMatched,
     NgMatched_,
     NoExclusion,
     Sphere,
     cumsimps,
     dblsimps_,
-    dbltrapz,
     dbltrapz_,
     makeW,
-    outer,
 )
 
 
@@ -42,7 +41,7 @@ def test_no_exclusion():
     excl = NoExclusion(
         m=m,
         density=density,
-        Ifunc=integrand,
+        power_integrand=integrand,
         bias=bias,
         r=None,
         delta_halo=None,
@@ -75,13 +74,12 @@ def test_spherical_exclusion():
     r = np.array([100, 1000, 1500])
 
     mlim = 4 * np.pi * (r / 2) ** 3 * delta_h / 3
-    print(mlim)
     analytic = np.clip((1e10 - 1e20 / mlim), a_min=0, a_max=np.inf) ** 2
 
     excl = Sphere(
         m=m,
         density=density,
-        Ifunc=integrand,
+        power_integrand=integrand,
         bias=bias,
         r=r,
         delta_halo=delta_h,
@@ -89,146 +87,75 @@ def test_spherical_exclusion():
     )
 
     num = excl.integrate()
-    print(num.shape)
 
     assert np.allclose(num.flatten(), analytic, rtol=1e-3)
 
 
-@pytest.mark.parametrize("dbl_sphere", [DblSphere, DblSphere_])
-def test_dbl_sphere(dbl_sphere):
-    """Test simple uniform integral for double-spherical exclusion."""
-    m = np.logspace(10, 15, 1001)
-    integrand = np.ones((1, len(m)))  # shape (k, m)
-    density = np.ones_like(m)
-    bias = np.ones_like(m)
-    delta_h = 200
-    mean_density = 1e11
+@pytest.mark.parametrize(
+    "excl", [NgMatched, NgMatched_, DblEllipsoid, DblEllipsoid_, DblSphere, DblSphere_, Sphere]
+)
+@pytest.mark.parametrize("z", (0, 1))
+def test_halo_exclusion_extreme_r(excl: Exclusion, z: float):
+    kw = {
+        "z": z,
+        "rmin": 1e-2,
+        "rmax": 300.0,
+        "rnum": 15,
+        "dr_table": 0.05,
+        "dlog10m": 0.15,
+        # Mmin=4, Mmax=18, dlog10m=0.1,
+        "dlnk": 0.05,
+        "hod_model": "Zheng05",
+        "hod_params": {"central": True},
+        # hmf_model = 'Behroozi',
+        "tracer_concentration_model": "Duffy08",
+        "halo_profile_model": "NFW",
+        "hc_spectrum": "linear",
+        "force_unity_dm_bias": False,
+    }
+    noexc = TracerHaloModel(exclusion_model="NoExclusion", **kw)
+    with_exc = TracerHaloModel(exclusion_model=excl, **kw)
 
-    r = np.array([1, 100])
+    mexc = with_exc._matter_exclusion
+    texc = with_exc._tracer_exclusion
 
-    excl = dbl_sphere(
-        m=m,
-        density=density,
-        Ifunc=integrand,
-        bias=bias,
-        r=r,
-        delta_halo=delta_h,
-        mean_density=mean_density,
+    # Restrict ourselves to large scales, above which all the halo masses have
+    # smaller radii.
+    rmax = mexc.r_halo.max() * 2
+    rmask = mexc.r > rmax
+
+    # At high-r, none of the masses should be masked out.
+    if mexc.mask is not None:
+        assert not np.any(mexc.mask[rmask])
+        assert not np.any(texc.mask[rmask])
+
+    # We should also get that the density_mod is unity at large scales.
+    np.testing.assert_allclose(mexc.density_mod[rmask], 1, atol=1e-4)
+    np.testing.assert_allclose(texc.density_mod[rmask], 1, atol=1e-4)
+
+    # Finally, the integrated power should be equal to the effective bias at large
+    # scales.
+    np.testing.assert_allclose(
+        mexc.integrate()[rmask, 0], with_exc.bias_effective_matter**2, rtol=1e-3
+    )
+    np.testing.assert_allclose(
+        texc.integrate()[rmask, 0], with_exc.bias_effective_tracer**2, rtol=1e-3
     )
 
-    # The r = 100 should be equivalent to just using no exclusion.
-    no_excl = NoExclusion(
-        m=m,
-        density=density,
-        Ifunc=integrand,
-        bias=bias,
-        r=r,
-        delta_halo=delta_h,
-        mean_density=mean_density,
+    # the matter and tracer correlation functions should be unaffected
+    # by halo-exclusion on the largest scales.
+    mask = noexc.r > rmax
+    np.testing.assert_allclose(
+        noexc.corr_2h_auto_matter[mask],
+        with_exc.corr_2h_auto_matter[mask],
+        rtol=3e-4,
+    )
+    np.testing.assert_allclose(
+        noexc.corr_2h_auto_tracer[mask], with_exc.corr_2h_auto_tracer[mask], rtol=3e-4
     )
 
-    intg = excl.integrate().flatten()
-
-    den = np.sqrt(
-        simpson(
-            simpson(np.outer(density * m, np.ones_like(density)), dx=excl.dlnx),
-            dx=excl.dlnx,
-        )
-    )
-
-    assert np.isclose(intg[-1], no_excl.integrate().flatten()[-1], rtol=1e-3)
-    assert np.allclose(den, excl.density_mod[-1])
-
-
-@pytest.mark.parametrize("dbl_ellipsoid", [DblEllipsoid, DblEllipsoid_])
-def test_dbl_ellipsoid_large_r(dbl_ellipsoid):
-    m = np.logspace(10, 15, 200)
-    integrand = np.outer(np.ones(3), (m / 1e10) ** -2)  # shape (k, m)
-    density = np.ones_like(m)
-    bias = np.ones_like(m)
-
-    # Solution should be the integral of x^-2 from 10^10 to 10^15 squared
-    no_excl = NoExclusion(
-        m=m,
-        density=density,
-        Ifunc=integrand,
-        bias=bias,
-        r=np.array([100]),
-        delta_halo=200,
-        mean_density=1e11,
-    )
-
-    excl = dbl_ellipsoid(
-        m=m,
-        density=density,
-        Ifunc=integrand,
-        bias=bias,
-        r=np.array([100]),
-        delta_halo=200,
-        mean_density=1e11,
-    )
-    den = np.sqrt(
-        dbltrapz(
-            outer(np.ones_like(np.array([100])), np.outer(density * m, density * m)),
-            excl.dlnx,
-        )
-    )
-
-    assert np.allclose(no_excl.integrate().flatten(), excl.integrate().flatten(), rtol=1e-3)
-    assert np.allclose(den, excl.density_mod, rtol=1e-3)
-
-
-@pytest.mark.skip("Too hard to get the analytic answer")
-def test_dbl_ellipsoid_small_r():
-    """Test simple uniform integral for double-ellipsoidal exclusion."""
-    m = np.logspace(10, 15, 1000)
-    integrand = np.ones((1, len(m)))  # shape (k, m)
-    density = np.ones_like(m)
-    bias = np.ones_like(m)
-    delta_h = 200
-    mean_density = 1e11
-
-    r = np.array([1])
-
-    excl = DblEllipsoid(
-        m=m,
-        density=density,
-        Ifunc=integrand,
-        bias=bias,
-        r=r,
-        delta_halo=delta_h,
-        mean_density=mean_density,
-    )
-
-    excl.integrate().flatten()
-
-
-@pytest.mark.parametrize("ng_matched", [NgMatched, NgMatched_])
-def test_ng_matched_large_r(ng_matched):
-    m = np.logspace(10, 15, 200)
-    integrand = np.outer(np.ones(3), (m / 1e10) ** -2)  # shape (k, m)
-    density = np.ones_like(m)
-    bias = np.ones_like(m)
-
-    # Solution should be the integral of x^-2 from 10^10 to 10^15 squared
-    no_excl = NoExclusion(
-        m=m,
-        density=density,
-        Ifunc=integrand,
-        bias=bias,
-        r=np.array([100]),
-        delta_halo=200,
-        mean_density=1e11,
-    )
-
-    excl = NgMatched(
-        m=m,
-        density=density,
-        Ifunc=integrand,
-        bias=bias,
-        r=np.array([100]),
-        delta_halo=200,
-        mean_density=1e11,
-    )
-
-    assert np.allclose(no_excl.integrate().flatten(), excl.integrate().flatten())
+    # the matter and tracer correlation functions should be zero on the smallest scales.
+    # by halo-exclusion on the largest scales.
+    mask = noexc.r < 0.1
+    assert np.all(with_exc.corr_2h_auto_matter[mask] < 0.1 * noexc.corr_2h_auto_matter[mask])
+    assert np.all(with_exc.corr_2h_auto_tracer[mask] < 0.1 * noexc.corr_2h_auto_tracer[mask])

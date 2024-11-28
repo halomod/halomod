@@ -149,40 +149,105 @@ class Exclusion(Component):
     It is possibly better to limit it to k*r or m*m, which should be quite
     memory efficient, but then without accelerators (ie. Numba), these
     will be very slow.
+
+    Parameters
+    ----------
+    m : np.ndarray
+        1D vector of halo masses in Msun/h.
+    density : np.ndarray
+        Either the number or mass density of the quantity under consideration (i.e.
+        mass density for the matter field, number density for galaxy/halo fields).
+        This quantity should be _normalized_ to integrate to unity over the full
+        mass range in `m`. Thus, for matter, it should be ``n(m)*m / rhobar``, and
+        for galaxies, it should be ``n(m)*N(m) / nbar_g``.
+    power_integrand
+        An array of shape ``(len(k), len(m))`` defining the integrand of the power
+        spectrum integral (see Eq. 13 of https://arxiv.org/pdf/2009.14066). For the
+        matter field, this should be ``n(m) * u(k,m) * m / rhobar``. At large k, it
+        should integrate to unity over mass.
+    bias : np.ndarray
+        Either a 1D vector (length m) or 2D array (shape ``(len(r), len(m))``) defining
+        the halo bias.
+    r : np.ndarray
+        A vector of scales, `r` in Mpc/h.
+    halo_density : float
+        The density of the halos whose masses are given by ``m``. This is typically
+        ``halo_overdensity * mean_density0``.
     """
 
-    def __init__(self, m, density, Ifunc, bias, r, delta_halo, mean_density):
+    def __init__(
+        self,
+        m: np.ndarray,
+        density: np.ndarray,
+        power_integrand: np.ndarray,
+        bias: np.ndarray,
+        r: np.ndarray,
+        halo_density: float,
+    ):
         self.density = density  # 1d, (m)
         self.m = m  # 1d, (m)
-        self.Ifunc = Ifunc  # 2d, (k,m)
+        self.power_integrand = power_integrand  # 2d, (k,m)
         self.bias = bias  # 1d (m) or 2d (r,m)
         self.r = r  # 1d (r)
 
-        self.mean_density = mean_density
-        self.delta_halo = delta_halo
+        self.halo_density = halo_density
         self.dlnx = np.log(m[1] / m[0])
 
     def raw_integrand(self) -> np.ndarray:
-        """Return either a 2d (k,m) or 3d (r,k,m) array with the general integrand."""
-        if self.bias.ndim == 1:
-            return self.Ifunc * self.bias * self.m  # *m since integrating in logspace
-        else:
-            return np.einsum("ij,kj->kij", self.Ifunc * self.m, self.bias)
+        """Compute the full power spectrum integrand.
 
-    def integrate(self):
+        The output is always a 3D array, with shape ``(r, k, m)``.
+        """
+        if self.bias.ndim == 1:
+            # *m since integrating in logspace
+            return outer(np.ones_like(self.r), self.power_integrand * self.bias * self.m)
+        else:
+            return np.einsum("ij,kj->kij", self.power_integrand * self.m, self.bias)
+
+    def integrate(self) -> np.ndarray:
         """
         Integrate the :meth:`raw_integrand` over mass.
 
         This should pass back whatever is multiplied by P_m(k) to get the two-halo
         term. Often this will be a square of an integral, sometimes a Double-integral.
+
+        The result should be a 2D array of shape ``(r, k)``.
         """
+
+    @cached_property
+    def density_mod(self):
+        r"""The modified integrated density with halo exclusion.
+
+        Calculated in the matter case by
+
+        .. math:: \bar{n}^{-1} \sqrt{\int_0^{m'_1} \int_0^{m'_2} n(m_1) m_1 n(m_2) m_2 dm_1 dm_2},
+
+        and in the tracer case by replacing ``n(m).m``  with ``n(m) N(m)``.
+
+        See Eq. 47 of https://arxiv.org/pdf/2009.14066.
+
+        The array is a vector of length ``r``.
+        """
+        return np.ones_like(self.r)
+
+    @property
+    def r_halo(self):
+        """The virial radius of the halo."""
+        return (3 * self.m / (4 * np.pi * self.halo_density)) ** (1.0 / 3.0)
 
 
 class NoExclusion(Exclusion):
     r"""A model where there's no halo exclusion."""
 
-    def integrate(self):
-        """Integrate the :meth:`raw_integrand` over mass."""
+    def integrate(self) -> np.ndarray:
+        """Integrate the :meth:`raw_integrand` over mass.
+
+        Returns
+        -------
+        np.ndarray
+            An array of shape ``(r, k)`` that should be multiplied by P_m(k) to obtain
+            the 2-halo power spectrum.
+        """
         return intg.simpson(self.raw_integrand(), dx=self.dlnx) ** 2
 
 
@@ -197,33 +262,38 @@ class Sphere(Exclusion):
     will be accounted for.
     """
 
-    def raw_integrand(self):
-        """Return either a 2d (k,m) or 3d (r,k,m) array with the general integrand."""
-        if self.bias.ndim == 1:
-            # *m since integrating in logspace
-            return outer(np.ones_like(self.r), self.Ifunc * self.bias * self.m)
-        else:
-            return np.einsum("ij,kj->kij", self.Ifunc * self.m, self.bias)
-
     @cached_property
-    def density_mod(self):
-        """The modified density, under new limits."""
+    def density_mod(self) -> np.ndarray:
+        """The modified density after accounting for different integral mass limits.
+
+        Returns
+        -------
+        np.ndarray
+            The modified density as a function of the scale, r.
+        """
         density = np.outer(np.ones_like(self.r), self.density * self.m)
         density[self.mask] = 0
         return intg.simpson(density, dx=self.dlnx)
 
     @cached_property
     def mask(self):
-        """Elements that should be set to zero."""
+        """Elements that should be set to zero. Shape (r, m)."""
         return (np.outer(self.m, np.ones_like(self.r)) > self.mlim).T
 
     @property
     def mlim(self):
         """The mass threshold for the mask."""
-        return 4 * np.pi * (self.r / 2) ** 3 * self.mean_density * self.delta_halo / 3
+        return 4 * np.pi * (self.r / 2) ** 3 * self.halo_density / 3
 
     def integrate(self):
-        """Integrate the :meth:`raw_integrand` over mass."""
+        """Integrate the :meth:`raw_integrand` over mass under new mass limits.
+
+        Returns
+        -------
+        np.ndarray
+            An array of shape ``(r, k)`` that should be multiplied by P_m(k) to obtain
+            the 2-halo power spectrum.
+        """
         integ = self.raw_integrand()  # r,k,m
         integ.transpose((1, 0, 2))[:, self.mask] = 0
         return intg.simpson(integ, dx=self.dlnx) ** 2
@@ -240,11 +310,6 @@ class DblSphere(Sphere):
     will be accounted for.
     """
 
-    @property
-    def r_halo(self):
-        """The virial radius of the halo."""
-        return (3 * self.m / (4 * np.pi * self.delta_halo * self.mean_density)) ** (1.0 / 3.0)
-
     @cached_property
     def mask(self):
         """Elements that should be set to zero (r,m,m)."""
@@ -256,7 +321,7 @@ class DblSphere(Sphere):
         """The modified density, under new limits."""
         out = np.zeros_like(self.r)
         for i, _ in enumerate(self.r):
-            integrand = np.outer(self.density * self.m, np.ones_like(self.density))
+            integrand = np.outer(self.density * self.m, self.density * self.m)
             integrand[self.mask[i]] = 0
             out[i] = intg.simpson(
                 intg.simpson(integrand, dx=self.dlnx),
@@ -477,9 +542,9 @@ class NgMatched(DblEllipsoid):
 
     def integrate(self):
         """Integrate the :meth:`raw_integrand` over mass."""
-        integ = self.raw_integrand()  # r,k,m
-        integ.transpose((1, 0, 2))[:, self.mask] = 0
-        return intg.simpson(integ, dx=self.dlnx) ** 2
+        integ = self.raw_integrand().transpose((1, 0, 2))  # k, r, m
+        integ[:, self.mask] = 0
+        return intg.simpson(integ.transpose((1, 0, 2)), dx=self.dlnx) ** 2
 
 
 if USE_NUMBA:
