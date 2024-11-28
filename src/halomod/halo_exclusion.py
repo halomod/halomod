@@ -228,7 +228,7 @@ class Exclusion(Component):
 
         The array is a vector of length ``r``.
         """
-        return np.ones_like(self.r)
+        return 1
 
     @property
     def r_halo(self):

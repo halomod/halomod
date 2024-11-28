@@ -39,13 +39,7 @@ def test_no_exclusion():
 
     # Solution should be the integral of x^-2 from 10^10 to 10^15 squared
     excl = NoExclusion(
-        m=m,
-        density=density,
-        power_integrand=integrand,
-        bias=bias,
-        r=None,
-        delta_halo=None,
-        mean_density=1,
+        m=m, density=density, power_integrand=integrand, bias=bias, r=None, halo_density=None
     )
 
     assert np.allclose(excl.integrate(), 0.9999e20, rtol=1e-4)
@@ -77,13 +71,7 @@ def test_spherical_exclusion():
     analytic = np.clip((1e10 - 1e20 / mlim), a_min=0, a_max=np.inf) ** 2
 
     excl = Sphere(
-        m=m,
-        density=density,
-        power_integrand=integrand,
-        bias=bias,
-        r=r,
-        delta_halo=delta_h,
-        mean_density=1,
+        m=m, density=density, power_integrand=integrand, bias=bias, r=r, halo_density=200.0
     )
 
     num = excl.integrate()
@@ -130,14 +118,20 @@ def test_halo_exclusion_extreme_r(excl: Exclusion, z: float):
         assert not np.any(texc.mask[rmask])
 
     # We should also get that the density_mod is unity at large scales.
-    np.testing.assert_allclose(mexc.density_mod[rmask], 1, atol=1e-4)
-    np.testing.assert_allclose(texc.density_mod[rmask], 1, atol=1e-4)
+    if hasattr(mexc.density_mod, "__len__"):
+        # density_mod can be simply just "1" because some exclusions don't use it.
+        np.testing.assert_allclose(mexc.density_mod[rmask], 1, atol=1e-4)
+        np.testing.assert_allclose(texc.density_mod[rmask], 1, atol=1e-4)
 
     # Finally, the integrated power should be equal to the effective bias at large
     # scales.
-    np.testing.assert_allclose(
-        mexc.integrate()[rmask, 0], with_exc.bias_effective_matter**2, rtol=1e-3
-    )
+    intg = mexc.integrate()
+    intg = intg[rmask, 0] if intg.shape[0] == len(rmask) else intg[0, 0]
+
+    np.testing.assert_allclose(intg, with_exc.bias_effective_matter**2, rtol=1e-3)
+
+    intg = texc.integrate()
+    intg = intg[rmask, 0] if intg.shape[0] == len(rmask) else intg[0, 0]
     np.testing.assert_allclose(
         texc.integrate()[rmask, 0], with_exc.bias_effective_tracer**2, rtol=1e-3
     )

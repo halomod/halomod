@@ -708,18 +708,6 @@ class DMHaloModel(MassFunction):
         """
         # Instead of having a 2D function here we *could* just get the r-based functions
         # in k-space and convolve them. But I'm not sure that's a more efficient option.
-
-        # inst = self.exclusion_model(
-        #     m=self.m[mask],
-        #     density=density[mask] / mean_density,
-        #     Ifunc=density[mask] * u / mean_density,
-        #     bias=bias,
-        #     r=self._r_table,
-        #     delta_halo=self.halo_overdensity_mean,
-        #     mean_density=self.mean_density0,
-        #     **self.exclusion_params,
-        # )
-
         intg = exclusion.integrate()
         phh = self._power_halo_centres_fnc(self.k)
 
@@ -769,6 +757,10 @@ class DMHaloModel(MassFunction):
         """Get a callable returning the 2-halo term of an auto-correlation."""
         power_primitive = self._get_power_2h_primitive(exclusion, effective_bias, debias=debias)
 
+        if len(power_primitive) == 1:
+            # In the case that there is no scale-dependence from SD bias or exclusion
+            power_primitive = power_primitive[0]
+
         # Need to set h smaller here because this might need to be transformed back
         # to power.
         corr = tools.hankel_transform(power_primitive, self._r_table, "r", h=1e-4)
@@ -800,7 +792,7 @@ class DMHaloModel(MassFunction):
         """Get the halo model 2-halo matter auto-power spectrum."""
         if self.exclusion_model is NoExclusion and self.sd_bias_model is None:
             # Here we have a 1D primitive power, so we can just return it.
-            return self._get_power_2h_primitive(exclusion, effective_bias, debias=debias)
+            return self._get_power_2h_primitive(exclusion, effective_bias, debias=debias)[0]
 
         # Otherwise, first calculate the correlation function.
         corr = self._get_corr_2h_auto_fnc(exclusion, effective_bias, debias=debias)
