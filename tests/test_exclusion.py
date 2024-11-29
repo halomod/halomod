@@ -100,7 +100,7 @@ def test_halo_exclusion_extreme_r(excl: Exclusion, z: float):
         "halo_profile_model": "NFW",
         "hc_spectrum": "linear",
         "force_unity_dm_bias": False,
-        "extrapolate_with_eh": True,
+        "transfer_params": {"extrapolate_with_eh": True},
     }
     noexc = TracerHaloModel(exclusion_model="NoExclusion", **kw)
     with_exc = TracerHaloModel(exclusion_model=excl, **kw)
