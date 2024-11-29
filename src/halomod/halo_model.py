@@ -765,8 +765,9 @@ class DMHaloModel(MassFunction):
         # to power.
         corr = tools.hankel_transform(power_primitive, self._r_table, "r", h=1e-4)
 
+        lower_func = "power_law" if isinstance(Exclusion, NoExclusion) else tools._zero
         return tools.ExtendedSpline(
-            self._r_table, corr, lower_func="power_law", upper_func=tools._zero
+            self._r_table, corr, lower_func=lower_func, upper_func=tools._zero
         )
 
     @cached_quantity

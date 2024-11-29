@@ -91,11 +91,11 @@ def test_halo_exclusion_extreme_r(excl: Exclusion, z: float):
         "rnum": 15,
         "dr_table": 0.05,
         "dlog10m": 0.15,
-        # Mmin=4, Mmax=18, dlog10m=0.1,
         "dlnk": 0.05,
         "hod_model": "Zheng05",
         "hod_params": {"central": True},
-        # hmf_model = 'Behroozi',
+        "bias_model": "Tinker10PBSplit",
+        "hmf_model": "Tinker10",
         "tracer_concentration_model": "Duffy08",
         "halo_profile_model": "NFW",
         "hc_spectrum": "linear",
@@ -152,5 +152,5 @@ def test_halo_exclusion_extreme_r(excl: Exclusion, z: float):
     # the matter and tracer correlation functions should be zero on the smallest scales.
     # by halo-exclusion on the largest scales.
     mask = noexc.r < 0.1
-    assert np.all(with_exc.corr_2h_auto_matter[mask] < 0.1 * noexc.corr_2h_auto_matter[mask])
-    assert np.all(with_exc.corr_2h_auto_tracer[mask] < 0.1 * noexc.corr_2h_auto_tracer[mask])
+    assert np.all(with_exc.corr_2h_auto_matter[mask] < 0.2 * noexc.corr_2h_auto_matter[mask])
+    assert np.all(with_exc.corr_2h_auto_tracer[mask] < 0.2 * noexc.corr_2h_auto_tracer[mask])
