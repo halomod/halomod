@@ -29,7 +29,7 @@ from scipy.optimize import minimize
 # import hmf.tools as ht
 from . import tools
 from .concentration import CMRelation
-from .halo_exclusion import NoExclusion
+from .halo_exclusion import Exclusion, NoExclusion
 
 
 class DMHaloModel(MassFunction):
@@ -676,14 +676,30 @@ class DMHaloModel(MassFunction):
         """The halo model 1-halo dark matter auto-correlation function."""
         return self.corr_1h_auto_matter_fnc(self.r)
 
+    @cached_quantity
+    def _matter_exclusion(self):
+        densityfunc = self.dndm * self.m / self.mean_density_in_halos
+
+        if self.sd_bias_model is not None:
+            bias = np.outer(self.sd_bias_correction, self.halo_bias)
+        else:
+            bias = self.halo_bias
+
+        return self.exclusion_model(
+            m=self.m,
+            density=densityfunc,
+            power_integrand=densityfunc * self.halo_profile_ukm,
+            bias=bias,
+            r=self._r_table,
+            halo_density=self.halo_overdensity_mean * self.mean_density0,
+            **self.exclusion_params,
+        )
+
     def _get_power_2h_primitive(
         self,
-        density: np.ndarray,
-        mean_density: float,
+        exclusion: Exclusion,
         effective_bias: float,
-        ukm: np.ndarray,
-        mask=None,
-        debias=True,
+        debias: bool = True,
     ) -> tuple[Callable, np.ndarray]:
         """Get the 2-halo term of an auto-power spectrum.
 
@@ -692,34 +708,12 @@ class DMHaloModel(MassFunction):
         """
         # Instead of having a 2D function here we *could* just get the r-based functions
         # in k-space and convolve them. But I'm not sure that's a more efficient option.
-
-        if mask is None:
-            mask = np.ones(len(density), dtype=bool)
-
-        u = ukm[:, mask]
-        if self.sd_bias_model is not None:
-            bias = np.outer(self.sd_bias_correction, self.halo_bias)[:, mask]
-        else:
-            bias = self.halo_bias[mask]
-
-        inst = self.exclusion_model(
-            m=self.m[mask],
-            density=density[mask],
-            Ifunc=density[mask] * u / mean_density,
-            bias=bias,
-            r=self._r_table,
-            delta_halo=self.halo_overdensity_mean,
-            mean_density=self.mean_density0,
-            **self.exclusion_params,
-        )
-
-        intg = inst.integrate()
+        intg = exclusion.integrate()
         phh = self._power_halo_centres_fnc(self.k)
 
-        if hasattr(inst, "density_mod"):
-            # See Tinker+05 Appendix B for details on using the modified density in halo
-            # exclusion models.
-            intg = (intg.T * inst.density_mod).T
+        # See Tinker+05 Appendix B for details on using the modified density in halo
+        # exclusion models.
+        intg = (intg.T * exclusion.density_mod).T
 
         # Now, we need to debias the results. Mostly, this is for DM correlations, and
         # the point is that even if one uses a perfect pair of HMF/bias, the numerical
@@ -728,10 +722,9 @@ class DMHaloModel(MassFunction):
         # For tracer power spectra, the effective bias passed in should not be unity, but
         # instead should fix itself to the numerically-calculated effective bias.
         if debias:
-            eff_bias = (
-                tools.spline_integral(self.m[mask], density[mask] * self.halo_bias[mask], log=True)
-                / mean_density
-            )
+            bias = exclusion.bias[-1] if exclusion.bias.ndim == 2 else exclusion.bias
+
+            eff_bias = tools.spline_integral(exclusion.m, exclusion.density * bias, log=True)
             intg *= (effective_bias / eff_bias) ** 2
 
         if intg.ndim == 2:
@@ -759,19 +752,22 @@ class DMHaloModel(MassFunction):
             )
 
     def _get_corr_2h_auto_fnc(
-        self, density, mean_density, effective_bias, ukm, mask=None, debias=True
+        self, exclusion: Exclusion, effective_bias, debias=True
     ) -> Callable[[float | np.ndarray], float | np.ndarray]:
         """Get a callable returning the 2-halo term of an auto-correlation."""
-        power_primitive = self._get_power_2h_primitive(
-            density, mean_density, effective_bias, ukm, mask=mask, debias=debias
-        )
+        power_primitive = self._get_power_2h_primitive(exclusion, effective_bias, debias=debias)
+
+        if len(power_primitive) == 1:
+            # In the case that there is no scale-dependence from SD bias or exclusion
+            power_primitive = power_primitive[0]
 
         # Need to set h smaller here because this might need to be transformed back
         # to power.
         corr = tools.hankel_transform(power_primitive, self._r_table, "r", h=1e-4)
 
+        lower_func = "power_law" if isinstance(Exclusion, NoExclusion) else tools._zero
         return tools.ExtendedSpline(
-            self._r_table, corr, lower_func="power_law", upper_func=tools._zero
+            self._r_table, corr, lower_func=lower_func, upper_func=tools._zero
         )
 
     @cached_quantity
@@ -781,10 +777,8 @@ class DMHaloModel(MassFunction):
         """A callable returning the 2-halo term of the matter auto-correlation at arbitrary k."""
         tools.norm_warn(self)
         return self._get_corr_2h_auto_fnc(
-            self.m * self.dndm,
-            self.mean_density0,
+            self._matter_exclusion,
             self.bias_effective_matter,
-            self.halo_profile_ukm,
             debias=self.force_unity_dm_bias,
         )
 
@@ -795,20 +789,14 @@ class DMHaloModel(MassFunction):
         """The 2-halo term of the matter auto-correlation."""
         return self.corr_2h_auto_matter_fnc(self.r)
 
-    def _get_power_2h_auto_fnc(
-        self, density, mean_density, effective_bias, ukm, mask=None, debias=True
-    ):
+    def _get_power_2h_auto_fnc(self, exclusion, effective_bias, debias=True):
         """Get the halo model 2-halo matter auto-power spectrum."""
         if self.exclusion_model is NoExclusion and self.sd_bias_model is None:
             # Here we have a 1D primitive power, so we can just return it.
-            return self._get_power_2h_primitive(
-                density, mean_density, effective_bias, ukm, mask=mask, debias=debias
-            )
+            return self._get_power_2h_primitive(exclusion, effective_bias, debias=debias)[0]
 
         # Otherwise, first calculate the correlation function.
-        corr = self._get_corr_2h_auto_fnc(
-            density, mean_density, effective_bias, ukm, mask=mask, debias=debias
-        )
+        corr = self._get_corr_2h_auto_fnc(exclusion, effective_bias, debias=debias)
         out = tools.hankel_transform(corr, self.k, "k", h=0.001)
 
         # Everything below about k=1e-2 is essentially just the linear power biased,
@@ -829,10 +817,8 @@ class DMHaloModel(MassFunction):
         """Return the halo model 2-halo matter auto-power spectrum at k."""
         tools.norm_warn(self)
         return self._get_power_2h_auto_fnc(
-            self.m * self.dndm,
-            self.mean_density0,
+            self._matter_exclusion,
             self.bias_effective_matter,
-            self.halo_profile_ukm,
             debias=self.force_unity_dm_bias,
         )
 
@@ -1302,6 +1288,7 @@ class TracerHaloModel(DMHaloModel):
     # ===========================================================================
     # 2-point tracer-tracer (HOD) statistics
     # ===========================================================================
+
     @cached_quantity
     def power_1h_ss_auto_tracer_fnc(self):
         """A callable returning the satellite-satellite part of
@@ -1468,14 +1455,30 @@ class TracerHaloModel(DMHaloModel):
         return self.corr_1h_auto_tracer_fnc(self.r)
 
     @cached_quantity
+    def _tracer_exclusion(self):
+        densityfunc = self.dndm[self._tm] * self.total_occupation[self._tm] / self.mean_tracer_den
+
+        if self.sd_bias_model is not None:
+            bias = np.outer(self.sd_bias_correction, self.halo_bias)[:, self._tm]
+        else:
+            bias = self.halo_bias[self._tm]
+
+        return self.exclusion_model(
+            m=self.m[self._tm],
+            density=densityfunc,
+            power_integrand=densityfunc * self.tracer_profile_ukm[:, self._tm],
+            bias=bias,
+            r=self._r_table,
+            halo_density=self.halo_overdensity_mean * self.mean_density0,
+            **self.exclusion_params,
+        )
+
+    @cached_quantity
     def power_2h_auto_tracer_fnc(self):
         """Return the 2-halo term of the tracer auto-power spectrum at k."""
         return self._get_power_2h_auto_fnc(
-            self.dndm * self.total_occupation,
-            self.mean_tracer_den,
+            self._tracer_exclusion,
             self.bias_effective_tracer,
-            self.tracer_profile_ukm,
-            mask=self._tm,
             debias=False,
         )
 
@@ -1488,12 +1491,7 @@ class TracerHaloModel(DMHaloModel):
     def corr_2h_auto_tracer_fnc(self):
         """A callable returning the 2-halo term of the tracer auto-correlation."""
         return self._get_corr_2h_auto_fnc(
-            self.dndm * self.total_occupation,
-            self.mean_tracer_den,
-            self.bias_effective_tracer,
-            self.tracer_profile_ukm,
-            debias=False,
-            mask=self._tm,
+            self._tracer_exclusion, self.bias_effective_tracer, debias=False
         )
 
     @property
