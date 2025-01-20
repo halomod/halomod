@@ -181,13 +181,13 @@ class DMHaloModel(MassFunction):
         super().validate()
         assert self.rmin < self.rmax, f"rmin >= rmax: {self.rmin}, {self.rmax}"
         assert len(self.r) > 0, "r has length zero!"
-        assert (
-            self.hm_logk_min < self.hm_logk_max
-        ), f"hm_logk_min >= hm_logk_max: {self.hm_logk_min}, {self.hm_logk_max}"
+        assert self.hm_logk_min < self.hm_logk_max, (
+            f"hm_logk_min >= hm_logk_max: {self.hm_logk_min}, {self.hm_logk_max}"
+        )
         assert len(self.k_hm) > 0, "k_hm has length zero!"
-        assert (
-            self._logr_table_min < self._logr_table_max
-        ), f"_logr_table_min >= logr_table_max: {self._logr_table_min}, {self._logr_table_max}"
+        assert self._logr_table_min < self._logr_table_max, (
+            f"_logr_table_min >= logr_table_max: {self._logr_table_min}, {self._logr_table_max}"
+        )
 
     @parameter("model")
     def bias_model(self, val):
