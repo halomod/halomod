@@ -472,8 +472,7 @@ def _check_p(p, z):
     integ = p.integral(z.min(), z.max()) if hasattr(p, "integral") else simpson(p(z), x=z)
     if not np.isclose(integ, 1.0, rtol=0.01):
         warnings.warn(
-            f"Filter function p(x) did not integrate to 1 ({integ}). "
-            "Tentatively re-normalising.",
+            f"Filter function p(x) did not integrate to 1 ({integ}). Tentatively re-normalising.",
             stacklevel=2,
         )
         return lambda z: p(z) / integ
