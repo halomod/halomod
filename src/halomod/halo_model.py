@@ -398,6 +398,7 @@ class DMHaloModel(MassFunction):
             cm_relation=self.halo_concentration,
             mdef=self.mdef,
             z=self.z,
+            sqrt_nu=self.nu**0.5,
             **self.halo_profile_params,
         )
 
@@ -1070,6 +1071,7 @@ class TracerHaloModel(DMHaloModel):
                 cm_relation=None,
                 mdef=self.mdef,
                 z=self.z,
+                sqrt_nu=self.nu**0.5,
                 **self.halo_profile_params,
             )
         else:
@@ -1088,6 +1090,7 @@ class TracerHaloModel(DMHaloModel):
                 cm_relation=None,
                 mdef=self.mdef,
                 z=self.z,
+                sqrt_nu=self.nu**0.5,
                 **tr_params,
             )
 
@@ -1129,6 +1132,7 @@ class TracerHaloModel(DMHaloModel):
             cm_relation=self.tracer_concentration,
             mdef=self.mdef,
             z=self.z,
+            sqrt_nu=self.nu**0.5,
             **tr_params,
         )
 

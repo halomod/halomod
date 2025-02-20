@@ -98,15 +98,16 @@ class Profile(Component):
         The redshift of the halo
     """
 
-    _defaults = {}
+    _defaults = {'eta_bloat':0.0}
 
-    def __init__(self, cm_relation, mdef=SO_MEAN, z=0.0, cosmo=Planck15, **model_parameters):
+    def __init__(self, cm_relation, mdef=SO_MEAN, z=0.0, cosmo=Planck15, sqrt_nu=1.0, **model_parameters):
         self.mdef = mdef
         self.delta_halo = self.mdef.halo_overdensity_mean(z, cosmo)
         self.z = z
         self._cm_relation = cm_relation
         self.mean_dens = mdef.mean_density(z=z, cosmo=cosmo)
         self.mean_density0 = mdef.mean_density(0, cosmo=cosmo)
+        self.sqrt_nu = sqrt_nu
         self.has_lam = hasattr(self, "_l")
 
         super().__init__(**model_parameters)
@@ -144,7 +145,7 @@ class Profile(Component):
         """
         if c is None:
             c = self.cm_relation(m)
-        r = self.halo_mass_to_radius(m, at_z=at_z)
+        r = self.halo_mass_to_radius(m, at_z=at_z) * self.sqrt_nu**self.params['eta_bloat']
         return r / c
 
     def scale_radius(self, m: float | np.ndarray, at_z: bool = False) -> float | np.ndarray:
