@@ -69,7 +69,7 @@ from hmf.halos.mass_definitions import (
 )
 from scipy import special as sp
 from scipy.interpolate import interp1d
-from scipy.optimize import minimize
+from scipy.optimize import minimize, root_scalar
 
 from .profiles import NFW, Profile
 
@@ -218,6 +218,51 @@ def make_colossus_cm(model="diemer15", **defaults):
     CustomColossusCM.__qualname__ = model.capitalize()
 
     return CustomColossusCM
+    
+    
+def get_modified_concentration(base):
+    r"""
+    A factory function that modifies every concentration class in halomod 
+    with an aditional normalisation
+    """
+    
+    class NormConc(base):
+        r"""
+        Additional normalisation to any concentration-mass relation.
+    
+        This additional normalisation has 3 input parameters.
+    
+        Notes
+        -----
+        Parameters
+        ----------------
+        norm, sigma8, ns: float
+            Default value is ``norm=1.0``, ``sigma8=0.8`` and ``ns=1.0``
+        """
+    
+        _defaults = base._defaults
+        native_mdefs = base.native_mdefs
+        
+        def __init__(self, norm=1.0, sigma8=0.8, ns=1.0, **model_parameters):
+            self.norm = norm
+            self.sigma8 = sigma8
+            self.ns = ns
+            with warnings.catch_warnings():
+                warnings.filterwarnings('ignore', category=UserWarning)
+                super(base, self).__init__(**model_parameters)
+                # if passing colossus c(M) relation, this takes care of correct sigma8 and ns parameters
+                fromAstropy(self.cosmo.cosmo, sigma8=self.sigma8, ns=self.ns, cosmo_name='', persistence='')
+    
+        def cm(self, m, z):
+            c = base.cm(self, m, z)
+            if len(c[c>0]) == 0:
+                c_interp = lambda x: np.ones_like(x)
+            else:
+                c_interp = interp1d(m[c>0], c[c>0], kind='linear', bounds_error=False, fill_value=1.0)
+                
+            return c_interp(m) * self.norm
+            
+    return NormConc
 
 
 class Bullock01(CMRelation):
@@ -252,9 +297,20 @@ class Bullock01(CMRelation):
     def zc(self, m, z=0):
         r = self.filter.mass_to_radius(self.params["F"] * m, self.mean_density0)
         nu = self.filter.nu(r, self.delta_c)
-        g = self.growth.growth_factor_fn(inverse=True)
-        zc = g(np.sqrt(nu))
-        zc[zc < z] = z  # hack?
+        #g = self.growth.growth_factor_fn(inverse=True)
+        #zc = g(np.sqrt(nu)) # This causes troubles with CambGrowth as it is non-monotonic
+        #zc[zc < z] = z  # hack?
+        g = self.growth.growth_factor_fn()
+        zc = np.zeros_like(m)
+        for i in range(m.size):
+            fzc = g(z) * np.sqrt(nu[i])
+            if fzc < g(z):
+                zf = z # These haloes formed 'in the future'
+            else:
+                zf_root = lambda x: g(x) - fzc
+                zf = root_scalar(zf_root, bracket=(1e-9, 1000.0)).root
+            zc[i] = zf
+            print(zf)
         return zc
 
     def cm(self, m, z=0):
