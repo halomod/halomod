@@ -69,7 +69,7 @@ from hmf.halos.mass_definitions import (
 )
 from scipy import special as sp
 from scipy.interpolate import interp1d
-from scipy.optimize import minimize, root_scalar
+from scipy.optimize import minimize
 
 from .profiles import NFW, Profile
 
@@ -297,20 +297,9 @@ class Bullock01(CMRelation):
     def zc(self, m, z=0):
         r = self.filter.mass_to_radius(self.params["F"] * m, self.mean_density0)
         nu = self.filter.nu(r, self.delta_c)
-        #g = self.growth.growth_factor_fn(inverse=True)
-        #zc = g(np.sqrt(nu)) # This causes troubles with CambGrowth as it is non-monotonic
-        #zc[zc < z] = z  # hack?
-        g = self.growth.growth_factor_fn()
-        zc = np.zeros_like(m)
-        for i in range(m.size):
-            fzc = g(z) * np.sqrt(nu[i])
-            if fzc < g(z):
-                zf = z # These haloes formed 'in the future'
-            else:
-                zf_root = lambda x: g(x) - fzc
-                zf = root_scalar(zf_root, bracket=(1e-9, 1000.0)).root
-            zc[i] = zf
-            print(zf)
+        g = self.growth.growth_factor_fn(inverse=True)
+        zc = g(np.sqrt(nu)) # This causes troubles with CambGrowth as it is non-monotonic
+        zc[zc < z] = z  # hack?
         return zc
 
     def cm(self, m, z=0):
