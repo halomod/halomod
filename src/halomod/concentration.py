@@ -218,20 +218,20 @@ def make_colossus_cm(model="diemer15", **defaults):
     CustomColossusCM.__qualname__ = model.capitalize()
 
     return CustomColossusCM
-    
-    
+
+
 def get_modified_concentration(base):
     r"""
-    A factory function that modifies every concentration class in halomod 
+    A factory function that modifies every concentration class in halomod
     with an aditional normalisation
     """
-    
+
     class NormConc(base):
         r"""
         Additional normalisation to any concentration-mass relation.
-    
+
         This additional normalisation has 3 input parameters.
-    
+
         Notes
         -----
         Parameters
@@ -239,29 +239,33 @@ def get_modified_concentration(base):
         norm, sigma8, ns: float
             Default value is ``norm=1.0``, ``sigma8=0.8`` and ``ns=1.0``
         """
-    
+
         _defaults = base._defaults
         native_mdefs = base.native_mdefs
-        
+
         def __init__(self, norm=1.0, sigma8=0.8, ns=1.0, **model_parameters):
             self.norm = norm
             self.sigma8 = sigma8
             self.ns = ns
             with warnings.catch_warnings():
-                warnings.filterwarnings('ignore', category=UserWarning)
+                warnings.filterwarnings("ignore", category=UserWarning)
                 super(base, self).__init__(**model_parameters)
                 # if passing colossus c(M) relation, this takes care of correct sigma8 and ns parameters
-                fromAstropy(self.cosmo.cosmo, sigma8=self.sigma8, ns=self.ns, cosmo_name='', persistence='')
-    
+                fromAstropy(
+                    self.cosmo.cosmo, sigma8=self.sigma8, ns=self.ns, cosmo_name="", persistence=""
+                )
+
         def cm(self, m, z):
             c = base.cm(self, m, z)
-            if len(c[c>0]) == 0:
+            if len(c[c > 0]) == 0:
                 c_interp = lambda x: np.ones_like(x)
             else:
-                c_interp = interp1d(m[c>0], c[c>0], kind='linear', bounds_error=False, fill_value=1.0)
-                
+                c_interp = interp1d(
+                    m[c > 0], c[c > 0], kind="linear", bounds_error=False, fill_value=1.0
+                )
+
             return c_interp(m) * self.norm
-            
+
     return NormConc
 
 
@@ -298,7 +302,7 @@ class Bullock01(CMRelation):
         r = self.filter.mass_to_radius(self.params["F"] * m, self.mean_density0)
         nu = self.filter.nu(r, self.delta_c)
         g = self.growth.growth_factor_fn(inverse=True)
-        zc = g(np.sqrt(nu)) # This causes troubles with CambGrowth as it is non-monotonic
+        zc = g(np.sqrt(nu))  # This causes troubles with CambGrowth as it is non-monotonic
         zc[zc < z] = z  # hack?
         return zc
 
