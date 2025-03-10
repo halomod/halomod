@@ -60,7 +60,6 @@ from hmf._internals import pluggable
 from hmf.cosmology.cosmo import Cosmology
 from hmf.cosmology.growth_factor import GrowthFactor
 from hmf.density_field.filters import Filter
-from hmf.density_field.transfer import Transfer
 from hmf.halos.mass_definitions import (
     MassDefinition,
     SOCritical,
@@ -289,7 +288,7 @@ class Bullock01(CMRelation):
         r = self.filter.mass_to_radius(self.params["F"] * m, self.mean_density0)
         nu = self.filter.nu(r, self.delta_c)
         g = self.growth.growth_factor_fn(inverse=True)
-        zc = g(np.sqrt(nu)) # This causes troubles with CambGrowth as it is non-monotonic
+        zc = g(np.sqrt(nu))  # This causes troubles with CambGrowth as it is non-monotonic
         zc[zc < z] = z  # hack?
         return zc
 
