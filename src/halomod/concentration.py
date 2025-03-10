@@ -60,6 +60,7 @@ from hmf._internals import pluggable
 from hmf.cosmology.cosmo import Cosmology
 from hmf.cosmology.growth_factor import GrowthFactor
 from hmf.density_field.filters import Filter
+from hmf.density_field.transfer import Transfer
 from hmf.halos.mass_definitions import (
     MassDefinition,
     SOCritical,
@@ -114,6 +115,8 @@ class CMRelation(Component):
         delta_c: float = 1.686,
         profile: Profile | None = None,
         mdef: MassDefinition | None = None,
+        sigma_8: float = 0.8,
+        ns: float = 1.0,
         **model_parameters,
     ):
         # Save instance variables
@@ -126,6 +129,8 @@ class CMRelation(Component):
         self.profile = NFW(self, mdef=self.mdef) if profile is None else profile
 
         self.cosmo = cosmo
+        self.sigma_8 = sigma_8
+        self.ns = ns
         self.mean_density0 = cosmo.mean_density0
 
         # TODO: actually implement conversion of mass definitions.
@@ -194,17 +199,17 @@ def make_colossus_cm(model="diemer15", **defaults):
         _defaults = defaults
         native_mdefs = tuple(from_colossus_name(d) for d in concentration.models[model].mdefs)
 
-        def __init__(self, *args, **kwargs):
+        def __init__(self, norm, *args, **kwargs):
+            self.norm = norm
             super().__init__(*args, **kwargs)
-            # TODO: may want a more accurate way of passing sigma8 and ns here.
             with warnings.catch_warnings():
                 warnings.filterwarnings(
                     "ignore", "Astropy cosmology class contains massive neutrinos"
                 )
-                fromAstropy(self.cosmo.cosmo, sigma8=0.8, ns=1)
+                fromAstropy(self.cosmo.cosmo, sigma8=self.sigma_8, ns=self.ns, cosmo_name='', persistence='')
 
         def cm(self, m, z=0):
-            return concentration.concentration(
+            return self.norm * concentration.concentration(
                 M=m,
                 mdef=self.mdef.colossus_name,
                 z=z,
@@ -220,38 +225,22 @@ def make_colossus_cm(model="diemer15", **defaults):
     return CustomColossusCM
     
     
-def get_modified_concentration(base):
+def interp_concentration(base):
     r"""
-    A factory function that modifies every concentration class in halomod 
-    with an aditional normalisation
+    A factory function that interpolates every concentration class in halomod 
+    in order to remove zeros (stemming mostly from undefined mass ranges in Colossus)
     """
     
-    class NormConc(base):
+    class InterpConc(base):
         r"""
-        Additional normalisation to any concentration-mass relation.
-    
-        This additional normalisation has 3 input parameters.
-    
-        Notes
-        -----
-        Parameters
-        ----------------
-        norm, sigma8, ns: float
-            Default value is ``norm=1.0``, ``sigma8=0.8`` and ``ns=1.0``
+        Interpolation to any concentration-mass relation.
         """
     
         _defaults = base._defaults
         native_mdefs = base.native_mdefs
         
-        def __init__(self, norm=1.0, sigma8=0.8, ns=1.0, **model_parameters):
-            self.norm = norm
-            self.sigma8 = sigma8
-            self.ns = ns
-            with warnings.catch_warnings():
-                warnings.filterwarnings('ignore', category=UserWarning)
-                super(base, self).__init__(**model_parameters)
-                # if passing colossus c(M) relation, this takes care of correct sigma8 and ns parameters
-                fromAstropy(self.cosmo.cosmo, sigma8=self.sigma8, ns=self.ns, cosmo_name='', persistence='')
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
     
         def cm(self, m, z):
             c = base.cm(self, m, z)
@@ -259,10 +248,9 @@ def get_modified_concentration(base):
                 c_interp = lambda x: np.ones_like(x)
             else:
                 c_interp = interp1d(m[c>0], c[c>0], kind='linear', bounds_error=False, fill_value=1.0)
-                
-            return c_interp(m) * self.norm
+            return c_interp(m)
             
-    return NormConc
+    return InterpConc
 
 
 class Bullock01(CMRelation):
@@ -284,6 +272,9 @@ class Bullock01(CMRelation):
     ----------------
     F, K : float
         Default value is ``F=0.01`` and ``K=0.34``
+        
+    norm : float
+        Additional normalisation, default is ``norm=1.0``
 
     References
     ----------
@@ -291,7 +282,7 @@ class Bullock01(CMRelation):
            environment ", https://ui.adsabs.harvard.edu/abs/1996MNRAS.282..347M.
     """
 
-    _defaults = {"F": 0.01, "K": 3.4}
+    _defaults = {"F": 0.01, "K": 3.4, "norm": 1.0}
     native_mdefs = (SOCritical(),)
 
     def zc(self, m, z=0):
@@ -303,7 +294,7 @@ class Bullock01(CMRelation):
         return zc
 
     def cm(self, m, z=0):
-        return self.params["K"] * (self.zc(m, z) + 1.0) / (z + 1.0)
+        return self.params["norm"] * self.params["K"] * (self.zc(m, z) + 1.0) / (z + 1.0)
 
 
 class Bullock01Power(CMRelation):
@@ -328,6 +319,9 @@ class Bullock01Power(CMRelation):
 
     ms : float
         Default value is ``None``, where it's set to be the non-linear mass at z.
+        
+    norm : float
+        Additional normalisation, default is ``norm=1.0``
 
     References
     ----------
@@ -336,7 +330,7 @@ class Bullock01Power(CMRelation):
            https://ui.adsabs.harvard.edu/abs/1996MNRAS.282..347M.
     """
 
-    _defaults = {"a": 9.0, "b": -0.13, "c": 1.0, "ms": None}
+    _defaults = {"a": 9.0, "b": -0.13, "c": 1.0, "ms": None, "norm": 1.0}
     native_mdefs = (SOCritical(),)
 
     def _cm(self, m, ms, a, b, c, z=0):
@@ -344,7 +338,7 @@ class Bullock01Power(CMRelation):
 
     def cm(self, m, z=0):
         ms = self.params["ms"] or self.mass_nonlinear(z)
-        return self._cm(m, ms, self.params["a"], self.params["b"], self.params["c"], z)
+        return self.params["norm"] * self._cm(m, ms, self.params["a"], self.params["b"], self.params["c"], z)
 
 
 class Maccio07(CMRelation):
@@ -363,12 +357,12 @@ class Maccio07(CMRelation):
            https://ui.adsabs.harvard.edu/abs/2017MNRAS.469.2323P/abstract.
     """
 
-    _defaults = {"c_0": 28.65, "gamma": 1.45}
+    _defaults = {"c_0": 28.65, "gamma": 1.45, "norm": 1.0}
     native_mdefs = (SOMean(),)
 
     def cm(self, m, z):
         return (
-            self.params["c_0"] * (m * 10 ** (-11)) ** (-0.109) * 4 / (1 + z) ** self.params["gamma"]
+                self.params["norm"] * self.params["c_0"] * (m * 10 ** (-11)) ** (-0.109) * 4 / (1 + z) ** self.params["gamma"]
         )
 
 
@@ -399,6 +393,9 @@ class Duffy08(Bullock01Power):
     sample : str
         Either "relaxed" (default) or "full". Specifies which set of parameters to take
         as default parameters, from Table 1 of [1]_.
+    
+    norm : float
+        Additional normalisation, default is ``norm=1.0``
 
     References
     ----------
@@ -407,7 +404,7 @@ class Duffy08(Bullock01Power):
            https://ui.adsabs.harvard.edu/abs/2008MNRAS.390L..64D.
     """
 
-    _defaults = {"a": None, "b": None, "c": None, "ms": 2e12, "sample": "relaxed"}
+    _defaults = {"a": None, "b": None, "c": None, "ms": 2e12, "sample": "relaxed", "norm": 1.0}
     native_mdefs = (SOCritical(), SOMean(), SOVirial())
 
     def cm(self, m, z=0):
@@ -457,7 +454,7 @@ class Duffy08(Bullock01Power):
         a = self.params["a"] or parameter_set["a"]
         b = self.params["b"] or parameter_set["b"]
         c = self.params["c"] or parameter_set["c"]
-        return self._cm(m, self.params["ms"], a, b, c, z)
+        return self.params["norm"] * self._cm(m, self.params["ms"], a, b, c, z)
 
 
 class Zehavi11(Bullock01Power):
@@ -474,6 +471,9 @@ class Zehavi11(Bullock01Power):
     ----------------
     a, b, c, ms: float
         Default is ``(11.0,-0.13,1.0,2.26e12)``.
+        
+    norm : float
+        Additional normalisation, default is ``norm=1.0``
 
     References
     ----------
@@ -482,7 +482,7 @@ class Zehavi11(Bullock01Power):
            https://ui.adsabs.harvard.edu/abs/2011ApJ...736...59Z.
     """
 
-    _defaults = {"a": 11.0, "b": -0.13, "c": 1.0, "ms": 2.26e12}
+    _defaults = {"a": 11.0, "b": -0.13, "c": 1.0, "ms": 2.26e12, "norm": 1.0}
 
 
 class Ludlow16(CMRelation):
@@ -500,6 +500,9 @@ class Ludlow16(CMRelation):
     ----------------
     f, C : float
         Default value is ``f=0.02`` and ``C=650``
+        
+    norm : float
+        Additional normalisation, default is ``norm=1.0``
 
     References
     ----------
@@ -512,6 +515,7 @@ class Ludlow16(CMRelation):
     _defaults = {
         "f": 0.02,  # Fraction of mass assembled at "formation"
         "C": 650,  # Constant scaling
+        "norm": 1.0,
     }
     native_mdefs = (SOCritical(),)
 
@@ -580,7 +584,7 @@ class Ludlow16(CMRelation):
             return out
 
     def cm(self, m, z=0):
-        return self._eq7(self.params["f"], self.params["C"], m, z)
+        return self.params["norm"] * self._eq7(self.params["f"], self.params["C"], m, z)
 
 
 class Ludlow16Empirical(CMRelation):
@@ -599,6 +603,9 @@ class Ludlow16Empirical(CMRelation):
     ----------------
     c0_0, c0_z, beta_0, beta_z, gamma1_0, gamma1_z, gamma2_0, gamma2_z : float
         Default value is ``(3.395,-0.215,0.307,0.54,0.628,-0.047,0.317,-0.893)``.
+        
+    norm : float
+        Additional normalisation, default is ``norm=1.0``
 
     References
     ----------
@@ -616,6 +623,7 @@ class Ludlow16Empirical(CMRelation):
         "gamma1_z": -0.047,
         "gamma2_0": 0.317,
         "gamma2_z": -0.893,
+        "norm": 1.0,
     }
     native_mdefs = (SOCritical(),)
 
@@ -650,7 +658,8 @@ class Ludlow16Empirical(CMRelation):
         )
         nu = self.delta_c / sig
         return (
-            self._c0(z)
+            self.params["norm"]
+            * self._c0(z)
             * (nu / self._nu_0(z)) ** (-self._gamma1(z))
             * (1 + (nu / self._nu_0(z)) ** (1.0 / self._beta(z)))
             ** (-self._beta(z) * (self._gamma2(z) - self._gamma1(z)))

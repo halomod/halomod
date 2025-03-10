@@ -388,6 +388,8 @@ class DMHaloModel(MassFunction):
             profile=this_profile,
             cosmo=Cosmology(cosmo_model=self.cosmo),
             mdef=self.mdef,
+            sigma_8=self.sigma_8,
+            ns=self.n,
             **self.halo_concentration_params,
         )
 
@@ -1109,6 +1111,8 @@ class TracerHaloModel(DMHaloModel):
             delta_c=self.delta_c,
             profile=this_profile,
             mdef=self.mdef,
+            sigma_8=self.sigma_8,
+            ns=self.n,
             **tr_params,
         )
 
