@@ -101,7 +101,13 @@ class Profile(Component):
     _defaults = {"eta_bloat": 0.0}
 
     def __init__(
-        self, cm_relation, mdef=SO_MEAN, z=0.0, cosmo=Planck15, nu_fn=(lambda x: 1), **model_parameters
+        self,
+        cm_relation,
+        mdef=SO_MEAN,
+        z=0.0,
+        cosmo=Planck15,
+        nu_fn=(lambda x: 1),
+        **model_parameters,
     ):
         self.mdef = mdef
         self.delta_halo = self.mdef.halo_overdensity_mean(z, cosmo)
@@ -147,7 +153,10 @@ class Profile(Component):
         """
         if c is None:
             c = self.cm_relation(m)
-        r = self.halo_mass_to_radius(m, at_z=at_z) * np.sqrt(self.nu_fn(m)) ** self.params["eta_bloat"]
+        r = (
+            self.halo_mass_to_radius(m, at_z=at_z)
+            * np.sqrt(self.nu_fn(m)) ** self.params["eta_bloat"]
+        )
         return r / c
 
     def scale_radius(self, m: float | np.ndarray, at_z: bool = False) -> float | np.ndarray:
