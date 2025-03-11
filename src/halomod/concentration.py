@@ -205,7 +205,9 @@ def make_colossus_cm(model="diemer15", **defaults):
                 warnings.filterwarnings(
                     "ignore", "Astropy cosmology class contains massive neutrinos"
                 )
-                fromAstropy(self.cosmo.cosmo, sigma8=self.sigma_8, ns=self.ns, cosmo_name='', persistence='')
+                fromAstropy(
+                    self.cosmo.cosmo, sigma8=self.sigma_8, ns=self.ns, cosmo_name="", persistence=""
+                )
 
         def cm(self, m, z=0):
             return self.norm * concentration.concentration(
@@ -222,33 +224,35 @@ def make_colossus_cm(model="diemer15", **defaults):
     CustomColossusCM.__qualname__ = model.capitalize()
 
     return CustomColossusCM
-    
-    
+
+
 def interp_concentration(base):
     r"""
-    A factory function that interpolates every concentration class in halomod 
+    A factory function that interpolates every concentration class in halomod
     in order to remove zeros (stemming mostly from undefined mass ranges in Colossus)
     """
-    
+
     class InterpConc(base):
         r"""
         Interpolation to any concentration-mass relation.
         """
-    
+
         _defaults = base._defaults
         native_mdefs = base.native_mdefs
-        
+
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
-    
+
         def cm(self, m, z):
             c = base.cm(self, m, z)
-            if len(c[c>0]) == 0:
+            if len(c[c > 0]) == 0:
                 c_interp = lambda x: np.ones_like(x)
             else:
-                c_interp = interp1d(m[c>0], c[c>0], kind='linear', bounds_error=False, fill_value=1.0)
+                c_interp = interp1d(
+                    m[c > 0], c[c > 0], kind="linear", bounds_error=False, fill_value=1.0
+                )
             return c_interp(m)
-            
+
     return InterpConc
 
 
@@ -271,7 +275,7 @@ class Bullock01(CMRelation):
     ----------------
     F, K : float
         Default value is ``F=0.01`` and ``K=0.34``
-        
+
     norm : float
         Additional normalisation, default is ``norm=1.0``
 
@@ -318,7 +322,7 @@ class Bullock01Power(CMRelation):
 
     ms : float
         Default value is ``None``, where it's set to be the non-linear mass at z.
-        
+
     norm : float
         Additional normalisation, default is ``norm=1.0``
 
@@ -337,7 +341,9 @@ class Bullock01Power(CMRelation):
 
     def cm(self, m, z=0):
         ms = self.params["ms"] or self.mass_nonlinear(z)
-        return self.params["norm"] * self._cm(m, ms, self.params["a"], self.params["b"], self.params["c"], z)
+        return self.params["norm"] * self._cm(
+            m, ms, self.params["a"], self.params["b"], self.params["c"], z
+        )
 
 
 class Maccio07(CMRelation):
@@ -361,7 +367,11 @@ class Maccio07(CMRelation):
 
     def cm(self, m, z):
         return (
-                self.params["norm"] * self.params["c_0"] * (m * 10 ** (-11)) ** (-0.109) * 4 / (1 + z) ** self.params["gamma"]
+            self.params["norm"]
+            * self.params["c_0"]
+            * (m * 10 ** (-11)) ** (-0.109)
+            * 4
+            / (1 + z) ** self.params["gamma"]
         )
 
 
@@ -392,7 +402,7 @@ class Duffy08(Bullock01Power):
     sample : str
         Either "relaxed" (default) or "full". Specifies which set of parameters to take
         as default parameters, from Table 1 of [1]_.
-    
+
     norm : float
         Additional normalisation, default is ``norm=1.0``
 
@@ -470,7 +480,7 @@ class Zehavi11(Bullock01Power):
     ----------------
     a, b, c, ms: float
         Default is ``(11.0,-0.13,1.0,2.26e12)``.
-        
+
     norm : float
         Additional normalisation, default is ``norm=1.0``
 
@@ -499,7 +509,7 @@ class Ludlow16(CMRelation):
     ----------------
     f, C : float
         Default value is ``f=0.02`` and ``C=650``
-        
+
     norm : float
         Additional normalisation, default is ``norm=1.0``
 
@@ -602,7 +612,7 @@ class Ludlow16Empirical(CMRelation):
     ----------------
     c0_0, c0_z, beta_0, beta_z, gamma1_0, gamma1_z, gamma2_0, gamma2_z : float
         Default value is ``(3.395,-0.215,0.307,0.54,0.628,-0.047,0.317,-0.893)``.
-        
+
     norm : float
         Additional normalisation, default is ``norm=1.0``
 
