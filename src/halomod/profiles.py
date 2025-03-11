@@ -101,7 +101,7 @@ class Profile(Component):
     _defaults = {"eta_bloat": 0.0}
 
     def __init__(
-        self, cm_relation, mdef=SO_MEAN, z=0.0, cosmo=Planck15, sqrt_nu=1.0, **model_parameters
+        self, cm_relation, mdef=SO_MEAN, z=0.0, cosmo=Planck15, nu_fn=(lambda x: 1), **model_parameters
     ):
         self.mdef = mdef
         self.delta_halo = self.mdef.halo_overdensity_mean(z, cosmo)
@@ -109,7 +109,7 @@ class Profile(Component):
         self._cm_relation = cm_relation
         self.mean_dens = mdef.mean_density(z=z, cosmo=cosmo)
         self.mean_density0 = mdef.mean_density(0, cosmo=cosmo)
-        self.sqrt_nu = sqrt_nu
+        self.nu_fn = nu_fn
         self.has_lam = hasattr(self, "_l")
 
         super().__init__(**model_parameters)
@@ -147,7 +147,7 @@ class Profile(Component):
         """
         if c is None:
             c = self.cm_relation(m)
-        r = self.halo_mass_to_radius(m, at_z=at_z) * self.sqrt_nu ** self.params["eta_bloat"]
+        r = self.halo_mass_to_radius(m, at_z=at_z) * np.sqrt(self.nu_fn(m)) ** self.params["eta_bloat"]
         return r / c
 
     def scale_radius(self, m: float | np.ndarray, at_z: bool = False) -> float | np.ndarray:
@@ -892,7 +892,7 @@ class GeneralizedNFW(Profile):
            https://ui.adsabs.harvard.edu/abs/1996MNRAS.278..488Z.
     """
 
-    _defaults = {"alpha": 1}
+    _defaults = {"alpha": 1, "eta_bloat": 0.0}
 
     def _f(self, x):
         return 1.0 / (x ** self.params["alpha"] * (1 + x) ** (3 - self.params["alpha"]))
@@ -972,7 +972,7 @@ class Einasto(Profile):
            Trudy Inst. Astrofiz. Alma-Ata 5, 87.
     """
 
-    _defaults = {"alpha": 0.18, "use_interp": True}
+    _defaults = {"alpha": 0.18, "use_interp": True, "eta_bloat": 0.0}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -1085,7 +1085,7 @@ class PowerLawWithExpCut(ProfileInf):
            https://ui.adsabs.harvard.edu/abs/2020MNRAS.493.5434S/abstract.
     """
 
-    _defaults = {"a": 0.049, "b": 2.248}
+    _defaults = {"a": 0.049, "b": 2.248, "eta_bloat": 0.0}
 
     def _f(self, x):
         return 1.0 / (x ** self.params["b"]) * np.exp(-self.params["a"] * x)

@@ -181,3 +181,12 @@ def test_get_k_variable(thmnum, thm):
     attnum = thmnum.halo_profile._get_k_variables
     att = thm.halo_profile._get_k_variables
     assert np.allclose(att(k, m, coord="kappa"), attnum(k, m, coord="kappa"), rtol=1e-2)
+
+
+def test_eta(thm, thmnum):
+    k = np.array([0.1, 1])
+    m = np.array([1e12, 1e13])
+    thm.update(halo_profile_params={'eta_bloat':1.0})
+    attnum = thmnum.halo_profile._rs_from_m
+    att = thm.halo_profile._rs_from_m
+    assert np.allclose(att(m), attnum(m) * np.sqrt(thmnum.nu_fn(m)), rtol=1e-2)
