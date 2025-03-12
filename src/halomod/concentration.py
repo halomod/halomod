@@ -198,7 +198,7 @@ def make_colossus_cm(model="diemer15", **defaults):
         _defaults = defaults
         native_mdefs = tuple(from_colossus_name(d) for d in concentration.models[model].mdefs)
 
-        def __init__(self, norm, *args, **kwargs):
+        def __init__(self, norm=1.0, *args, **kwargs):
             self.norm = norm
             super().__init__(*args, **kwargs)
             with warnings.catch_warnings():
