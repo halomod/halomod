@@ -246,12 +246,12 @@ def interp_concentration(base):
         def cm(self, m, z):
             c = base.cm(self, m, z)
             if len(c[c > 0]) == 0:
-                c_interp = lambda x: np.ones_like(x)
+                return np.ones_like(m)
             else:
                 c_interp = interp1d(
                     m[c > 0], c[c > 0], kind="linear", bounds_error=False, fill_value=1.0
                 )
-            return c_interp(m)
+                return c_interp(m)
 
     return InterpConc
 
