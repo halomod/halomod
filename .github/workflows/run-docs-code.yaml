@@ -21,7 +21,7 @@ jobs:
           fetch-depth: 1
 
       - name: Setup Miniconda
-        uses: conda-incubator/setup-miniconda@v3.1.1
+        uses: conda-incubator/setup-miniconda@v3.2.0
         with:
           auto-update-conda: true
           channels: conda-forge,defaults
