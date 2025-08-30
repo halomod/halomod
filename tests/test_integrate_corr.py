@@ -52,6 +52,18 @@ class TestProjCorr:
         wprp = projected_corr_gal(h.r, xir, h.rlim, self.rp)
         assert np.allclose(wprp, wprp_anl, rtol=5e-2)
 
+    def test_auto_gal_approx_power_law(self):
+        h = ProjectedCF(rp_min=self.rp, transfer_model="EH")
+        # fit the power-law to the auto-correlation function
+        # on small scales it should be a power-law
+        poly_pars = np.polyfit(np.log(h.r[h.r < 1]), np.log(h.corr_auto_tracer[h.r < 1]), 1)
+        gamma_xi = -poly_pars[0]
+        r0 = np.exp(poly_pars[1] / gamma_xi)
+        wp_approx = wprp_power_law(h.rp, r0, gamma_xi)
+        wp_gal = h.projected_corr_gal
+        # only test on small scales
+        assert np.allclose(wp_approx[h.rp < 0.1], wp_gal[h.rp < 0.1], rtol=5e-2)
+
 
 class TestAngularCF:
     @classmethod
