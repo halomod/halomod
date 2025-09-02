@@ -4,6 +4,10 @@ Releases
 dev-version
 -----------
 
+Fixed
++++++
+* Fixed bug in ``ProjectedCF.projected_corr_gal`` calling deprecated ``corr_gg``.
+
 v2.1.0 [08 Jul 2021]
 ----------------------
 Features
