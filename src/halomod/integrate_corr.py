@@ -118,7 +118,7 @@ class ProjectedCF(HaloModel):
 
         To integrate perform a substitution y = x - r_p.
         """
-        return projected_corr_gal(self.r, self.corr_gg, self.rlim, self.rp)
+        return projected_corr_gal(self.r, self.corr_auto_tracer, self.rlim, self.rp)
 
 
 def projected_corr_gal(
