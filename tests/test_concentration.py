@@ -67,3 +67,9 @@ def test_decreasing_cm(cmr):
     hm = TracerHaloModel(halo_concentration_model=cmr, transfer_model="EH")
     m = np.logspace(10, 15, 100)
     assert np.all(np.diff(hm.halo_concentration.cm(m, z=0)) <= 0)
+
+    # we test for the interpolation as well
+    hm_interp = TracerHaloModel(
+        halo_concentration_model=cm.interp_concentration(cmr), transfer_model="EH"
+    )
+    assert np.all(np.diff(hm_interp.halo_concentration.cm(m, z=0)) <= 0)
