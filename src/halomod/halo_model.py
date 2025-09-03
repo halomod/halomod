@@ -378,6 +378,7 @@ class DMHaloModel(MassFunction):
             cm_relation=None,
             mdef=self.mdef,
             z=self.z,
+            nu_fn=self.nu_fn,
             **self.halo_profile_params,
         )
 
@@ -388,6 +389,8 @@ class DMHaloModel(MassFunction):
             profile=this_profile,
             cosmo=Cosmology(cosmo_model=self.cosmo),
             mdef=self.mdef,
+            sigma_8=self.sigma_8,
+            ns=self.n,
             **self.halo_concentration_params,
         )
 
@@ -398,6 +401,7 @@ class DMHaloModel(MassFunction):
             cm_relation=self.halo_concentration,
             mdef=self.mdef,
             z=self.z,
+            nu_fn=self.nu_fn,
             **self.halo_profile_params,
         )
 
@@ -1070,6 +1074,7 @@ class TracerHaloModel(DMHaloModel):
                 cm_relation=None,
                 mdef=self.mdef,
                 z=self.z,
+                nu_fn=self.nu_fn,
                 **self.halo_profile_params,
             )
         else:
@@ -1088,6 +1093,7 @@ class TracerHaloModel(DMHaloModel):
                 cm_relation=None,
                 mdef=self.mdef,
                 z=self.z,
+                nu_fn=self.nu_fn,
                 **tr_params,
             )
 
@@ -1106,6 +1112,8 @@ class TracerHaloModel(DMHaloModel):
             delta_c=self.delta_c,
             profile=this_profile,
             mdef=self.mdef,
+            sigma_8=self.sigma_8,
+            ns=self.n,
             **tr_params,
         )
 
@@ -1129,6 +1137,7 @@ class TracerHaloModel(DMHaloModel):
             cm_relation=self.tracer_concentration,
             mdef=self.mdef,
             z=self.z,
+            nu_fn=self.nu_fn,
             **tr_params,
         )
 
