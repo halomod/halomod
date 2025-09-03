@@ -96,6 +96,12 @@ class Profile(Component):
         A mass definition to interpret input masses with.
     z : float, default 0.0
         The redshift of the halo
+
+    Other Parameters
+    ----------------
+    eta_bloat: float
+        The halo profile bloating parameter, as defined in HMCode2020.
+        The default value is ``0`` - no halo bloating.
     """
 
     _defaults = {"eta_bloat": 0.0}
@@ -901,7 +907,7 @@ class GeneralizedNFW(Profile):
            https://ui.adsabs.harvard.edu/abs/1996MNRAS.278..488Z.
     """
 
-    _defaults = {"alpha": 1, "eta_bloat": 0.0}
+    _defaults = Profile._defaults | {"alpha": 1}
 
     def _f(self, x):
         return 1.0 / (x ** self.params["alpha"] * (1 + x) ** (3 - self.params["alpha"]))
@@ -981,7 +987,7 @@ class Einasto(Profile):
            Trudy Inst. Astrofiz. Alma-Ata 5, 87.
     """
 
-    _defaults = {"alpha": 0.18, "use_interp": True, "eta_bloat": 0.0}
+    _defaults = Profile._defaults | {"alpha": 0.18, "use_interp": True}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -1094,7 +1100,7 @@ class PowerLawWithExpCut(ProfileInf):
            https://ui.adsabs.harvard.edu/abs/2020MNRAS.493.5434S/abstract.
     """
 
-    _defaults = {"a": 0.049, "b": 2.248, "eta_bloat": 0.0}
+    _defaults = ProfileInf._defaults | {"a": 0.049, "b": 2.248}
 
     def _f(self, x):
         return 1.0 / (x ** self.params["b"]) * np.exp(-self.params["a"] * x)
