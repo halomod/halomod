@@ -292,7 +292,7 @@ class Bullock01(CMRelation):
         r = self.filter.mass_to_radius(self.params["F"] * m, self.mean_density0)
         nu = self.filter.nu(r, self.delta_c)
         g = self.growth.growth_factor_fn(inverse=True)
-        zc = g(np.sqrt(nu))  # This causes troubles with CambGrowth as it is non-monotonic
+        zc = g(np.sqrt(nu))
         zc[np.logical_or.accumulate(zc == zc.min())] = zc.min()
         # As massive halos have not formed yet,
         # we need to set the formation time of those to the future
