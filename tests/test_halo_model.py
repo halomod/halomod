@@ -190,3 +190,10 @@ def test_large_scale_bias(dmhm):
             "ignore", "You are using an un-normalized mass function and bias function"
         )
         assert np.isclose(dm2.power_2h_auto_matter[0], dm2.linear_power_fnc(dm2.k_hm[0]), rtol=1e-4)
+
+
+def test_passing_r_array(dmhm):
+    rr = dmhm.r.copy()
+    dmhm2 = dmhm.clone(rmin=rr)
+    assert np.allclose(dmhm.r, dmhm2.r)
+    assert np.allclose(dmhm.corr_auto_matter, dmhm2.corr_auto_matter)

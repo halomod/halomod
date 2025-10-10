@@ -80,7 +80,7 @@ class DMHaloModel(MassFunction):
 
         Parameters
         ----------
-        rmin : float or arry-like, optional
+        rmin : float or array-like, optional
             Minimum length scale over which to calculate correlations, in Mpc/h.
             Alternatively, if an array, this is used to specify the entire array of
             scales and `rmax`, `rnum` and `rlog` are ignored.
@@ -179,7 +179,8 @@ class DMHaloModel(MassFunction):
     # ===============================================================================
     def validate(self):
         super().validate()
-        assert self.rmin < self.rmax, f"rmin >= rmax: {self.rmin}, {self.rmax}"
+        if not hasattr(self.rmin, "__len__"):
+            assert self.rmin < self.rmax, f"rmin >= rmax: {self.rmin}, {self.rmax}"
         assert len(self.r) > 0, "r has length zero!"
         assert self.hm_logk_min < self.hm_logk_max, (
             f"hm_logk_min >= hm_logk_max: {self.hm_logk_min}, {self.hm_logk_max}"
