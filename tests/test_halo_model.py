@@ -21,7 +21,11 @@ def test_default_actually_inits(model):
 
 @pytest.fixture(scope="module")
 def dmhm():
-    return DMHaloModel(transfer_model="EH")
+    return DMHaloModel(
+        transfer_model="EH",
+        bias_model="Tinker10PBSplit",
+        hmf_model="Tinker10",
+    )
 
 
 @pytest.fixture(scope="module")
