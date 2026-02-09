@@ -92,8 +92,10 @@ class TestAngularCF:
                 [
                     2
                     * quad(
-                        lambda u: ((u**2 + xx**2 * t**2) / r0**2)  # noqa: B023
-                        ** (-gamma / 2),
+                        lambda u: (
+                            ((u**2 + xx**2 * t**2) / r0**2)  # noqa: B023
+                            ** (-gamma / 2)
+                        ),
                         a=0,
                         b=np.inf,
                     )[0]
