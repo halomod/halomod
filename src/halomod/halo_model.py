@@ -1418,7 +1418,7 @@ class TracerHaloModel(DMHaloModel):
     @cached_quantity
     def power_1h_auto_tracer_fnc(self):
         """A callable returning the total 1-halo term of the tracer auto power spectrum."""
-        return lambda k: (self.power_1h_cs_auto_tracer_fnc(k) + self.power_1h_ss_auto_tracer_fnc(k))
+        return lambda k: self.power_1h_cs_auto_tracer_fnc(k) + self.power_1h_ss_auto_tracer_fnc(k)
 
     @property
     def power_1h_auto_tracer(self):
@@ -1446,10 +1446,8 @@ class TracerHaloModel(DMHaloModel):
 
         else:
             try:
-                return (
-                    lambda r: self.corr_1h_cs_auto_tracer_fnc(r)
-                    + self.corr_1h_ss_auto_tracer_fnc(r)
-                    + 1
+                return lambda r: (
+                    self.corr_1h_cs_auto_tracer_fnc(r) + self.corr_1h_ss_auto_tracer_fnc(r) + 1
                 )
             except AttributeError:
                 c = tools.hankel_transform(self.power_1h_auto_tracer_fnc, self.r, "r")
@@ -1510,7 +1508,7 @@ class TracerHaloModel(DMHaloModel):
 
     @property
     def power_auto_tracer_fnc(self):
-        return lambda k: (self.power_1h_auto_tracer_fnc(k) + self.power_2h_auto_tracer_fnc(k))
+        return lambda k: self.power_1h_auto_tracer_fnc(k) + self.power_2h_auto_tracer_fnc(k)
 
     @property
     def power_auto_tracer(self):
@@ -1615,9 +1613,9 @@ class TracerHaloModel(DMHaloModel):
     @cached_quantity
     def power_cross_tracer_matter_fnc(self):
         """A callable returning cross-power spectrum of tracer and matter."""
-        return lambda k: self.power_1h_cross_tracer_matter_fnc(
-            k
-        ) + self.power_2h_cross_tracer_matter_fnc(k)
+        return lambda k: (
+            self.power_1h_cross_tracer_matter_fnc(k) + self.power_2h_cross_tracer_matter_fnc(k)
+        )
 
     @property
     def power_cross_tracer_matter(self):
@@ -1627,10 +1625,8 @@ class TracerHaloModel(DMHaloModel):
     @cached_quantity
     def corr_cross_tracer_matter_fnc(self):
         """A callable returning the cross-correlation of tracer with matter."""
-        return (
-            lambda r: self.corr_1h_cross_tracer_matter_fnc(r)
-            + self.corr_2h_cross_tracer_matter_fnc(r)
-            + 1
+        return lambda r: (
+            self.corr_1h_cross_tracer_matter_fnc(r) + self.corr_2h_cross_tracer_matter_fnc(r) + 1
         )
 
     @property
