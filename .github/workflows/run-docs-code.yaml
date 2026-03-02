@@ -48,7 +48,7 @@ jobs:
         run: |
           papermill -k halomod docs/examples/${{ matrix.demo }}.ipynb output-${{ matrix.demo }}.ipynb
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: ${{ matrix.demo }}
