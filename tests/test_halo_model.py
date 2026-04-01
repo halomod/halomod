@@ -201,3 +201,46 @@ def test_passing_r_array(dmhm):
     dmhm2 = dmhm.clone(rmin=rr)
     assert np.allclose(dmhm.r, dmhm2.r)
     assert np.allclose(dmhm.corr_auto_matter, dmhm2.corr_auto_matter)
+
+
+def test_no_parameter_sharing_between_tracer_instances():
+    """Regression test for https://github.com/halomod/halomod/issues/202.
+
+    Two independently-created TracerHaloModel instances must not share parameter
+    dicts (hod_params, halo_profile_params, etc.).
+    """
+    hm1 = TracerHaloModel(transfer_model="EH")
+    hm1.hod_params = {"M_1": 12.0}
+
+    hm2 = TracerHaloModel(hod_model="Zheng05", transfer_model="EH")
+
+    # hm2 should have empty hod_params, independent of hm1
+    assert hm2.hod_params == {}, (
+        f"hm2.hod_params should be empty but got {hm2.hod_params!r}. "
+        "Instances appear to be sharing parameter dicts."
+    )
+    assert hm1.hod_params == {"M_1": 12.0}, (
+        f"hm1.hod_params was unexpectedly modified: {hm1.hod_params!r}"
+    )
+
+    # Modifying hm2 should not affect hm1
+    hm2.hod_params = {"M_1": 13.0}
+    assert hm1.hod_params == {"M_1": 12.0}, (
+        f"Modifying hm2 affected hm1.hod_params: {hm1.hod_params!r}"
+    )
+
+
+def test_no_parameter_sharing_between_dm_instances():
+    """Regression test: DMHaloModel instances must not share parameter dicts."""
+    hm1 = DMHaloModel(transfer_model="EH")
+    hm1.halo_profile_params = {"truncate": False}
+
+    hm2 = DMHaloModel(transfer_model="EH")
+
+    assert hm2.halo_profile_params == {}, (
+        f"hm2.halo_profile_params should be empty but got {hm2.halo_profile_params!r}."
+    )
+    assert hm1.halo_profile_params == {"truncate": False}, (
+        f"hm1.halo_profile_params was unexpectedly modified: {hm1.halo_profile_params!r}"
+    )
+

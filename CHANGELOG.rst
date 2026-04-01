@@ -7,6 +7,15 @@ dev-version
 Fixed
 +++++
 * Fixed bug in ``ProjectedCF.projected_corr_gal`` calling deprecated ``corr_gg``.
+* Fixed inconsistency in ``*_params`` parameter setters: ``hod_params``,
+  ``bias_params``, ``halo_profile_params``, ``halo_concentration_params``,
+  ``sd_bias_params``, ``colossus_params``, and ``exclusion_params`` now all
+  normalize ``None`` to ``{}`` (matching the behaviour of
+  ``tracer_profile_params`` and ``tracer_concentration_params``).  The root
+  cause of the parameter-cache sharing reported in
+  `#202 <https://github.com/halomod/halomod/issues/202>`_ was in an older
+  version of the ``hmf`` ``@parameter`` decorator; this change adds defensive
+  validation and a regression test.
 
 v2.1.0 [08 Jul 2021]
 ----------------------

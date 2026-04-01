@@ -198,6 +198,8 @@ class DMHaloModel(MassFunction):
     @parameter("param")
     def bias_params(self, val):
         """Dictionary of parameters for the Bias model."""
+        val = val or {}
+        assert isinstance(val, dict)
         return val
 
     @parameter("switch")
@@ -223,6 +225,8 @@ class DMHaloModel(MassFunction):
     @parameter("param")
     def halo_profile_params(self, val):
         """Dictionary of parameters for the Profile model."""
+        val = val or {}
+        assert isinstance(val, dict)
         return val
 
     @parameter("model")
@@ -233,6 +237,8 @@ class DMHaloModel(MassFunction):
     @parameter("param")
     def halo_concentration_params(self, val):
         """Dictionary of parameters for the concentration model."""
+        val = val or {}
+        assert isinstance(val, dict)
         return val
 
     @parameter("switch")
@@ -294,6 +300,8 @@ class DMHaloModel(MassFunction):
     @parameter("param")
     def sd_bias_params(self, val):
         """Dictionary of parameters for Scale Dependant Bias."""
+        val = val or {}
+        assert isinstance(val, dict)
         return val
 
     @parameter("switch")
@@ -311,11 +319,15 @@ class DMHaloModel(MassFunction):
     @parameter("param")
     def colossus_params(self, val):
         """Options for colossus cosmology not set/derived in the astropy cosmology."""
+        val = val or {}
+        assert isinstance(val, dict)
         return val
 
     @parameter("param")
     def exclusion_params(self, val):
         """Dictionary of parameters for the Exclusion model."""
+        val = val or {}
+        assert isinstance(val, dict)
         return val
 
     # ===========================================================================
@@ -988,6 +1000,8 @@ class TracerHaloModel(DMHaloModel):
     @parameter("param")
     def hod_params(self, val: dict):
         """Dictionary of parameters for the HOD model."""
+        val = val or {}
+        assert isinstance(val, dict)
         return val
 
     @parameter("model")
