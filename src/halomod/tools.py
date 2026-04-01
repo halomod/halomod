@@ -589,55 +589,55 @@ def _zero(x):
 class _NormedCallable:
     """Callable that scales another callable by a fixed normalization factor."""
 
-    def __init__(self, fnc, norm):
+    def __init__(self, fnc: callable, norm: float):
         self.fnc = fnc
         self.norm = norm
 
-    def __call__(self, xx):
+    def __call__(self, xx: np.ndarray) -> np.ndarray:
         return self.fnc(xx) * self.norm
 
 
 class _PowerLawExtension:
     """Callable for power-law extrapolation based on a log-log spline."""
 
-    def __init__(self, spl, neg):
+    def __init__(self, spl: callable, neg: bool):
         self.spl = spl
         self.neg = neg
 
-    def __call__(self, xx):
+    def __call__(self, xx: np.ndarray) -> np.ndarray:
         return np.exp(self.spl(np.log(xx))) * (-1 if self.neg else 1)
 
 
 class _BoundaryExtension:
     """Callable that returns a constant value equal to a spline at a boundary point."""
 
-    def __init__(self, spl, match_x):
+    def __init__(self, spl: callable, match_x: float):
         self.spl = spl
         self.match_x = match_x
 
-    def __call__(self, xx):
+    def __call__(self, xx: np.ndarray) -> np.ndarray:
         return np.ones_like(xx) * self.spl(self.match_x)
 
 
 class _PowerLawK:
     """Callable that returns k**n, used as a lower-bound extension for power spectra."""
 
-    def __init__(self, n):
+    def __init__(self, n: float):
         self.n = n
 
-    def __call__(self, k):
+    def __call__(self, k: np.ndarray) -> np.ndarray:
         return k**self.n
 
 
 class _SumCallable:
     """Callable that returns the sum of two callables, with an optional constant offset."""
 
-    def __init__(self, fnc1, fnc2, offset=0):
+    def __init__(self, fnc1: callable, fnc2: callable, offset: float = 0):
         self.fnc1 = fnc1
         self.fnc2 = fnc2
         self.offset = offset
 
-    def __call__(self, x):
+    def __call__(self, x: np.ndarray) -> np.ndarray:
         return self.fnc1(x) + self.fnc2(x) + self.offset
 
 

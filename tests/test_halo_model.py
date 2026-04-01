@@ -203,6 +203,7 @@ def test_passing_r_array(dmhm):
     assert np.allclose(dmhm.corr_auto_matter, dmhm2.corr_auto_matter)
 
 
+@pytest.mark.filterwarnings("ignore:You are using an un-normalized mass function")
 @pytest.mark.parametrize("model", [TracerHaloModel, DMHaloModel])
 def test_pickle_before_any_computation(model):
     """Models must be pickleable even before any quantities are computed (for MCMC)."""
@@ -212,6 +213,8 @@ def test_pickle_before_any_computation(model):
     p = pickle.dumps(m)
     m2 = pickle.loads(p)
     assert type(m2) is type(m)
+    # Verify the unpickled model can still compute quantities
+    assert np.allclose(m.corr_auto_matter, m2.corr_auto_matter)
 
 
 @pytest.mark.filterwarnings(
