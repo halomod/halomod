@@ -201,3 +201,34 @@ def test_passing_r_array(dmhm):
     dmhm2 = dmhm.clone(rmin=rr)
     assert np.allclose(dmhm.r, dmhm2.r)
     assert np.allclose(dmhm.corr_auto_matter, dmhm2.corr_auto_matter)
+
+
+@pytest.mark.parametrize("model", [TracerHaloModel, DMHaloModel])
+def test_pickle_before_any_computation(model):
+    """Models must be pickleable even before any quantities are computed (for MCMC)."""
+    import pickle
+
+    m = model(transfer_model="EH")
+    p = pickle.dumps(m)
+    m2 = pickle.loads(p)
+    assert type(m2) is type(m)
+
+
+@pytest.mark.filterwarnings(
+    "ignore:Using halofit for tracer stats is only valid up to quasi-linear scales"
+)
+@pytest.mark.filterwarnings("ignore:You are using an un-normalized mass function")
+def test_pickle_after_computation(thm):
+    """Models must be pickleable after computing cached quantities (for MCMC)."""
+    import pickle
+
+    # Trigger computation of several cached quantities
+    _ = thm.corr_auto_tracer
+    _ = thm.corr_auto_matter
+
+    p = pickle.dumps(thm)
+    thm2 = pickle.loads(p)
+
+    # Verify that the unpickled model produces the same results
+    assert np.allclose(thm.corr_auto_tracer, thm2.corr_auto_tracer)
+    assert np.allclose(thm.corr_auto_matter, thm2.corr_auto_matter)

@@ -528,7 +528,7 @@ class ExtendedSpline:
             if ff == 0:
                 return fnc
             norm = self._spl(match_x) / ff
-            return lambda xx: fnc(xx) * norm
+            return _NormedCallable(fnc, norm)
         elif fnc == "power_law":
             assert np.all(x > 0), "to use a power-law, x must be >= 0"
             if not np.all(y > 0) or np.all(y < 0):
@@ -542,9 +542,9 @@ class ExtendedSpline:
 
             spl = uspline(np.log(x), np.log(y * (-1 if neg else 1)), k=1)
 
-            return lambda xx: np.exp(spl(np.log(xx))) * (-1 if neg else 1)
+            return _PowerLawExtension(spl, neg)
         elif fnc == "boundary":
-            return lambda xx: np.ones_like(xx) * self._spl(match_x)
+            return _BoundaryExtension(self._spl, match_x)
         elif fnc is None:
             return self._spl
         else:
@@ -584,6 +584,61 @@ def _zero(x):
         return 0
     else:
         return np.zeros_like(x)
+
+
+class _NormedCallable:
+    """Callable that scales another callable by a fixed normalization factor."""
+
+    def __init__(self, fnc, norm):
+        self.fnc = fnc
+        self.norm = norm
+
+    def __call__(self, xx):
+        return self.fnc(xx) * self.norm
+
+
+class _PowerLawExtension:
+    """Callable for power-law extrapolation based on a log-log spline."""
+
+    def __init__(self, spl, neg):
+        self.spl = spl
+        self.neg = neg
+
+    def __call__(self, xx):
+        return np.exp(self.spl(np.log(xx))) * (-1 if self.neg else 1)
+
+
+class _BoundaryExtension:
+    """Callable that returns a constant value equal to a spline at a boundary point."""
+
+    def __init__(self, spl, match_x):
+        self.spl = spl
+        self.match_x = match_x
+
+    def __call__(self, xx):
+        return np.ones_like(xx) * self.spl(self.match_x)
+
+
+class _PowerLawK:
+    """Callable that returns k**n, used as a lower-bound extension for power spectra."""
+
+    def __init__(self, n):
+        self.n = n
+
+    def __call__(self, k):
+        return k**self.n
+
+
+class _SumCallable:
+    """Callable that returns the sum of two callables, with an optional constant offset."""
+
+    def __init__(self, fnc1, fnc2, offset=0):
+        self.fnc1 = fnc1
+        self.fnc2 = fnc2
+        self.offset = offset
+
+    def __call__(self, x):
+        return self.fnc1(x) + self.fnc2(x) + self.offset
 
 
 def spline_integral(
