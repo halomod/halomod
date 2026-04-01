@@ -381,9 +381,8 @@ class Contreras13(HODPoisson):
 
     References
     ----------
-    .. [1] Contreras, C. et al., "The WiggleZ Dark Energy Survey:
-           measuring the cosmicgrowth rate with the two-point galaxy correlation function",
-           https://ui.adsabs.harvard.edu/abs/2013MNRAS.430..924C.
+    .. [1] Contreras, S. et al., "How robust are predictions of galaxy clustering?",
+           https://ui.adsabs.harvard.edu/abs/2013MNRAS.432.2717C.
 
     """
 
