@@ -1464,20 +1464,25 @@ class TracerHaloModel(DMHaloModel):
 
     @cached_quantity
     def _tracer_exclusion(self):
-        densityfunc = self.dndm[self._tm] * self.total_occupation[self._tm] / self.mean_tracer_den
+        # Use _total_occupation (which is 1.0 for centrals below mmin for sharp-cut HODs)
+        # so that the integrand is smooth across the lower-mass boundary. The actual
+        # lower bound is enforced via xmin=self.tracer_mmin in the spline integration,
+        # giving a smoothly varying 2-halo term as Mmin is changed.
+        densityfunc = self.dndm * self._total_occupation / self.mean_tracer_den
 
         if self.sd_bias_model is not None:
-            bias = np.outer(self.sd_bias_correction, self.halo_bias)[:, self._tm]
+            bias = np.outer(self.sd_bias_correction, self.halo_bias)
         else:
-            bias = self.halo_bias[self._tm]
+            bias = self.halo_bias
 
         return self.exclusion_model(
-            m=self.m[self._tm],
+            m=self.m,
             density=densityfunc,
-            power_integrand=densityfunc * self.tracer_profile_ukm[:, self._tm],
+            power_integrand=densityfunc * self.tracer_profile_ukm,
             bias=bias,
             r=self._r_table,
             halo_density=self.halo_overdensity_mean * self.mean_density0,
+            xmin=self.tracer_mmin,
             **self.exclusion_params,
         )
 
