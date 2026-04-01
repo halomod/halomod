@@ -236,7 +236,9 @@ def test_2h_tracer_smooth_mmin():
     # With the old discrete mask, large discrete jumps occurred at grid crossings.
     # With spline integration the second differences must be small.
     second_diff = np.abs(np.diff(powers, n=2))
-    # Allow up to 1 % of the mean power as tolerance for numerical noise.
+    # 1 % of the mean power is a generous tolerance for smooth variation; a
+    # grid-boundary discontinuity in the old code would produce jumps of order
+    # ~10 % or more.
     assert np.all(second_diff < 0.01 * np.abs(powers).mean()), (
         f"2-halo tracer power is not smooth w.r.t. Mmin. "
         f"Max |Δ²P| = {second_diff.max():.3e}, "

@@ -372,15 +372,31 @@ def integrate_dblsphere(integ, mask, dx, m=None, xmin=None):
 
     When *m* and *xmin* are provided the outer (m1) integral is evaluated via
     a cubic spline so that the result varies smoothly as *xmin* changes.
+
+    Parameters
+    ----------
+    integ : np.ndarray, shape (r, k, m)
+    mask : np.ndarray, shape (r, m, m)
+    dx : float
+        Log-mass grid spacing.
+    m : np.ndarray or None
+        Halo-mass grid (required when *xmin* is set).
+    xmin : float or None
+        Smooth lower bound for the outer (m1) integral.  When ``None`` the
+        standard Simpson rule is used.  The caller is responsible for passing
+        ``xmin=None`` when ``xmin <= m[0]``; this function does not re-check
+        that condition.
     """
     out = np.zeros_like(integ[:, :, 0])
     integrand = np.zeros_like(mask, dtype=float)
 
-    if xmin is not None and m is not None and xmin > m[0]:
+    if xmin is not None and m is not None:
         lnm = np.log(m)
         lnxmin = np.log(xmin)
 
         def _outer(inner_arr):
+            # Each row of inner_arr corresponds to a different r value and has
+            # distinct values, so a separate spline must be fitted per row.
             return np.apply_along_axis(
                 lambda g: _IUS(lnm, g).integral(lnxmin, lnm[-1]),
                 -1,
