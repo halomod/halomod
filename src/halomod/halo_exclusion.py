@@ -245,9 +245,22 @@ class NoExclusion(Exclusion):
         Returns
         -------
         np.ndarray
-            An array of shape ``(r, k)`` that should be multiplied by P_m(k) to obtain
+            An array of shape ``(1, k)`` when bias is 1D (no r-dependence),
+            or ``(r, k)`` when bias is 2D, to be multiplied by P_m(k) to obtain
             the 2-halo power spectrum.
+
+        Notes
+        -----
+        When bias is 1D the integrand does not depend on ``r``. In that case this
+        method avoids allocating the full ``(r, k, m)`` intermediate array (which
+        can be several gigabytes for typical grid sizes) by integrating directly
+        over the ``(k, m)`` plane and returning a ``(1, k)`` result.
         """
+        if self.bias.ndim == 1:
+            # No r-dependence: integrate (k, m) directly to avoid the O(r*k*m)
+            # intermediate array that raw_integrand() would otherwise create.
+            integrand = self.power_integrand * self.bias * self.m  # (k, m)
+            return intg.simpson(integrand, dx=self.dlnx)[np.newaxis, :] ** 2  # (1, k)
         return intg.simpson(self.raw_integrand(), dx=self.dlnx) ** 2
 
 
