@@ -847,9 +847,7 @@ class DMHaloModel(MassFunction):
     @cached_quantity
     def power_auto_matter_fnc(self):
         """A callable returning the halo-model DM auto-power spectrum."""
-        return tools._SumCallable(
-            self.power_1h_auto_matter_fnc, self.power_2h_auto_matter_fnc
-        )
+        return tools._SumCallable(self.power_1h_auto_matter_fnc, self.power_2h_auto_matter_fnc)
 
     @property
     def power_auto_matter(self):
