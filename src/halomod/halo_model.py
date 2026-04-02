@@ -493,7 +493,7 @@ class DMHaloModel(MassFunction):
         return tools.ExtendedSpline(
             self.k,
             self.power,
-            lower_func=lambda k: k**self.n,
+            lower_func=tools._PowerLawK(self.n),
             upper_func="power_law",
             domain=(0, np.inf),
         )
@@ -504,7 +504,7 @@ class DMHaloModel(MassFunction):
         return tools.ExtendedSpline(
             self.k,
             self.nonlinear_power,
-            lower_func=lambda k: k**self.n,
+            lower_func=tools._PowerLawK(self.n),
             upper_func="power_law",
             domain=(0, np.inf),
         )
@@ -517,7 +517,7 @@ class DMHaloModel(MassFunction):
             self._r_table,
             corr,
             lower_func="power_law",
-            upper_func=lambda x: np.zeros_like(x),
+            upper_func=tools._zero,
         )
 
     @cached_quantity
@@ -533,7 +533,7 @@ class DMHaloModel(MassFunction):
             self._r_table,
             corr,
             lower_func="power_law",
-            upper_func=lambda x: np.zeros_like(x),
+            upper_func=tools._zero,
         )
 
     @cached_quantity
@@ -673,7 +673,7 @@ class DMHaloModel(MassFunction):
             self._r_table,
             table,
             lower_func="power_law",
-            upper_func=lambda x: np.zeros_like(x),
+            upper_func=tools._zero,
         )
 
     @property
@@ -835,7 +835,9 @@ class DMHaloModel(MassFunction):
     @cached_quantity
     def corr_auto_matter_fnc(self):
         """A callable returning the halo-model DM auto-correlation function."""
-        return lambda r: self.corr_1h_auto_matter_fnc(r) + self.corr_2h_auto_matter_fnc(r) + 1
+        return tools._SumCallable(
+            self.corr_1h_auto_matter_fnc, self.corr_2h_auto_matter_fnc, offset=1
+        )
 
     @property
     def corr_auto_matter(self):
@@ -845,7 +847,7 @@ class DMHaloModel(MassFunction):
     @cached_quantity
     def power_auto_matter_fnc(self):
         """A callable returning the halo-model DM auto-power spectrum."""
-        return lambda k: self.power_1h_auto_matter_fnc(k) + self.power_2h_auto_matter_fnc(k)
+        return tools._SumCallable(self.power_1h_auto_matter_fnc, self.power_2h_auto_matter_fnc)
 
     @property
     def power_auto_matter(self):
@@ -1419,7 +1421,9 @@ class TracerHaloModel(DMHaloModel):
     @cached_quantity
     def power_1h_auto_tracer_fnc(self):
         """A callable returning the total 1-halo term of the tracer auto power spectrum."""
-        return lambda k: self.power_1h_cs_auto_tracer_fnc(k) + self.power_1h_ss_auto_tracer_fnc(k)
+        return tools._SumCallable(
+            self.power_1h_cs_auto_tracer_fnc, self.power_1h_ss_auto_tracer_fnc
+        )
 
     @property
     def power_1h_auto_tracer(self):
@@ -1447,8 +1451,10 @@ class TracerHaloModel(DMHaloModel):
 
         else:
             try:
-                return lambda r: (
-                    self.corr_1h_cs_auto_tracer_fnc(r) + self.corr_1h_ss_auto_tracer_fnc(r) + 1
+                return tools._SumCallable(
+                    self.corr_1h_cs_auto_tracer_fnc,
+                    self.corr_1h_ss_auto_tracer_fnc,
+                    offset=1,
                 )
             except AttributeError:
                 c = tools.hankel_transform(self.power_1h_auto_tracer_fnc, self.r, "r")
@@ -1619,8 +1625,8 @@ class TracerHaloModel(DMHaloModel):
     @cached_quantity
     def power_cross_tracer_matter_fnc(self):
         """A callable returning cross-power spectrum of tracer and matter."""
-        return lambda k: (
-            self.power_1h_cross_tracer_matter_fnc(k) + self.power_2h_cross_tracer_matter_fnc(k)
+        return tools._SumCallable(
+            self.power_1h_cross_tracer_matter_fnc, self.power_2h_cross_tracer_matter_fnc
         )
 
     @property
@@ -1631,8 +1637,10 @@ class TracerHaloModel(DMHaloModel):
     @cached_quantity
     def corr_cross_tracer_matter_fnc(self):
         """A callable returning the cross-correlation of tracer with matter."""
-        return lambda r: (
-            self.corr_1h_cross_tracer_matter_fnc(r) + self.corr_2h_cross_tracer_matter_fnc(r) + 1
+        return tools._SumCallable(
+            self.corr_1h_cross_tracer_matter_fnc,
+            self.corr_2h_cross_tracer_matter_fnc,
+            offset=1,
         )
 
     @property
