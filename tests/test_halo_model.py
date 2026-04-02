@@ -244,6 +244,8 @@ def test_2h_tracer_smooth_mmin():
         f"Max |Δ²P| = {second_diff.max():.3e}, "
         f"mean |P| = {np.abs(powers).mean():.3e}"
     )
+
+
 @pytest.mark.filterwarnings("ignore:You are using an un-normalized mass function")
 @pytest.mark.parametrize("model", [TracerHaloModel, DMHaloModel])
 def test_pickle_before_any_computation(model):
