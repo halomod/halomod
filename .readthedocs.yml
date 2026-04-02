@@ -10,7 +10,7 @@ sphinx:
 formats: all
 
 build:
-  os: ubuntu-latest
+  os: ubuntu-lts-latest
   tools:
     python: "3.13"
 
