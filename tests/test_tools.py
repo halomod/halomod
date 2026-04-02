@@ -200,3 +200,28 @@ def test_extended_spline_pl_noise(xy):
     assert np.isclose(es(100.0), 0.0001, rtol=1e-1)
     assert np.isclose(es(1.0), 1, rtol=1e-2)
     assert np.isclose(es(5.0), 1 / 25.0, rtol=1e-2)
+
+
+@pytest.mark.parametrize(
+    "lower_func,upper_func",
+    [
+        ("power_law", "power_law"),
+        ("power_law", "boundary"),
+        ("boundary", "power_law"),
+        (None, None),
+    ],
+)
+def test_extended_spline_pickleable(xy, lower_func, upper_func):
+    """ExtendedSpline must be pickleable so that halo models work with multiprocessing."""
+    import pickle
+
+    x, y = xy
+    es = ExtendedSpline(x, y, lower_func=lower_func, upper_func=upper_func)
+
+    p = pickle.dumps(es)
+    es2 = pickle.loads(p)
+
+    # Verify the unpickled spline produces the same values
+    assert np.isclose(es(0.1), es2(0.1))
+    assert np.isclose(es(1.0), es2(1.0))
+    assert np.isclose(es(100.0), es2(100.0))
