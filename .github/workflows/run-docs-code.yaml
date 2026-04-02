@@ -26,7 +26,7 @@ jobs:
           auto-update-conda: true
           channels: conda-forge,defaults
           channel-priority: true
-          python-version: "3.12"
+          python-version: "3.14"
           environment-file: ci/${{ env.ENV_NAME }}.yaml
           activate-environment: ${{ env.ENV_NAME }}
 
