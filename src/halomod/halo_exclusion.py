@@ -403,6 +403,7 @@ def integrate_dblsphere(integ, mask, dx, m=None, xmin=None):
                 inner_arr,
             )
     else:
+
         def _outer(inner_arr):
             return intg.simpson(inner_arr, dx=dx)
 

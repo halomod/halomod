@@ -211,15 +211,15 @@ def test_2h_tracer_smooth_mmin():
     handled via spline integration so the result changes continuously.
     """
     # Use a coarse mass grid (dlog10m=0.05) so grid crossings are easy to detect.
-    base_kw = dict(
-        transfer_model="EH",
-        hod_model="Tinker05",
-        dlog10m=0.05,
-        rmin=1.0,
-        rmax=50.0,
-        rnum=5,
-        dlnk=0.2,
-    )
+    base_kw = {
+        "transfer_model": "EH",
+        "hod_model": "Tinker05",
+        "dlog10m": 0.05,
+        "rmin": 1.0,
+        "rmax": 50.0,
+        "rnum": 5,
+        "dlnk": 0.2,
+    }
 
     # Sweep M_min across a full grid spacing (0.05 dex) spanning two grid points.
     mmin_values = np.linspace(11.55, 11.65, 12)
