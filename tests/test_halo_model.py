@@ -244,6 +244,7 @@ def test_no_parameter_sharing_between_dm_instances():
         f"hm1.halo_profile_params was unexpectedly modified: {hm1.halo_profile_params!r}"
     )
 
+
 @pytest.mark.filterwarnings("ignore:You are using an un-normalized mass function")
 @pytest.mark.parametrize("model", [TracerHaloModel, DMHaloModel])
 def test_pickle_before_any_computation(model):
