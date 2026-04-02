@@ -244,6 +244,8 @@ def test_2h_cross_tracer_matter_centrals_only_independent_of_tracer_profile(thm_
         thm_alt.power_2h_cross_tracer_matter,
         rtol=1e-5,
     )
+
+
 @pytest.mark.filterwarnings("ignore:You are using an un-normalized mass function")
 @pytest.mark.parametrize("model", [TracerHaloModel, DMHaloModel])
 def test_pickle_before_any_computation(model):
