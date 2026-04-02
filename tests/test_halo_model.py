@@ -222,7 +222,7 @@ def test_1h_cross_tracer_matter_centrals_only_independent_of_tracer_profile(thm_
     With a centrals-only HOD, changing the tracer concentration model must leave
     power_1h_cross_tracer_matter unchanged (Cacciato+2009, eq. 13).
     """
-    thm_alt = thm_centrals_only.clone(tracer_concentration_model="Bullock01Power")
+    thm_alt = thm_centrals_only.clone(tracer_concentration_model="Maccio07")
     assert np.allclose(
         thm_centrals_only.power_1h_cross_tracer_matter,
         thm_alt.power_1h_cross_tracer_matter,
@@ -238,7 +238,7 @@ def test_2h_cross_tracer_matter_centrals_only_independent_of_tracer_profile(thm_
     concentration model must leave power_2h_cross_tracer_matter unchanged
     (Cacciato+2009, eq. 20-21).
     """
-    thm_alt = thm_centrals_only.clone(tracer_concentration_model="Bullock01Power")
+    thm_alt = thm_centrals_only.clone(tracer_concentration_model="Maccio07")
     assert np.allclose(
         thm_centrals_only.power_2h_cross_tracer_matter,
         thm_alt.power_2h_cross_tracer_matter,
