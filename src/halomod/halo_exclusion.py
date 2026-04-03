@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import warnings
+from functools import cached_property
 
 import numpy as np
-from cached_property import cached_property
 from hmf import Component
 from hmf._internals import pluggable
 from scipy import integrate as intg

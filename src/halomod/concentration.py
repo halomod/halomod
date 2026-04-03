@@ -291,7 +291,12 @@ class Bullock01(CMRelation):
     def zc(self, m, z=0):
         r = self.filter.mass_to_radius(self.params["F"] * m, self.mean_density0)
         nu = self.filter.nu(r, self.delta_c)
-        g = self.growth.growth_factor_fn(inverse=True)
+        # Build numerical inverse of growth_factor: z as a function of D(z).
+        # z_max=50 avoids the radiation-dominated regime where hmf may switch
+        # ODE solvers, causing a normalization inconsistency in growth_factor.
+        z_fine = np.linspace(0, 50, 5000)
+        gf_fine = self.growth.growth_factor(z_fine)
+        g = interp1d(gf_fine[::-1], z_fine[::-1], bounds_error=False, fill_value=(z_fine[-1], 0.0))
         zc = g(np.sqrt(nu))
         zc[np.logical_or.accumulate(zc == zc.min())] = zc.min()
         # As massive halos have not formed yet,
@@ -562,8 +567,9 @@ class Ludlow16(CMRelation):
         sigf = self.filter.sigma(rf) ** 2
         sigr = self.filter.sigma(r) ** 2
 
-        gf = self.growth.growth_factor_fn()
-        num = self.delta_c * (1.0 / gf(zf) - 1.0 / gf(z))
+        num = self.delta_c * (
+            1.0 / self.growth.growth_factor(zf) - 1.0 / self.growth.growth_factor(z)
+        )
         den = np.sqrt(2 * (sigf - sigr))
         rhs = sp.erfc(np.outer(num, 1.0 / den))
 
