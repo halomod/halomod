@@ -203,7 +203,6 @@ def test_passing_r_array(dmhm):
     assert np.allclose(dmhm.corr_auto_matter, dmhm2.corr_auto_matter)
 
 
-<<<<<<< copilot/fix-halo-model-parameter-sharing
 def test_no_parameter_sharing_between_tracer_instances():
     """Regression test for https://github.com/halomod/halomod/issues/202.
 
@@ -243,7 +242,9 @@ def test_no_parameter_sharing_between_dm_instances():
     )
     assert hm1.halo_profile_params == {"truncate": False}, (
         f"hm1.halo_profile_params was unexpectedly modified: {hm1.halo_profile_params!r}"
-=======
+    )
+
+
 @pytest.fixture(scope="module")
 def thm_centrals_only():
     """TracerHaloModel with effectively no satellites (M_1 >> any halo mass)."""
@@ -284,7 +285,6 @@ def test_2h_cross_tracer_matter_centrals_only_independent_of_tracer_profile(thm_
         thm_centrals_only.power_2h_cross_tracer_matter,
         thm_alt.power_2h_cross_tracer_matter,
         rtol=1e-5,
->>>>>>> main
     )
 
 
