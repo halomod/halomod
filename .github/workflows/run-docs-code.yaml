@@ -31,7 +31,7 @@ jobs:
           version: 13
 
       - name: Install
-        run:  uv sync --locked --extra=doctests
+        run:  uv sync --locked --group doctests
 
       - name: Install ipykernel
         run: uv run python -m ipykernel install --user --name halomod
