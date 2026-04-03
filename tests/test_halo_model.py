@@ -203,6 +203,49 @@ def test_passing_r_array(dmhm):
     assert np.allclose(dmhm.corr_auto_matter, dmhm2.corr_auto_matter)
 
 
+def test_2h_tracer_smooth_mmin():
+    """The 2-halo tracer power spectrum must vary smoothly as Mmin is swept.
+
+    Previously, the lower mass bound was applied as a discrete grid mask (_tm),
+    causing step-wise jumps whenever Mmin crossed a mass grid point.  Now it is
+    handled via spline integration so the result changes continuously.
+    """
+    # Use a coarse mass grid (dlog10m=0.05) so grid crossings are easy to detect.
+    base_kw = {
+        "transfer_model": "EH",
+        "hod_model": "Tinker05",
+        "dlog10m": 0.05,
+        "rmin": 1.0,
+        "rmax": 50.0,
+        "rnum": 5,
+        "dlnk": 0.2,
+    }
+
+    # Sweep M_min across a full grid spacing (0.05 dex) spanning two grid points.
+    mmin_values = np.linspace(11.55, 11.65, 12)
+    k_idx = 5  # a mid-range k value
+
+    powers = []
+    for mmin in mmin_values:
+        thm = TracerHaloModel(**base_kw, hod_params={"M_min": mmin})
+        powers.append(thm.power_2h_auto_tracer[k_idx])
+
+    powers = np.asarray(powers)
+
+    # The power should vary monotonically (or very nearly so) as Mmin increases.
+    # With the old discrete mask, large discrete jumps occurred at grid crossings.
+    # With spline integration the second differences must be small.
+    second_diff = np.abs(np.diff(powers, n=2))
+    # 1 % of the mean power is a generous tolerance for smooth variation; a
+    # grid-boundary discontinuity in the old code would produce jumps of order
+    # ~10 % or more.
+    assert np.all(second_diff < 0.01 * np.abs(powers).mean()), (
+        f"2-halo tracer power is not smooth w.r.t. Mmin. "
+        f"Max |Δ²P| = {second_diff.max():.3e}, "
+        f"mean |P| = {np.abs(powers).mean():.3e}"
+    )
+
+
 @pytest.mark.filterwarnings("ignore:You are setting hod_params directly.")
 def test_no_parameter_sharing_between_tracer_instances():
     """Regression test for https://github.com/halomod/halomod/issues/202.

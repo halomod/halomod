@@ -30,6 +30,7 @@ from hmf import Component, Framework
 from hmf._internals._cache import cached_quantity, parameter, subframework
 from hmf._internals._framework import get_mdl, pluggable
 from scipy import integrate as intg
+from scipy.interpolate import InterpolatedUnivariateSpline as _IUS
 
 from . import tools
 from .halo_model import TracerHaloModel
@@ -280,23 +281,45 @@ class CrossCorrelations(Framework):
 
     @cached_quantity
     def power_2h_cross_fnc(self):
-        """The 2-halo term of the cross-power spectrum."""
+        """The 2-halo term of the cross-power spectrum.
+
+        Uses spline integration from ``tracer_mmin`` (the same lower-bound
+        convention as :attr:`~halomod.HaloModel.power_2h_auto_tracer`) so
+        that the result varies smoothly as the HOD ``M_min`` parameter is
+        changed and is consistent with the auto-power spectrum when both
+        tracer populations are identical.
+        """
         hm1, hm2 = self.halo_model_1, self.halo_model_2
 
-        u1 = hm1.tracer_profile_ukm[:, hm1._tm]
-        u2 = hm2.tracer_profile_ukm[:, hm2._tm]
+        u1 = hm1.tracer_profile_ukm  # (k, m)
+        u2 = hm2.tracer_profile_ukm  # (k, m)
 
-        bias = hm1.halo_bias
+        # Build integrands including the m-Jacobian for log-mass integration:
+        #   ∫ f(m) dm  =  ∫ f(m)·m  d(ln m)
+        # Each model uses its own halo_bias so grids don't need to match.
+        integrand1 = hm1.dndm * hm1.halo_bias * hm1._total_occupation * u1 * hm1.m  # (k, m)
+        integrand2 = hm2.dndm * hm2.halo_bias * hm2._total_occupation * u2 * hm2.m  # (k, m)
 
-        # Do this the simple way for now
-        b1 = intg.simpson(
-            hm1.dndm[hm1._tm] * bias[hm1._tm] * hm1.total_occupation[hm1._tm] * u1,
-            x=hm1.m[hm1._tm],
-        )
-        b2 = intg.simpson(
-            hm2.dndm[hm2._tm] * bias[hm2._tm] * hm2.total_occupation[hm2._tm] * u2,
-            x=hm2.m[hm2._tm],
-        )
+        lnm1 = np.log(hm1.m)
+        lnm2 = np.log(hm2.m)
+
+        xmin1 = hm1.tracer_mmin
+        if xmin1 is not None and xmin1 > hm1.m[0]:
+            lnxmin1 = np.log(xmin1)
+            b1 = np.apply_along_axis(
+                lambda f: _IUS(lnm1, f).integral(lnxmin1, lnm1[-1]), -1, integrand1
+            )
+        else:
+            b1 = intg.simpson(integrand1, x=lnm1)
+
+        xmin2 = hm2.tracer_mmin
+        if xmin2 is not None and xmin2 > hm2.m[0]:
+            lnxmin2 = np.log(xmin2)
+            b2 = np.apply_along_axis(
+                lambda f: _IUS(lnm2, f).integral(lnxmin2, lnm2[-1]), -1, integrand2
+            )
+        else:
+            b2 = intg.simpson(integrand2, x=lnm2)
 
         p = (
             b1

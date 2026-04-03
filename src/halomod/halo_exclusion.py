@@ -9,6 +9,7 @@ import numpy as np
 from hmf import Component
 from hmf._internals import pluggable
 from scipy import integrate as intg
+from scipy.interpolate import InterpolatedUnivariateSpline as _IUS
 
 try:
     from numba import jit
@@ -183,6 +184,7 @@ class Exclusion(Component):
         bias: np.ndarray,
         r: np.ndarray,
         halo_density: float,
+        xmin: float | None = None,
     ):
         self.density = density  # 1d, (m)
         self.m = m  # 1d, (m)
@@ -192,6 +194,8 @@ class Exclusion(Component):
 
         self.halo_density = halo_density
         self.dlnx = np.log(m[1] / m[0])
+        # xmin: smooth lower mass bound for integration (None = integrate over full m)
+        self.xmin = xmin if (xmin is not None and xmin > m[0]) else None
 
     def raw_integrand(self) -> np.ndarray:
         """Compute the full power spectrum integrand.
@@ -203,6 +207,36 @@ class Exclusion(Component):
             return outer(np.ones_like(self.r), self.power_integrand * self.bias * self.m)
         else:
             return np.einsum("ij,kj->kij", self.power_integrand * self.m, self.bias)
+
+    def _spline_integrate(self, arr: np.ndarray) -> np.ndarray:
+        """Integrate ``arr`` over log-mass (last axis) using a smooth lower bound.
+
+        When :attr:`xmin` is set, a cubic spline is fitted and integrated from
+        ``xmin`` to ``m[-1]`` so that the result varies smoothly as ``xmin``
+        changes, even when ``xmin`` lies between two mass grid points.
+        Falls back to :func:`scipy.integrate.simpson` over the full grid when
+        ``xmin`` is ``None``.
+
+        Parameters
+        ----------
+        arr:
+            Array whose *last* axis corresponds to the mass grid ``self.m``.
+
+        Returns
+        -------
+        np.ndarray
+            The integral with one fewer dimension (mass axis integrated out).
+        """
+        if self.xmin is None:
+            return intg.simpson(arr, dx=self.dlnx)
+
+        lnm = np.log(self.m)
+        lnxmin = np.log(self.xmin)
+        return np.apply_along_axis(
+            lambda f: _IUS(lnm, f).integral(lnxmin, lnm[-1]),
+            -1,
+            arr,
+        )
 
     def integrate(self) -> np.ndarray:
         """
@@ -260,8 +294,8 @@ class NoExclusion(Exclusion):
             # No r-dependence: integrate (k, m) directly to avoid the O(r*k*m)
             # intermediate array that raw_integrand() would otherwise create.
             integrand = self.power_integrand * self.bias * self.m  # (k, m)
-            return intg.simpson(integrand, dx=self.dlnx)[np.newaxis, :] ** 2  # (1, k)
-        return intg.simpson(self.raw_integrand(), dx=self.dlnx) ** 2
+            return self._spline_integrate(integrand)[np.newaxis, :] ** 2  # (1, k)
+        return self._spline_integrate(self.raw_integrand()) ** 2
 
 
 class Sphere(Exclusion):
@@ -286,7 +320,7 @@ class Sphere(Exclusion):
         """
         density = np.outer(np.ones_like(self.r), self.density * self.m)
         density[self.mask] = 0
-        return intg.simpson(density, dx=self.dlnx)
+        return self._spline_integrate(density)
 
     @cached_property
     def mask(self):
@@ -309,7 +343,7 @@ class Sphere(Exclusion):
         """
         integ = self.raw_integrand()  # r,k,m
         integ.transpose((1, 0, 2))[:, self.mask] = 0
-        return intg.simpson(integ, dx=self.dlnx) ** 2
+        return self._spline_integrate(integ) ** 2
 
 
 class DblSphere(Sphere):
@@ -336,27 +370,63 @@ class DblSphere(Sphere):
         for i, _ in enumerate(self.r):
             integrand = np.outer(self.density * self.m, self.density * self.m)
             integrand[self.mask[i]] = 0
-            out[i] = intg.simpson(
-                intg.simpson(integrand, dx=self.dlnx),
-                dx=self.dlnx,
-            )
+            inner = self._spline_integrate(integrand)
+            out[i] = self._spline_integrate(inner)
         return np.sqrt(out)
 
     def integrate(self):
         """Integrate the :meth:`raw_integrand` over mass."""
         integ = self.raw_integrand()  # (r,k,m)
-        return integrate_dblsphere(integ, self.mask, self.dlnx)
+        return integrate_dblsphere(integ, self.mask, self.dlnx, self.m, self.xmin)
 
 
-def integrate_dblsphere(integ, mask, dx):
-    """Integration function for double sphere model."""
+def integrate_dblsphere(integ, mask, dx, m=None, xmin=None):
+    """Integration function for double sphere model.
+
+    When *m* and *xmin* are provided the outer (m1) integral is evaluated via
+    a cubic spline so that the result varies smoothly as *xmin* changes.
+
+    Parameters
+    ----------
+    integ : np.ndarray, shape (r, k, m)
+    mask : np.ndarray, shape (r, m, m)
+    dx : float
+        Log-mass grid spacing.
+    m : np.ndarray or None
+        Halo-mass grid (required when *xmin* is set).
+    xmin : float or None
+        Smooth lower bound for the outer (m1) integral.  When ``None`` the
+        standard Simpson rule is used.  The caller is responsible for passing
+        ``xmin=None`` when ``xmin <= m[0]``; this function does not re-check
+        that condition.
+    """
     out = np.zeros_like(integ[:, :, 0])
     integrand = np.zeros_like(mask, dtype=float)
+
+    if xmin is not None and m is not None:
+        lnm = np.log(m)
+        lnxmin = np.log(xmin)
+
+        def _outer(inner_arr):
+            # Each row of inner_arr corresponds to a different r value and has
+            # distinct values, so a separate spline must be fitted per row.
+            return np.apply_along_axis(
+                lambda g: _IUS(lnm, g).integral(lnxmin, lnm[-1]),
+                -1,
+                inner_arr,
+            )
+    else:
+
+        def _outer(inner_arr):
+            return intg.simpson(inner_arr, dx=dx)
+
     for ik in range(integ.shape[1]):
         for ir in range(mask.shape[0]):
             integrand[ir] = np.outer(integ[ir, ik, :], integ[ir, ik, :])
         integrand[mask] = 0
-        out[:, ik] = intg.simpson(intg.simpson(integrand, dx=dx), dx=dx)
+        # Inner integral (over m2) uses Simpson's rule; outer uses spline if xmin set.
+        inner = intg.simpson(integrand, dx=dx)
+        out[:, ik] = _outer(inner)
     return out
 
 
@@ -430,7 +500,11 @@ class DblEllipsoid(DblSphere):
         integrand = self.prob * outer(
             np.ones_like(self.r), np.outer(self.density * self.m, self.density * self.m)
         )
-        return np.sqrt(dbltrapz(integrand, self.dlnx))
+        if self.xmin is None:
+            return np.sqrt(dbltrapz(integrand, self.dlnx))
+        # Spline integration for smooth lower bound: integrate inner (m2), then outer (m1)
+        inner = self._spline_integrate(integrand)  # (r, m1)
+        return np.sqrt(self._spline_integrate(inner))  # (r,)
 
     def integrate(self):
         """Integrate the :meth:`raw_integrand` over mass."""
@@ -441,7 +515,9 @@ class DblEllipsoid(DblSphere):
         for ik in range(integ.shape[1]):
             for ir in range(len(self.r)):
                 integrand[ir] = self.prob[ir] * np.outer(integ[ir, ik, :], integ[ir, ik, :])
-            out[:, ik] = intg.simpson(intg.simpson(integrand, dx=self.dlnx), dx=self.dlnx)
+            # Inner integral (m2) uses Simpson's rule; outer (m1) uses spline if xmin set.
+            inner = intg.simpson(integrand, dx=self.dlnx)  # (r, m1)
+            out[:, ik] = self._spline_integrate(inner)  # (r,)
         return out
 
 
@@ -557,7 +633,7 @@ class NgMatched(DblEllipsoid):
         """Integrate the :meth:`raw_integrand` over mass."""
         integ = self.raw_integrand().transpose((1, 0, 2))  # k, r, m
         integ[:, self.mask] = 0
-        return intg.simpson(integ.transpose((1, 0, 2)), dx=self.dlnx) ** 2
+        return self._spline_integrate(integ.transpose((1, 0, 2))) ** 2
 
 
 if USE_NUMBA:
