@@ -203,6 +203,7 @@ def test_passing_r_array(dmhm):
     assert np.allclose(dmhm.corr_auto_matter, dmhm2.corr_auto_matter)
 
 
+@pytest.mark.filterwarnings("ignore:You are setting hod_params directly.")
 def test_no_parameter_sharing_between_tracer_instances():
     """Regression test for https://github.com/halomod/halomod/issues/202.
 
@@ -230,6 +231,7 @@ def test_no_parameter_sharing_between_tracer_instances():
     )
 
 
+@pytest.mark.filterwarnings("ignore:You are setting halo_profile_params directly.")
 def test_no_parameter_sharing_between_dm_instances():
     """Regression test: DMHaloModel instances must not share parameter dicts."""
     hm1 = DMHaloModel(transfer_model="EH")
