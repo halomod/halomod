@@ -1560,7 +1560,9 @@ class TracerHaloModel(DMHaloModel):
             p[i] = tools.spline_integral(
                 self.m,
                 self.dndm
-                * (uh * ut * self._total_occupation * self.m + uh * self.satellite_occupation),
+                * self.m
+                * uh
+                * (self._central_occupation + self.satellite_occupation * ut),
                 xmin=self.tracer_mmin,
             )
 
@@ -1594,7 +1596,9 @@ class TracerHaloModel(DMHaloModel):
         for i, (ut, um) in enumerate(zip(self.tracer_profile_ukm, self.halo_profile_ukm)):
             bt[i] = tools.spline_integral(
                 self.m,
-                self.dndm * self.halo_bias * self._total_occupation * ut,
+                self.dndm
+                * self.halo_bias
+                * (self._central_occupation + self.satellite_occupation * ut),
                 xmin=self.tracer_mmin,
             )
             bm[i] = tools.spline_integral(self.m, self.dndm * self.halo_bias * self.m * um)
