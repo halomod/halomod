@@ -17,6 +17,7 @@ from halomod.halo_exclusion import (
     cumsimps,
     dblsimps_,
     dbltrapz_,
+    integrate_dblsphere,
     makeW,
 )
 
@@ -154,3 +155,154 @@ def test_halo_exclusion_extreme_r(excl: Exclusion, z: float):
     mask = noexc.r < 0.1
     assert np.all(with_exc.corr_2h_auto_matter[mask] < 0.2 * noexc.corr_2h_auto_matter[mask])
     assert np.all(with_exc.corr_2h_auto_tracer[mask] < 0.2 * noexc.corr_2h_auto_tracer[mask])
+
+
+# ============================================================================
+# Tests for smooth xmin boundary (spline integration) in exclusion models
+# ============================================================================
+
+
+def _make_excl_fixtures(nk=3, nm=200, nr=3):
+    """Return shared arrays used by the xmin/2D-bias tests."""
+    m = np.logspace(10, 15, nm)
+    integrand = np.outer(np.ones(nk), (m / 1e10) ** -2)  # (k, m)
+    density = np.ones_like(m)
+    r = np.array([100.0, 1000.0, 1500.0])[:nr]
+    bias_1d = np.ones_like(m)
+    bias_2d = np.outer(np.ones_like(r), bias_1d)  # (r, m)
+    return m, integrand, density, r, bias_1d, bias_2d
+
+
+def test_no_exclusion_spline_path_1d_bias():
+    """Setting xmin exercises _spline_integrate for 1D bias in NoExclusion."""
+    m, integrand, density, r, bias_1d, _ = _make_excl_fixtures()
+    xmin = m[20]  # well above m[0] so the spline path is taken
+
+    excl_full = NoExclusion(
+        m=m, density=density, power_integrand=integrand, bias=bias_1d, r=r, halo_density=None
+    )
+    excl_xmin = NoExclusion(
+        m=m,
+        density=density,
+        power_integrand=integrand,
+        bias=bias_1d,
+        r=r,
+        halo_density=None,
+        xmin=xmin,
+    )
+
+    result_full = excl_full.integrate()
+    result_xmin = excl_xmin.integrate()
+
+    # Both should be (1, k) because bias is 1D.
+    assert result_full.shape[0] == 1
+    assert result_xmin.shape[0] == 1
+    # Cutting off the lower-mass tail must strictly reduce the integral.
+    assert np.all(result_xmin < result_full)
+
+
+def test_no_exclusion_2d_bias():
+    """NoExclusion.integrate() must work with a 2D bias array (scale-dependent bias).
+
+    This was broken before the fix: the 2D path accidentally passed an unknown
+    ``dx`` keyword argument to ``_spline_integrate``, raising a TypeError.
+    """
+    m, integrand, density, r, bias_1d, bias_2d = _make_excl_fixtures()
+
+    excl_1d = NoExclusion(
+        m=m, density=density, power_integrand=integrand, bias=bias_1d, r=r, halo_density=None
+    )
+    excl_2d = NoExclusion(
+        m=m, density=density, power_integrand=integrand, bias=bias_2d, r=r, halo_density=None
+    )
+
+    result_1d = excl_1d.integrate()
+    result_2d = excl_2d.integrate()
+
+    # 2D bias returns shape (r, k); 1D bias returns (1, k).
+    assert result_2d.shape == (len(r), integrand.shape[0])
+    # For uniform bias=1, all r slices of the 2D result equal the 1D result.
+    np.testing.assert_allclose(result_2d, np.broadcast_to(result_1d, result_2d.shape), rtol=1e-6)
+
+
+def test_no_exclusion_2d_bias_with_xmin():
+    """NoExclusion with 2D bias and xmin must give the same result as 1D bias + xmin."""
+    m, integrand, density, r, bias_1d, bias_2d = _make_excl_fixtures()
+    xmin = m[20]
+
+    excl_1d = NoExclusion(
+        m=m,
+        density=density,
+        power_integrand=integrand,
+        bias=bias_1d,
+        r=r,
+        halo_density=None,
+        xmin=xmin,
+    )
+    excl_2d = NoExclusion(
+        m=m,
+        density=density,
+        power_integrand=integrand,
+        bias=bias_2d,
+        r=r,
+        halo_density=None,
+        xmin=xmin,
+    )
+
+    result_2d = excl_2d.integrate()
+    result_1d = excl_1d.integrate()
+    np.testing.assert_allclose(result_2d, np.broadcast_to(result_1d, result_2d.shape), rtol=1e-6)
+
+
+def test_integrate_dblsphere_xmin():
+    """integrate_dblsphere with xmin uses the spline outer integral."""
+    m = np.logspace(10, 15, 100)
+    r = np.array([100.0, 1000.0])
+    nk = 2
+    integ_arr = np.broadcast_to((m / 1e10) ** -2, (len(r), nk, len(m))).copy()
+    mask = np.zeros((len(r), len(m), len(m)), dtype=bool)
+    dx = np.log(m[1] / m[0])
+    xmin = m[10]
+
+    result_full = integrate_dblsphere(integ_arr, mask, dx)
+    result_xmin = integrate_dblsphere(integ_arr, mask, dx, m=m, xmin=xmin)
+
+    # Both should return (r, k).
+    assert result_full.shape == (len(r), nk)
+    assert result_xmin.shape == (len(r), nk)
+    # Cutting mass below xmin must reduce the integral.
+    assert np.all(result_xmin <= result_full)
+
+
+def test_dblellipsoid_density_mod_xmin():
+    """DblEllipsoid.density_mod uses spline integration when xmin is set."""
+    m = np.logspace(10, 15, 100)
+    r = np.array([100.0, 1000.0, 1500.0])
+    nk = 2
+    integrand = np.outer(np.ones(nk), (m / 1e10) ** -2)
+    density = np.ones_like(m)
+    bias = np.ones_like(m)
+    halo_density = 200.0
+    xmin = m[10]
+
+    excl_full = DblEllipsoid(
+        m=m, density=density, power_integrand=integrand, bias=bias, r=r, halo_density=halo_density
+    )
+    excl_xmin = DblEllipsoid(
+        m=m,
+        density=density,
+        power_integrand=integrand,
+        bias=bias,
+        r=r,
+        halo_density=halo_density,
+        xmin=xmin,
+    )
+
+    dm_full = excl_full.density_mod
+    dm_xmin = excl_xmin.density_mod
+
+    # density_mod should be a 1D vector over r.
+    assert dm_full.shape == (len(r),)
+    assert dm_xmin.shape == (len(r),)
+    # Cutting lower masses must reduce the modified density.
+    assert np.all(dm_xmin <= dm_full)

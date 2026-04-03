@@ -453,11 +453,15 @@ class Tinker05(Zehavi05):
     def _satellite_occupation(self, m):
         """Amplitude of satellite tracer at mass M."""
         out = self.central_occupation(m)
-        return (
-            out
-            * np.exp(-(10 ** self.params["M_cut"]) / (m - 10 ** self.params["M_min"]))
-            * (m / 10 ** self.params["M_1"])
-        )
+        # At m == M_min the denominator is zero; the result is still zero because
+        # central_occupation(M_min) == 1 and exp(-inf) == 0, but numpy raises a
+        # RuntimeWarning for the intermediate division.  Suppress it here.
+        with np.errstate(divide="ignore", invalid="ignore"):
+            return (
+                out
+                * np.exp(-(10 ** self.params["M_cut"]) / (m - 10 ** self.params["M_min"]))
+                * (m / 10 ** self.params["M_1"])
+            )
 
 
 class Zehavi05WithMax(Zehavi05):

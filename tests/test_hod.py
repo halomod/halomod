@@ -41,3 +41,30 @@ def test_positive_hod(hodr):
     assert np.all(hm.hod._tracer_per_central(m) >= 0)
     assert np.all(hm.hod._tracer_per_satellite(m) >= 0)
     assert hm.mean_tracer_den_unit >= 0
+
+
+def test_tinker05_no_divide_by_zero_warning():
+    """Tinker05._satellite_occupation must not raise RuntimeWarning when m == M_min.
+
+    The satellite formula contains exp(-M_cut / (m - M_min)), which produces a
+    divide-by-zero for m == M_min.  The result is zero (exp(-inf)), but numpy
+    used to emit a RuntimeWarning.  We now suppress that with np.errstate.
+    """
+    import warnings
+
+    from halomod.hod import Tinker05
+
+    hod_model = Tinker05()
+    M_min = 10 ** hod_model.params["M_min"]
+    # Evaluate exactly at m == M_min, which is the degenerate case.
+    m = np.array([M_min * 0.5, M_min, M_min * 2.0])
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+        result = hod_model.satellite_occupation(m)
+
+    # The result must be finite (zero at and below M_min, positive above).
+    assert np.all(np.isfinite(result))
+    assert result[0] == 0.0  # below M_min
+    assert result[1] == 0.0  # exactly at M_min: exp(-inf) = 0
+    assert result[2] > 0.0  # above M_min

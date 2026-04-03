@@ -294,8 +294,8 @@ class NoExclusion(Exclusion):
             # No r-dependence: integrate (k, m) directly to avoid the O(r*k*m)
             # intermediate array that raw_integrand() would otherwise create.
             integrand = self.power_integrand * self.bias * self.m  # (k, m)
-            return intg.simpson(integrand, dx=self.dlnx)[np.newaxis, :] ** 2  # (1, k)
-        return self._spline_integrate(self.raw_integrand(), dx=self.dlnx) ** 2
+            return self._spline_integrate(integrand)[np.newaxis, :] ** 2  # (1, k)
+        return self._spline_integrate(self.raw_integrand()) ** 2
 
 
 class Sphere(Exclusion):
