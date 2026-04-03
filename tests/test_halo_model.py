@@ -245,6 +245,48 @@ def test_2h_tracer_smooth_mmin():
         f"mean |P| = {np.abs(powers).mean():.3e}"
     )
 
+@pytest.fixture(scope="module")
+def thm_centrals_only():
+    """TracerHaloModel with effectively no satellites (M_1 >> any halo mass)."""
+    return TracerHaloModel(
+        transfer_model="EH",
+        bias_model="Mo96",
+        hmf_model="PS",
+        hod_model="Zehavi05",
+        hod_params={"M_1": 20.0, "alpha": 1.0},  # M_1 = 10^20 Msun => N_s ~ 0
+    )
+
+
+def test_1h_cross_tracer_matter_centrals_only_independent_of_tracer_profile(thm_centrals_only):
+    """1-halo cross power must not depend on tracer profile when N_s=0.
+
+    Central galaxies sit at the halo centre and carry no profile factor u_t(k|M).
+    With a centrals-only HOD, changing the tracer concentration model must leave
+    power_1h_cross_tracer_matter unchanged (Cacciato+2009, eq. 13).
+    """
+    thm_alt = thm_centrals_only.clone(tracer_concentration_model="Maccio07")
+    assert np.allclose(
+        thm_centrals_only.power_1h_cross_tracer_matter,
+        thm_alt.power_1h_cross_tracer_matter,
+        rtol=1e-5,
+    )
+
+
+def test_2h_cross_tracer_matter_centrals_only_independent_of_tracer_profile(thm_centrals_only):
+    """2-halo cross power must not depend on tracer profile when N_s=0.
+
+    The tracer-side bias integral bt = integral dndm * b * (N_c + N_s*u_t).
+    With N_s=0 the u_t factor drops out entirely, so changing the tracer
+    concentration model must leave power_2h_cross_tracer_matter unchanged
+    (Cacciato+2009, eq. 20-21).
+    """
+    thm_alt = thm_centrals_only.clone(tracer_concentration_model="Maccio07")
+    assert np.allclose(
+        thm_centrals_only.power_2h_cross_tracer_matter,
+        thm_alt.power_2h_cross_tracer_matter,
+        rtol=1e-5,
+    )
+
 
 @pytest.mark.filterwarnings("ignore:You are using an un-normalized mass function")
 @pytest.mark.parametrize("model", [TracerHaloModel, DMHaloModel])
