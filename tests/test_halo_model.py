@@ -245,6 +245,7 @@ def test_2h_tracer_smooth_mmin():
         f"mean |P| = {np.abs(powers).mean():.3e}"
     )
 
+
 @pytest.fixture(scope="module")
 def thm_centrals_only():
     """TracerHaloModel with effectively no satellites (M_1 >> any halo mass)."""
