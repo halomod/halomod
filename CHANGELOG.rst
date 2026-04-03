@@ -1,6 +1,9 @@
 Releases
 ========
 
+**Note that this changelog is only kept for archival purposes. See the
+`releases page <https://github.com/halomod/halomod/releases>`_ for the latest information.**
+
 dev-version
 -----------
 
