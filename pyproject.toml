@@ -57,6 +57,17 @@ tests = [
 	"mpmath>=1.0.0",
 	"numba",
 ]
+doctests = [
+    {include-group = "tests"},
+    "corner>=2.2.3",
+    "emcee>=3.1.6",
+    "h5py>=3.16.0",
+    "ipykernel>=7.2.0",
+    "multiprocess>=0.70.19",
+    "numba>=0.65.0",
+    "papermill>=2.7.0",
+    "tqdm>=4.67.3",
+]
 dev = [
     {include-group = "docs"},
     {include-group = "tests"},

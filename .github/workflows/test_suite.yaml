@@ -2,7 +2,7 @@ name: Tests
 
 # Test on all pushes, except when the push is literally just a tag (because we
 # tag automatically via CI, and therefore there's no extra code in that push).
-# Also, only test on pull requests into master.
+# Also, only test on pull requests into master/dev.
 on:
   push:
   pull_request:
@@ -12,10 +12,11 @@ on:
 jobs:
   tests:
     env:
-      ENV_NAME: citest
+      ENV_NAME: tests
       PYTHON: ${{ matrix.python-version }}
       OS: ${{ matrix.os }}
     name: Testing
+    #    needs: [linter]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -30,21 +31,26 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
       - uses: fortran-lang/setup-fortran@v1
         id: setup-fortran
         with:
           compiler: gcc
           version: 13
       - name: Install
-        run:  pip install .[dev]
+        run:  uv sync --locked --all-extras --dev
       - name: Run Tests
         run: |
-          python -m pytest --cov=halomod --cov-config=.coveragerc --cov-report xml:./coverage.xml --durations=25
-
-      - uses: codecov/codecov-action@v6
+          uv run pytest --cov-report xml:./coverage.xml --durations=25
+      - uses: codecov/codecov-action@v5
+        if: matrix.os == 'ubuntu-latest' && success()
         with:
+          files: ./coverage.xml # optional
           fail_ci_if_error: true
           verbose: true
-          file: ./coverage.xml
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+          token: ${{ secrets.CODECOV_TOKEN }}
