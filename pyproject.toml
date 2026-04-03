@@ -37,12 +37,11 @@ dependencies = [
     "scipy>=1.12",
     "colossus",
     "hankel",
-    "prek>=0.3.8",
 ]
 dynamic = ["version"]
 
 
-[project.optional-dependencies]
+[dependency-groups]
 docs = [
 	"Sphinx>=1.7.5",
 	"numpydoc>=0.8.0",
@@ -55,16 +54,16 @@ tests = [
 	"pytest>=3.5.1",
 	"pytest-cov>=2.5.1",
 	"pytest-plt",
-	"pre-commit",
 	"mpmath>=1.0.0",
 	"numba",
 ]
 dev = [
-    "halomod[docs,tests]"
-]
-all = [
-    "halomod[dev]",
-	"camb>1.0.0,<2.0",
+    {include-group = "docs"},
+    {include-group = "tests"},
+    "prek>=0.3.8",
+    "ruff",
+    "setuptools_scm",
+    "camb>1.0.0"
 ]
 
 [tool.pytest.ini_options]
