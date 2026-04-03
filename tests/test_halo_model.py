@@ -244,8 +244,8 @@ def test_2h_tracer_smooth_mmin():
         f"Max |Δ²P| = {second_diff.max():.3e}, "
         f"mean |P| = {np.abs(powers).mean():.3e}"
     )
-    
-    
+
+
 @pytest.mark.filterwarnings("ignore:You are setting hod_params directly.")
 def test_no_parameter_sharing_between_tracer_instances():
     """Regression test for https://github.com/halomod/halomod/issues/202.
