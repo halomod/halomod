@@ -162,12 +162,12 @@ def test_halo_exclusion_extreme_r(excl: Exclusion, z: float):
 # ============================================================================
 
 
-def _make_excl_fixtures(nk=3, nm=200, nr=3):
+def _make_excl_fixtures(n_k=3, n_mass=200, n_r=3):
     """Return shared arrays used by the xmin/2D-bias tests."""
-    m = np.logspace(10, 15, nm)
-    integrand = np.outer(np.ones(nk), (m / 1e10) ** -2)  # (k, m)
+    m = np.logspace(10, 15, n_mass)
+    integrand = np.outer(np.ones(n_k), (m / 1e10) ** -2)  # (k, m)
     density = np.ones_like(m)
-    r = np.array([100.0, 1000.0, 1500.0])[:nr]
+    r = np.array([100.0, 1000.0, 1500.0])[:n_r]
     bias_1d = np.ones_like(m)
     bias_2d = np.outer(np.ones_like(r), bias_1d)  # (r, m)
     return m, integrand, density, r, bias_1d, bias_2d

@@ -55,16 +55,16 @@ def test_tinker05_no_divide_by_zero_warning():
     from halomod.hod import Tinker05
 
     hod_model = Tinker05()
-    M_min = 10 ** hod_model.params["M_min"]
-    # Evaluate exactly at m == M_min, which is the degenerate case.
-    m = np.array([M_min * 0.5, M_min, M_min * 2.0])
+    m_min = 10 ** hod_model.params["M_min"]
+    # Evaluate exactly at m == m_min, which is the degenerate case.
+    m = np.array([m_min * 0.5, m_min, m_min * 2.0])
 
     with warnings.catch_warnings():
         warnings.simplefilter("error", RuntimeWarning)
         result = hod_model.satellite_occupation(m)
 
-    # The result must be finite (zero at and below M_min, positive above).
+    # The result must be finite (zero at and below m_min, positive above).
     assert np.all(np.isfinite(result))
-    assert result[0] == 0.0  # below M_min
-    assert result[1] == 0.0  # exactly at M_min: exp(-inf) = 0
-    assert result[2] > 0.0  # above M_min
+    assert result[0] == 0.0  # below m_min
+    assert result[1] == 0.0  # exactly at m_min: exp(-inf) = 0
+    assert result[2] > 0.0  # above m_min
