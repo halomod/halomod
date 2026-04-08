@@ -3,7 +3,7 @@ import pytest
 import numpy as np
 
 from halomod import TracerHaloModel, hod
-from halomod.hod import Zehavi05, Zehavi05Marked, Zehavi05WithMax
+from halomod.hod import Zehavi05, Zehavi05Marked, Zehavi05WithMax, Leauthaud11
 
 
 def test_zehavi_marked():
@@ -42,3 +42,22 @@ def test_positive_hod(hodr):
     assert np.all(hm.hod._tracer_per_central(m) >= 0)
     assert np.all(hm.hod._tracer_per_satellite(m) >= 0)
     assert hm.mean_tracer_den_unit >= 0
+
+
+def test_leauthaud11():
+    m = np.logspace(10, 15, 100)
+    logmstar = np.linspace(7, 12, 100)
+
+    l11 = Leauthaud11()
+
+    assert np.isfinite(l11._central_occupation(m)).all()
+    assert (l11._central_occupation(m) >= 0).all()
+
+    assert np.isfinite(l11._satellite_occupation(m)).all()
+    assert (l11._satellite_occupation(m) >= 0).all()
+
+    assert np.isfinite(l11.mean_log_halo_mass(logmstar)).all()
+    assert (l11.mean_log_halo_mass(logmstar) >= 0).all()
+
+    assert np.isfinite(l11.mean_log_stellar_mass(m)).all()
+    assert (l11.mean_log_stellar_mass(m) >= 0).all()
