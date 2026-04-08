@@ -802,9 +802,7 @@ class Leauthaud11(HODPoisson):
 
         logscatter = np.sqrt(2) * self.params["sig_logmstar"]
 
-        mean_ncen = 0.5 * (
-            1.0 - sp.erf((self.params["sm_thresh"] - logmstar) / logscatter)
-        )
+        mean_ncen = 0.5 * (1.0 - sp.erf((self.params["sm_thresh"] - logmstar) / logscatter))
 
         return mean_ncen
 
@@ -830,9 +828,7 @@ class Leauthaud11(HODPoisson):
         self._update_M_min()
         self._update_satellite_params()
 
-        mean_nsat = (
-            np.exp(-self._mcut / (m)) * (m / self._msat) ** self.params["alphasat"]
-        )
+        mean_nsat = np.exp(-self._mcut / (m)) * (m / self._msat) ** self.params["alphasat"]
 
         mean_nsat *= self._central_occupation(m)  # added
 
@@ -843,26 +839,18 @@ class Leauthaud11(HODPoisson):
 
     def _update_satellite_params(self):
         """Private method to update the model parameters."""
-        log_halo_mass_sm_thresh = self.mean_log_halo_mass(
-            log_stellar_mass=self.params["sm_thresh"]
-        )
+        log_halo_mass_sm_thresh = self.mean_log_halo_mass(log_stellar_mass=self.params["sm_thresh"])
 
         knee_sm_thresh = 10.0**log_halo_mass_sm_thresh
 
-        knee_mass = (
-            1.0e12 * 0.72
-        )  # converting knee_mass from arXiv:1103.2077 to h=1 units
+        knee_mass = 1.0e12 * 0.72  # converting knee_mass from arXiv:1103.2077 to h=1 units
 
         self._msat = (
-            knee_mass
-            * self.params["bsat"]
-            * (knee_sm_thresh / knee_mass) ** self.params["betasat"]
+            knee_mass * self.params["bsat"] * (knee_sm_thresh / knee_mass) ** self.params["betasat"]
         )
 
         self._mcut = (
-            knee_mass
-            * self.params["bcut"]
-            * (knee_sm_thresh / knee_mass) ** self.params["betacut"]
+            knee_mass * self.params["bcut"] * (knee_sm_thresh / knee_mass) ** self.params["betacut"]
         )
 
     def mean_log_halo_mass(self, log_stellar_mass):
