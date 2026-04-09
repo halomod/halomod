@@ -65,6 +65,7 @@ from astropy.cosmology import Planck15
 from hmf import Component
 from hmf._internals import pluggable
 from hmf.halos.mass_definitions import MassDefinition, SOMean
+from scipy.interpolate import interp1d
 
 from .concentration import CMRelation
 from .profiles import Profile
@@ -672,3 +673,248 @@ class Spinelli19(HODPoisson):
         n_s[index] = (M[index] / 10 ** self.params["M_1_counts"]) ** self.params["alpha_counts"]
 
         return n_s
+
+
+class Leauthaud11(HODPoisson):
+    """
+    A 16-parameter HOD model based on Leauthaud et al. (2011).
+
+    This model was adapted from halotools library: https://halotools.readthedocs.io/.
+
+    The following implementation allows for redshift evolution of central occupation
+    parameters, smhm_m0_0, smhm_m1_0, smhm_beta_0, smhm_delta_0 and smhm_gamma_0 ('0'
+    indicates redshift, z=0) controlled by the parameters smhm_m0_a, smhm_m1_a,
+    smhm_beta_a, smhm_delta_a and smhm_gamma_a, respectively.
+
+
+    However, it is entirely possible to not use the redshift evolution aspect of this
+    HOD by setting all the parameters ending with "_a" to '0' (default). This results in
+    the basic 11-parameter Leauthaud11 HOD. Then, the parameters like "smhm_delta_0" no
+    longer corresponds to z=0 as mentioned below. The "redshift" parameter also becomes
+    meaningless, in that case.
+
+    Lastly, all of the calculations here assume h=1 units. The user can simply convert
+    back to a particular cosmology, for instance, after running an MCMC analysis.
+
+    e.g. The characteristic stellar mass, smhm_m0_0 in h=0.7 units corresponds to
+    smhm_m0_0 - 2*(np.log10(0.7)) assuming that the stellar mass scales as 1/(h^2).
+    This inverse-squared scaling is true for stellar masses derived from scaled
+    luminosity. Similarly, the characteristic halo mass, smhm_m1_0 in h=0.7 units is
+    smhm_m1_0 - (np.log10(0.7)) assuming that the halo mass scales as 1/h.
+
+    Note that all <Ncen> model parameter defaults are set to the column 2 values in
+    Table 2 of Behroozi et al. (2010). All <Nsat> model parameters set according to the
+    SIG_MOD1 values of Table 5 of arXiv:1104.0928 for the lowest redshift bin.
+
+
+    Parameters
+    ----------
+    redshift : float, default = 0.0
+        Redshift at which the HOD is evaluated. This controls the redshift evolution of
+        the central occupation parameters, smhm_m0_0, smhm_m1_0, smhm_beta_0,
+        smhm_delta_0 and smhm_gamma_0.
+    sm_thresh : float, default = 9.0
+        Base-10 logarithm of the stellar mass threshold for the HOD in h=1 units.
+    smhm_m0_0 : float, default = 10.72
+        Characteristic Stellar Mass in the SHMR at z=0. <Ncen>
+    smhm_m0_a : float, default = 0.0
+        Redshift evolution of the characteristic Stellar Mass. <Ncen>
+    smhm_m1_0 : float, default = 12.35
+        Characteristic Halo Mass in the SHMR at z=0. <Ncen>
+    smhm_m1_a : float, default = 0.0
+        Redshift evolution of the characteristic Halo Mass. <Ncen>
+    smhm_beta_0 : float, default = 0.43
+        Faint end slope in the SHMR at z=0. <Ncen>
+    smhm_beta_a : float, default = 0.0
+        Redshift evolution of the faint end slope. <Ncen>
+    smhm_delta_0 : float, default = 0.56
+        Controls massive end slope in the SHMR at z=0. <Ncen>
+    smhm_delta_a : float, default = 0.0
+        Redshift evolution of the massive end slope. <Ncen>
+    smhm_gamma_0 : float, default = 1.54
+        Controls the transition regime in the SHMR at z=0. <Ncen>
+    smhm_gamma_a : float, default = 0.0
+        Redshift evolution of the transition. <Ncen>
+    sig_logmstar : float, default = 0.206
+        Log-normal scatter in Stellar Mass at fixed Halo Mass. <Ncen>
+    alphasat : float, default = 1.0
+        Power law slope of the satellite occupation function. <Nsat>
+    betasat : float, default = 0.859
+        Slope of the scaling of Msat. <Nsat>
+    bsat : float, default = 10.62
+        Normalization of the scaling of Msat. <Nsat>
+    betacut : float, default = -0.13
+        Slope of the scaling of Mcut. <Nsat>
+    bcut : float, default = 1.47
+        Normalization of the scaling of Mcut. <Nsat>
+    """
+
+    _defaults = {
+        "redshift": 0.0,
+        "sm_thresh": 9.0,
+        "smhm_m0_0": 10.72,
+        "smhm_m0_a": 0.0,
+        "smhm_m1_0": 12.35,
+        "smhm_m1_a": 0.0,
+        "smhm_beta_0": 0.43,
+        "smhm_beta_a": 0.0,
+        "smhm_delta_0": 0.56,
+        "smhm_delta_a": 0.0,
+        "smhm_gamma_0": 1.54,
+        "smhm_gamma_a": 0.0,
+        "sig_logmstar": 0.206,
+        "alphasat": 1.0,
+        "betasat": 0.859,
+        "bsat": 10.62,
+        "betacut": -0.13,
+        "bcut": 1.47,
+        # Need to set initialize "M_min" but is not meaningful for Leauthaud11 HOD.
+        "M_min": 10,
+    }
+    sharp_cut = False  # or False
+    central_condition_inherent = False  # or False
+
+    def _central_occupation(self, m):
+        """Expected number of central galaxies in a halo.
+        See Equation 8 of arXiv:1103.2077.
+
+        Parameters
+        ----------
+        m : array
+            Array of halo masses in h=1 units upon which the corresponding stellar masses must be
+            calculated based on the SHMR set by the HOD parameters.
+
+        Returns
+        -------
+        mean_ncen : array
+            Mean number of central galaxies in the halo of the input mass.
+
+        Notes
+        -----
+        Assumes constant scatter in the stellar-to-halo-mass relation.
+        """
+        self._update_M_min()
+
+        logmstar = self.mean_log_stellar_mass(m)
+
+        logscatter = np.sqrt(2) * self.params["sig_logmstar"]
+
+        mean_ncen = 0.5 * (1.0 - sp.erf((self.params["sm_thresh"] - logmstar) / logscatter))
+
+        return mean_ncen
+
+    def _satellite_occupation(self, m):
+        """Expected number of satellite galaxies in a halo of mass halo_mass.
+        See Equation 12-14 of arXiv:1103.2077.
+
+        Parameters
+        ----------
+        m : array
+            Array of halo masses in [solar mass/h] units upon which the corresponding
+            stellar masses must be calculated based on the SHMR set by the HOD
+            parameters.
+
+        Returns
+        -------
+        mean_nsat : array
+            Mean number of satellite galaxies in the halo of the input mass.
+
+        Notes
+        -----
+        Assumes constant scatter in the stellar-to-halo-mass relation.
+        """
+        self._update_M_min()
+        self._update_satellite_params()
+
+        mean_nsat = np.exp(-self._mcut / (m)) * (m / self._msat) ** self.params["alphasat"]
+
+        mean_nsat *= self._central_occupation(m)  # added
+
+        return mean_nsat
+
+    def _update_M_min(self):
+        self.params["M_min"] = self.mean_log_halo_mass(self.params["sm_thresh"])
+
+    def _update_satellite_params(self):
+        """Private method to update the model parameters."""
+        log_halo_mass_sm_thresh = self.mean_log_halo_mass(log_stellar_mass=self.params["sm_thresh"])
+
+        knee_sm_thresh = 10.0**log_halo_mass_sm_thresh
+
+        knee_mass = 1.0e12 * 0.72  # converting knee_mass from arXiv:1103.2077 to h=1 units
+
+        self._msat = (
+            knee_mass * self.params["bsat"] * (knee_sm_thresh / knee_mass) ** self.params["betasat"]
+        )
+
+        self._mcut = (
+            knee_mass * self.params["bcut"] * (knee_sm_thresh / knee_mass) ** self.params["betacut"]
+        )
+
+    def mean_log_halo_mass(self, log_stellar_mass):
+        """Return the halo mass of a central galaxy as a function
+        of the stellar mass.
+
+        Parameters
+        ----------
+        log_stellar_mass : array
+            Array of base-10 logarithm of stellar masses in h=1 units.
+
+        Returns
+        -------
+        log_halo_mass : array_like
+            Array containing 10-base logarithm of halo mass in h=1 units.
+        """
+        a = 1.0 / (1.0 + self.params["redshift"])
+        stellar_mass = 10.0**log_stellar_mass
+
+        logm0 = self.params["smhm_m0_0"] + self.params["smhm_m0_a"] * (a - 1)
+        m0 = 10.0**logm0
+        logm1 = self.params["smhm_m1_0"] + self.params["smhm_m1_a"] * (a - 1)
+        beta = self.params["smhm_beta_0"] + self.params["smhm_beta_a"] * (a - 1)
+        delta = self.params["smhm_delta_0"] + self.params["smhm_delta_a"] * (a - 1)
+        gamma = self.params["smhm_gamma_0"] + self.params["smhm_gamma_a"] * (a - 1)
+
+        stellar_mass_by_m0 = stellar_mass / m0
+        term3_numerator = (stellar_mass_by_m0) ** delta
+        term3_denominator = 1 + (stellar_mass_by_m0) ** (-gamma)
+
+        log_halo_mass = (
+            logm1
+            + beta * np.log10(stellar_mass_by_m0)
+            + (term3_numerator / term3_denominator)
+            - 0.5
+        )
+
+        return log_halo_mass
+
+    def mean_log_stellar_mass(self, m):
+        """Return the stellar mass of a central galaxy as a function
+        of the input table.
+
+        Parameters
+        ----------
+        m : array
+            Array of halo masses in h=1 units upon which the corresponding stellar masses must be
+            calculated based on the SHMR set by the HOD parameters.
+
+        Returns
+        -------
+        log_stellar_mass : array_like
+            Array containing log10 of stellar masses in h=1 units living in the input table.
+        """
+        log_stellar_mass_table = np.linspace(0, 14, 1000)
+        log_halo_mass_table = self.mean_log_halo_mass(log_stellar_mass_table)
+
+        interpol_func = interp1d(
+            log_halo_mass_table,
+            log_stellar_mass_table,
+            kind="cubic",
+            fill_value="extrapolate",
+        )
+
+        log_stellar_mass = np.zeros(len(m))
+        for i in range(len(m)):
+            log_stellar_mass[i] = interpol_func(np.log10(m[i]))
+
+        return log_stellar_mass

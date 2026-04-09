@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from halomod import TracerHaloModel, hod
-from halomod.hod import Zehavi05, Zehavi05Marked, Zehavi05WithMax
+from halomod.hod import Leauthaud11, Zehavi05, Zehavi05Marked, Zehavi05WithMax
 
 
 def test_zehavi_marked():
@@ -68,3 +68,22 @@ def test_tinker05_no_divide_by_zero_warning():
     assert result[0] == 0.0  # below m_min
     assert result[1] == 0.0  # exactly at m_min: exp(-inf) = 0
     assert result[2] > 0.0  # above m_min
+
+
+def test_leauthaud11():
+    m = np.logspace(10, 15, 100)
+    logmstar = np.linspace(7, 12, 100)
+
+    l11 = Leauthaud11()
+
+    assert np.isfinite(l11._central_occupation(m)).all()
+    assert (l11._central_occupation(m) >= 0).all()
+
+    assert np.isfinite(l11._satellite_occupation(m)).all()
+    assert (l11._satellite_occupation(m) >= 0).all()
+
+    assert np.isfinite(l11.mean_log_halo_mass(logmstar)).all()
+    assert (l11.mean_log_halo_mass(logmstar) >= 0).all()
+
+    assert np.isfinite(l11.mean_log_stellar_mass(m)).all()
+    assert (l11.mean_log_stellar_mass(m) >= 0).all()
