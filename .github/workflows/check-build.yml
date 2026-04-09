@@ -1,15 +1,11 @@
-name: Publish Python distributions to PyPI
+name: Check Distribution Build
 
-on:
-  release:
-    types: [published]
+on: push
 
 jobs:
-  build-n-publish:
-    name: Make Release on PyPI and Github
+  check-build:
+    name: Twine Check
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
     steps:
       - uses: actions/checkout@master
         with:
@@ -31,6 +27,3 @@ jobs:
       - name: Check Distribution
         run: |
           uvx twine check dist/*
-
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1

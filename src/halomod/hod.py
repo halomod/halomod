@@ -41,26 +41,27 @@ satellite/central decomposition. So here are the assumptions:
    trivially to <Ns>. However, if the central condition is not enforced we *assume* that the
    variates Nc and Ns are uncorrelated, and use <Nc*Ns> = <Nc><Ns>.
 
-5. A HOD class that is defined with the central condition intrinsically satisfied, the class variable
-   ``central_condition_inherent`` can be set to True in the class definition, which will avoid the
-   extra modification. Do note that just because the class is specified such that the central
-   condition can be satisfied (i.e. <Ns> is 0 when <Nc> is zero), and thus the
-   ``central_condition_inherent`` is True, does not mean that it is entirely enforced.
-   The pairwise counts still depend on whether the user assumes that the central condition is
-   enforced or not, which must be set at instantiation.
+5. A HOD class that is defined with the central condition intrinsically satisfied, the
+   class variable ``central_condition_inherent`` can be set to True in the class
+   definition, which will avoid the extra modification. Do note that just because the
+   class is specified such that the central condition can be satisfied (i.e. <Ns> is 0
+   when <Nc> is zero), and thus the ``central_condition_inherent`` is True, does not
+   mean that it is entirely enforced. The pairwise counts still depend on whether the
+   user assumes that the central condition is enforced or not, which must be set at
+   instantiation.
 
 6. By default, the central condition is *not* enforced.
 """
 
+from __future__ import annotations
+
+from abc import ABCMeta, abstractmethod
 
 import astropy.constants as astroconst
 import numpy as np
 import scipy.constants as const
 import scipy.special as sp
-from abc import ABCMeta, abstractmethod
 from astropy.cosmology import Planck15
-from typing import Optional
-
 from hmf import Component
 from hmf._internals import pluggable
 from hmf.halos.mass_definitions import MassDefinition, SOMean
@@ -103,10 +104,10 @@ class HOD(Component, metaclass=ABCMeta):
         self,
         central: bool = False,
         cosmo=Planck15,
-        cm_relation: Optional[CMRelation] = None,
-        profile: Optional[Profile] = None,
-        mdef: Optional[MassDefinition] = SO_MEAN,
-        **model_parameters
+        cm_relation: CMRelation | None = None,
+        profile: Profile | None = None,
+        mdef: MassDefinition | None = SO_MEAN,
+        **model_parameters,
     ):
         self._central = central
         self.cosmo = cosmo
@@ -114,7 +115,7 @@ class HOD(Component, metaclass=ABCMeta):
         self.profile = profile
         self.mdef = mdef
 
-        super(HOD, self).__init__(**model_parameters)
+        super().__init__(**model_parameters)
 
     @abstractmethod
     def nc(self, m):
@@ -122,7 +123,6 @@ class HOD(Component, metaclass=ABCMeta):
 
         Useful for populating catalogues.
         """
-        pass
 
     @abstractmethod
     def ns(self, m):
@@ -130,37 +130,30 @@ class HOD(Component, metaclass=ABCMeta):
 
         Useful for populating catalogues.
         """
-        pass
 
     @abstractmethod
     def _central_occupation(self, m):
         """The central occupation function of the tracer."""
-        pass
 
     @abstractmethod
     def _satellite_occupation(self, m):
         """The satellite occupation function of the tracer."""
-        pass
 
     @abstractmethod
     def ss_pairs(self, m):
         """The average amount of the tracer coupled with itself in haloes of mass m, <T_s T_s>."""
-        pass
 
     @abstractmethod
     def cs_pairs(self, m):
         """The average amount of the tracer coupled with itself in haloes of mass m, <T_s T_c>."""
-        pass
 
     @abstractmethod
     def sigma_satellite(self, m):
         """The standard deviation of the satellite tracer amount in haloes of mass m."""
-        pass
 
     @abstractmethod
     def sigma_central(self, m):
         """The standard deviation of the central tracer amount in haloes of mass m."""
-        pass
 
     def central_occupation(self, m):
         """The occupation function of the central component."""
@@ -195,11 +188,11 @@ class HODNoCentral(HOD, abstract=True):
     """Base class for all HODs which have no concept of a central/satellite split."""
 
     def __init__(self, **model_parameters):
-        super(HODNoCentral, self).__init__(**model_parameters)
+        super().__init__(**model_parameters)
         self._central = False
 
     def nc(self, m):
-        """Density of Central Tracer"""
+        """Density of Central Tracer."""
         return 0
 
     def cs_pairs(self, m):
@@ -219,7 +212,7 @@ class HODBulk(HODNoCentral, abstract=True):
     """Base class for HODs with no discrete tracers, just an assignment of tracer to the halo."""
 
     def ns(self, m):
-        """Density of Satellite Tracer"""
+        """Density of Satellite Tracer."""
         return 0
 
     def ss_pairs(self, m):
@@ -238,19 +231,19 @@ class HODPoisson(HOD, abstract=True):
     """
 
     def nc(self, m):
-        """Amplitude of central tracer per tracer source"""
+        """Amplitude of central tracer per tracer source."""
         return self.central_occupation(m) / self._tracer_per_central(m)
 
     def ns(self, m):
-        """Amplitude of satellite tracer per tracer source"""
+        """Amplitude of satellite tracer per tracer source."""
         return self.satellite_occupation(m) / self._tracer_per_satellite(m)
 
     def _tracer_per_central(self, m):
-        """Number of tracer per central tracer source"""
+        """Number of tracer per central tracer source."""
         return 1
 
     def _tracer_per_satellite(self, m):
-        """Number of tracer per satellite tracer source"""
+        """Number of tracer per satellite tracer source."""
         return self._tracer_per_central(m)
 
     def ss_pairs(self, m):
@@ -298,24 +291,20 @@ class Zehavi05(HODPoisson):
     sharp_cut = True
 
     def _central_occupation(self, m):
-        """
-        Amplitude of central tracer at mass M
-        """
+        """Amplitude of central tracer at mass M."""
         n_c = np.ones_like(m)
         n_c[m < 10 ** self.params["M_min"]] = 0
 
         return n_c
 
     def _satellite_occupation(self, m):
-        """
-        Amplitude of satellite tracer at mass M
-        """
+        """Amplitude of satellite tracer at mass M."""
         return (m / 10 ** self.params["M_1"]) ** self.params["alpha"]
 
 
 class Zheng05(HODPoisson):
     """
-    Five-parameter model of Zheng (2005)
+    Five-parameter model of Zheng (2005).
 
     Parameters
     ----------
@@ -347,27 +336,20 @@ class Zheng05(HODPoisson):
     }
 
     def _central_occupation(self, m):
-        """
-        Amplitude of central tracer at mass M
-        """
-        return 0.5 * (
-            1 + sp.erf((np.log10(m) - self.params["M_min"]) / self.params["sig_logm"])
-        )
+        """Amplitude of central tracer at mass M."""
+        return 0.5 * (1 + sp.erf((np.log10(m) - self.params["M_min"]) / self.params["sig_logm"]))
 
     def _satellite_occupation(self, m):
-        """
-        Amplitude of satellite tracer at mass M
-        """
+        """Amplitude of satellite tracer at mass M."""
         ns = np.zeros_like(m)
         ns[m > 10 ** self.params["M_0"]] = (
-            (m[m > 10 ** self.params["M_0"]] - 10 ** self.params["M_0"])
-            / 10 ** self.params["M_1"]
+            (m[m > 10 ** self.params["M_0"]] - 10 ** self.params["M_0"]) / 10 ** self.params["M_1"]
         ) ** self.params["alpha"]
         return ns
 
     @property
     def mmin(self):
-        """Minimum turnover mass for tracer"""
+        """Minimum turnover mass for tracer."""
         return self.params["M_min"] - 5 * self.params["sig_logm"]
 
 
@@ -400,9 +382,8 @@ class Contreras13(HODPoisson):
 
     References
     ----------
-    .. [1] Contreras, C. et al., "The WiggleZ Dark Energy Survey:
-           measuring the cosmicgrowth rate with the two-point galaxy correlation function",
-           https://ui.adsabs.harvard.edu/abs/2013MNRAS.430..924C.
+    .. [1] Contreras, S. et al., "How robust are predictions of galaxy clustering?",
+           https://ui.adsabs.harvard.edu/abs/2013MNRAS.432.2717C.
 
     """
 
@@ -420,11 +401,9 @@ class Contreras13(HODPoisson):
     }
 
     def _central_occupation(self, m):
-        """
-        Amplitude of central tracer at mass M
-        """
+        """Amplitude of central tracer at mass M."""
         return self.params["fcb"] * (1 - self.params["fca"]) * np.exp(
-            -np.log10(m / 10 ** self.params["M_min"]) ** 2
+            -(np.log10(m / 10 ** self.params["M_min"]) ** 2)
             / (2 * (self.params["x"] * self.params["sig_logm"]) ** 2)
         ) + self.params["fca"] * (
             1
@@ -436,15 +415,10 @@ class Contreras13(HODPoisson):
         )
 
     def _satellite_occupation(self, m):
-        """
-        Amplitude of satellite tracer at mass M
-        """
+        """Amplitude of satellite tracer at mass M."""
         return (
             self.params["fs"]
-            * (
-                1
-                + sp.erf(np.log10(m / 10 ** self.params["M_1"]) / self.params["delta"])
-            )
+            * (1 + sp.erf(np.log10(m / 10 ** self.params["M_1"]) / self.params["delta"]))
             * (m / 10 ** self.params["M_1"]) ** self.params["alpha"]
         )
 
@@ -462,8 +436,6 @@ class Geach12(Contreras13):
 
     """
 
-    pass
-
 
 class Tinker05(Zehavi05):
     """
@@ -480,15 +452,17 @@ class Tinker05(Zehavi05):
     central_condition_inherent = True
 
     def _satellite_occupation(self, m):
-        """
-        Amplitude of satellite tracer at mass M
-        """
+        """Amplitude of satellite tracer at mass M."""
         out = self.central_occupation(m)
-        return (
-            out
-            * np.exp(-(10 ** self.params["M_cut"]) / (m - 10 ** self.params["M_min"]))
-            * (m / 10 ** self.params["M_1"])
-        )
+        # At m == M_min the denominator is zero; the result is still zero because
+        # central_occupation(M_min) == 1 and exp(-inf) == 0, but numpy raises a
+        # RuntimeWarning for the intermediate division.  Suppress it here.
+        with np.errstate(divide="ignore", invalid="ignore"):
+            return (
+                out
+                * np.exp(-(10 ** self.params["M_cut"]) / (m - 10 ** self.params["M_min"]))
+                * (m / 10 ** self.params["M_1"])
+            )
 
 
 class Zehavi05WithMax(Zehavi05):
@@ -502,22 +476,14 @@ class Zehavi05WithMax(Zehavi05):
     }
 
     def _central_occupation(self, m):
-        """
-        Amplitude of central tracer at mass M
-        """
+        """Amplitude of central tracer at mass M."""
         n_c = np.zeros_like(m)
-        n_c[
-            np.logical_and(
-                m >= 10 ** self.params["M_min"], m <= 10 ** self.params["M_max"]
-            )
-        ] = 1
+        n_c[np.logical_and(m >= 10 ** self.params["M_min"], m <= 10 ** self.params["M_max"])] = 1
 
         return n_c
 
     def _satellite_occupation(self, m):
-        """
-        Amplitude of satellite tracer at mass M
-        """
+        """Amplitude of satellite tracer at mass M."""
         return (m / 10 ** self.params["M_1"]) ** self.params["alpha"]
 
 
@@ -538,33 +504,26 @@ class Zehavi05Marked(Zehavi05WithMax):
 
     def sigma_central(self, m):
         """The standard deviation of the central tracer amount in haloes of mass m."""
-        co = super(Zehavi05Marked, self)._central_occupation(m)
+        co = super()._central_occupation(m)
         return np.sqrt(self._tracer_per_central(m) * co * (1 - co))
 
     def _tracer_per_central(self, m):
-        """Number of tracer per central tracer source"""
+        """Number of tracer per central tracer source."""
         return 10 ** self.params["logA"]
 
     def _central_occupation(self, m):
-        """
-        Amplitude of central tracer at mass M
-        """
-        return super(Zehavi05Marked, self)._central_occupation(
-            m
-        ) * self._tracer_per_central(m)
+        """Amplitude of central tracer at mass M."""
+        return super()._central_occupation(m) * self._tracer_per_central(m)
 
     def _satellite_occupation(self, m):
-        """
-        Amplitude of satellite tracer at mass M
-        """
-        return super(Zehavi05Marked, self)._satellite_occupation(
-            m
-        ) * self._tracer_per_satellite(m)
+        """Amplitude of satellite tracer at mass M."""
+        return super()._satellite_occupation(m) * self._tracer_per_satellite(m)
 
 
 class ContinuousPowerLaw(HODBulk):
-    """
-    A continuous HOD which is tuned to match the Zehavi05 total occupation except for normalisation.
+    """A continuous HOD which is tuned to match the Zehavi05 total occupation.
+
+    (except for normalisation)
     """
 
     _defaults = {
@@ -578,9 +537,7 @@ class ContinuousPowerLaw(HODBulk):
     sharp_cut = True
 
     def _satellite_occupation(self, m):
-        """
-        Amplitude of satellite tracer at mass M
-        """
+        """Amplitude of satellite tracer at mass M."""
         alpha = self.params["alpha"]
         M_1 = 10 ** self.params["M_1"]
         A = 10 ** self.params["logA"]
@@ -604,9 +561,7 @@ class Constant(HODBulk):
     _defaults = {"logA": 0, "M_min": 11.0, "sigma_A": 0}
 
     def _satellite_occupation(self, m):
-        """
-        Amplitude of satellite tracer at mass M
-        """
+        """Amplitude of satellite tracer at mass M."""
         return np.where(m > 10 ** self.params["M_min"], 10 ** self.params["logA"], 0)
 
     def sigma_satellite(self, m):
@@ -653,9 +608,7 @@ class Spinelli19(HODPoisson):
     central_condition_inherent = False
 
     def _central_occupation(self, m):
-        """
-        Amplitude of central tracer at mass M
-        """
+        """Amplitude of central tracer at mass M."""
         alpha = self.params["alpha"]
         beta = self.params["beta"]
         m_1 = 10 ** self.params["M_1"]
@@ -671,9 +624,7 @@ class Spinelli19(HODPoisson):
         return out
 
     def _satellite_occupation(self, m):
-        """
-        Amplitude of satellite tracer at mass M
-        """
+        """Amplitude of satellite tracer at mass M."""
         alpha = self.params["alpha_sat"]
         beta = self.params["beta_sat"]
         amp = 10 ** self.params["M_0"]
@@ -702,76 +653,122 @@ class Spinelli19(HODPoisson):
         return temp_conv
 
     def _tracer_per_central(self, M):
-        """Number of tracer per central tracer source"""
+        """Number of tracer per central tracer source."""
         n_c = np.zeros_like(M)
         n_c[
             np.logical_and(
-                M >= 10 ** self.params["M_min_counts"],
-                M <= 10 ** self.params["M_max_counts"],
+                10 ** self.params["M_min_counts"] <= M,
+                10 ** self.params["M_max_counts"] >= M,
             )
         ] = 1
         return n_c
 
     def _tracer_per_satellite(self, M):
-        """Number of tracer per satellite tracer source"""
+        """Number of tracer per satellite tracer source."""
         n_s = np.zeros_like(M)
         index = np.logical_and(
-            M >= 10 ** self.params["M_min_counts"],
-            M <= 10 ** self.params["M_max_counts"],
+            10 ** self.params["M_min_counts"] <= M,
+            10 ** self.params["M_max_counts"] >= M,
         )
-        n_s[index] = (M[index] / 10 ** self.params["M_1_counts"]) ** self.params[
-            "alpha_counts"
-        ]
+        n_s[index] = (M[index] / 10 ** self.params["M_1_counts"]) ** self.params["alpha_counts"]
 
         return n_s
 
 
 class Leauthaud11(HODPoisson):
     """
-    16-parameter model based on Leauthaud et al. (2011) and adapted from halotools library: https://halotools.readthedocs.io/
-    The following implementation allows for redshift evolution of central occupation parameters,
-    smhm_m0_0, smhm_m1_0, smhm_beta_0, smhm_delta_0 and smhm_gamma_0 ('0' indicates redshift, z=0)
-    controlled by the parameters smhm_m0_a, smhm_m1_a, smhm_beta_a, smhm_delta_a and smhm_gamma_a,
-    respectively.
-    To see the redshift parameterization, please browse the mean_log_halo_mass() function below.
+    A 16-parameter HOD model based on Leauthaud et al. (2011).
 
-    However, it is entirely possible to not use the redshift evolution aspect of this HOD by setting
-    all the parameters ending with "_a" to '0' (default). This results in the basic 11-parameter
-    Leauthaud11 HOD. Then, the parameters like "smhm_delta_0" no longer corresponds to z=0 as mentioned
-    below. The "redshift" parameter also becomes meaningless, in that case.
+    This model was adapted from halotools library: https://halotools.readthedocs.io/.
 
-    Lastly, all of the calclations here assume h=1 units. The user can simply convert back to a particular
-    cosmology, for instance, after running an MCMC analysis.
-    e.g. The characteristic stellar mass, smhm_m0_0 in h=0.7 units corresponds to smhm_m0_0 - 2*(np.log10(0.7))
-    assuming that the stellar mass scales as 1/(h^2). This inverse-squared scaling is true for stellar masses
-    derived from scaled luminosity.
-    Similarly, the characteristic halo mass, smhm_m1_0 in h=0.7 units is smhm_m1_0 - (np.log10(0.7))
-    assuming that the halo mass scales as 1/h.
+    The following implementation allows for redshift evolution of central occupation
+    parameters, smhm_m0_0, smhm_m1_0, smhm_beta_0, smhm_delta_0 and smhm_gamma_0 ('0'
+    indicates redshift, z=0) controlled by the parameters smhm_m0_a, smhm_m1_a,
+    smhm_beta_a, smhm_delta_a and smhm_gamma_a, respectively.
+
+
+    However, it is entirely possible to not use the redshift evolution aspect of this
+    HOD by setting all the parameters ending with "_a" to '0' (default). This results in
+    the basic 11-parameter Leauthaud11 HOD. Then, the parameters like "smhm_delta_0" no
+    longer corresponds to z=0 as mentioned below. The "redshift" parameter also becomes
+    meaningless, in that case.
+
+    Lastly, all of the calculations here assume h=1 units. The user can simply convert
+    back to a particular cosmology, for instance, after running an MCMC analysis.
+
+    e.g. The characteristic stellar mass, smhm_m0_0 in h=0.7 units corresponds to
+    smhm_m0_0 - 2*(np.log10(0.7)) assuming that the stellar mass scales as 1/(h^2).
+    This inverse-squared scaling is true for stellar masses derived from scaled
+    luminosity. Similarly, the characteristic halo mass, smhm_m1_0 in h=0.7 units is
+    smhm_m1_0 - (np.log10(0.7)) assuming that the halo mass scales as 1/h.
+
+    Note that all <Ncen> model parameter defaults are set to the column 2 values in
+    Table 2 of Behroozi et al. (2010). All <Nsat> model parameters set according to the
+    SIG_MOD1 values of Table 5 of arXiv:1104.0928 for the lowest redshift bin.
+
+
+    Parameters
+    ----------
+    redshift : float, default = 0.0
+        Redshift at which the HOD is evaluated. This controls the redshift evolution of
+        the central occupation parameters, smhm_m0_0, smhm_m1_0, smhm_beta_0,
+        smhm_delta_0 and smhm_gamma_0.
+    sm_thresh : float, default = 9.0
+        Base-10 logarithm of the stellar mass threshold for the HOD in h=1 units.
+    smhm_m0_0 : float, default = 10.72
+        Characteristic Stellar Mass in the SHMR at z=0. <Ncen>
+    smhm_m0_a : float, default = 0.0
+        Redshift evolution of the characteristic Stellar Mass. <Ncen>
+    smhm_m1_0 : float, default = 12.35
+        Characteristic Halo Mass in the SHMR at z=0. <Ncen>
+    smhm_m1_a : float, default = 0.0
+        Redshift evolution of the characteristic Halo Mass. <Ncen>
+    smhm_beta_0 : float, default = 0.43
+        Faint end slope in the SHMR at z=0. <Ncen>
+    smhm_beta_a : float, default = 0.0
+        Redshift evolution of the faint end slope. <Ncen>
+    smhm_delta_0 : float, default = 0.56
+        Controls massive end slope in the SHMR at z=0. <Ncen>
+    smhm_delta_a : float, default = 0.0
+        Redshift evolution of the massive end slope. <Ncen>
+    smhm_gamma_0 : float, default = 1.54
+        Controls the transition regime in the SHMR at z=0. <Ncen>
+    smhm_gamma_a : float, default = 0.0
+        Redshift evolution of the transition. <Ncen>
+    sig_logmstar : float, default = 0.206
+        Log-normal scatter in Stellar Mass at fixed Halo Mass. <Ncen>
+    alphasat : float, default = 1.0
+        Power law slope of the satellite occupation function. <Nsat>
+    betasat : float, default = 0.859
+        Slope of the scaling of Msat. <Nsat>
+    bsat : float, default = 10.62
+        Normalization of the scaling of Msat. <Nsat>
+    betacut : float, default = -0.13
+        Slope of the scaling of Mcut. <Nsat>
+    bcut : float, default = 1.47
+        Normalization of the scaling of Mcut. <Nsat>
     """
 
     _defaults = {
-        "redshift": 0.0,  # redshift
-        "sm_thresh": 9.0,  # base-10 logarithm of the stellar mass threshold for the HOD in h=1 units.
-        # <Ncen> model parameters set to the column 2 values in Table 2 of Behroozi et al. (2010).
-        "smhm_m0_0": 10.72,  # Characteristic Stellar Mass in the SHMR at z=0. <Ncen>
-        "smhm_m0_a": 0.0,  # Redshift evolution of the characteristic Stellar Mass. <Ncen>
-        "smhm_m1_0": 12.35,  # Characteristic Halo Mass in the SHMR at z=0. <Ncen>
-        "smhm_m1_a": 0.0,  # Redshift evolution of the characteristic Halo Mass. <Ncen>
-        "smhm_beta_0": 0.43,  # Faint end slope in the SHMR at z=0. <Ncen>
-        "smhm_beta_a": 0.0,  # Redshift evolution of the faint end slope
-        "smhm_delta_0": 0.56,  # Controls massive end slope in the SHMR at z=0. <Ncen>
-        "smhm_delta_a": 0.0,  # Redshift evolution of the massive end slope. <Ncen>
-        "smhm_gamma_0": 1.54,  # Controls the transition regime in the SHMR at z=0. <Ncen>
-        "smhm_gamma_a": 0.0,  # Redshift evolution of the transition. <Ncen>
-        "sig_logmstar": 0.206,  # Log-normal scatter in Stellar Mass at fixed Halo Mass. <Ncen>
-        # <Nsat> model parameters set according to the SIG_MOD1 values of Table 5 of arXiv:1104.0928 for
-        # the lowest redshift bin.
-        "alphasat": 1.0,  # Power law slope of the satellite occupation function. <Nsat>
-        "betasat": 0.859,  # Slope of the scaling of Msat. <Nsat>
-        "bsat": 10.62,  # Normalization of the scaling of Msat. <Nsat>
-        "betacut": -0.13,  # Slope of the scaling of Mcut. <Nsat>
-        "bcut": 1.47,  # Normalization of the scaling of Mcut. <Nsat>
-        # Need to set initialize "M_min" for halomod here but is not meaningful for Leauthaud11 HOD.
+        "redshift": 0.0,
+        "sm_thresh": 9.0,
+        "smhm_m0_0": 10.72,
+        "smhm_m0_a": 0.0,
+        "smhm_m1_0": 12.35,
+        "smhm_m1_a": 0.0,
+        "smhm_beta_0": 0.43,
+        "smhm_beta_a": 0.0,
+        "smhm_delta_0": 0.56,
+        "smhm_delta_a": 0.0,
+        "smhm_gamma_0": 1.54,
+        "smhm_gamma_a": 0.0,
+        "sig_logmstar": 0.206,
+        "alphasat": 1.0,
+        "betasat": 0.859,
+        "bsat": 10.62,
+        "betacut": -0.13,
+        "bcut": 1.47,
+        # Need to set initialize "M_min" but is not meaningful for Leauthaud11 HOD.
         "M_min": 10,
     }
     sharp_cut = False  # or False
@@ -813,8 +810,9 @@ class Leauthaud11(HODPoisson):
         Parameters
         ----------
         m : array
-            Array of halo masses in [solar mass/h] units upon which the corresponding stellar masses must be
-            calculated based on the SHMR set by the HOD parameters.
+            Array of halo masses in [solar mass/h] units upon which the corresponding
+            stellar masses must be calculated based on the SHMR set by the HOD
+            parameters.
 
         Returns
         -------

@@ -1,44 +1,47 @@
 """
 Main halo model module.
 
-Contains Frameworks that combine all components necessary for halo model calculations (eg. mass function, bias,
-concentration, halo profile).
+Contains Frameworks that combine all components necessary for halo model calculations
+(eg. mass function, bias, concentration, halo profile).
 
-Two main classes are provided: :class:`DMHaloModel` for dark-matter only halo models, and :class:`TracerHaloModel`
-for halo models including a tracer population embedded in the dark matter haloes, via a HOD.
+Two main classes are provided: :class:`DMHaloModel` for dark-matter only halo models,
+and :class:`TracerHaloModel` for halo models including a tracer population embedded in
+the dark matter haloes, via a HOD.
 
 The :class:`HaloModel` class is provided as an alias of :class:`TracerHaloModel`.
 """
+
+from __future__ import annotations
+
+import warnings
+from collections.abc import Callable
+from copy import copy
+
 import numpy as np
 import scipy.integrate as intg
-import warnings
-from copy import copy
-from scipy.interpolate import InterpolatedUnivariateSpline as spline
-from scipy.optimize import minimize
-from typing import Callable, Tuple, Union
-
 from hmf import Cosmology, MassFunction, cached_quantity, parameter
 from hmf._internals import get_mdl
 from hmf.cosmology.cosmo import astropy_to_colossus
 from hmf.density_field.filters import TopHat
+from scipy.interpolate import InterpolatedUnivariateSpline as spline
+from scipy.optimize import minimize
 
 # import hmf.tools as ht
 from . import tools
 from .concentration import CMRelation
-from .halo_exclusion import NoExclusion
+from .halo_exclusion import Exclusion, NoExclusion
 
 
 class DMHaloModel(MassFunction):
     """
     Dark-matter-only halo model class.
 
-    This Framework is subclassed from hmf's ``MassFunction`` class, and operates in a similar manner.
+    This Framework is subclassed from hmf's ``MassFunction`` class, and operates in a
+    similar manner.
 
     **kwargs: anything that can be used in the MassFunction class
 
     """
-
-    rlog = True
 
     def __init__(
         self,
@@ -71,14 +74,16 @@ class DMHaloModel(MassFunction):
         """
         Initializer for the class.
 
-        Note that all `*_model` parameters can be a string or a class of the type described below. If a string,
-        it should be the name of a class that must exist in the relevant module within `halomod`.
+        Note that all `*_model` parameters can be a string or a class of the type
+        described below. If a string, it should be the name of a class that must exist
+        in the relevant module within `halomod`.
 
         Parameters
         ----------
-        rmin : float or arry-like, optional
-            Minimum length scale over which to calculate correlations, in Mpc/h. Alternatively, if an array,
-            this is used to specify the entire array of scales and `rmax`, `rnum` and `rlog` are ignored.
+        rmin : float or array-like, optional
+            Minimum length scale over which to calculate correlations, in Mpc/h.
+            Alternatively, if an array, this is used to specify the entire array of
+            scales and `rmax`, `rnum` and `rlog` are ignored.
         rmax : float, optional
             Maximum length scale over which to calculate correlations, in Mpc/h
         rnum : int, optional
@@ -89,7 +94,7 @@ class DMHaloModel(MassFunction):
             The model for the density profile of the halos.
         halo_profile_params : dict, optional
             Parameters for the density profile model (see its docstring for details)
-        halo_concentration_model : str or :class:`~concentration.CMRelation` subclass, optional
+        halo_concentration_model : str or :class:`~concentration.CMRelation` subclass
             The model for the concentration-mass-redshift relation of the halos.
         halo_concentration_params : dict, optional
             Parameters for the concentration-mass relation (see its docstring for details)
@@ -98,7 +103,8 @@ class DMHaloModel(MassFunction):
         bias_params : dict, optional
             Parameters for the bias model (see its docstring for details)
         sd_bias_model : str, None, or :class:`~bias.ScaleDepBias` subclass, optional
-            A model for scale-dependent bias (as a function of `r`). Setting to None will use no scale-dependent bias.
+            A model for scale-dependent bias (as a function of `r`). Setting to None
+            will use no scale-dependent bias.
         sd_bias_params : dict, optional
             Parameters for the scale-dependent bias model (see its docstring for details).
         exclusion_model : str, None or :class:`~halo_exclusion.Exclusion` subclass
@@ -106,8 +112,8 @@ class DMHaloModel(MassFunction):
         exclusion_params : dict, optional
             Parameters for the halo exclusion model
         hc_spectrum : str, {'linear', 'nonlinear', 'filtered-nl', 'filtered-lin'}
-            A choice for how the halo-centre power spectrum is defined. The "filtered" options arise from eg.
-            Schneider, Smith et al. (2014).
+            A choice for how the halo-centre power spectrum is defined. The "filtered"
+            options arise from eg. Schneider, Smith et al. (2014).
         force_unity_dm_bias : bool
             At the largest scales, the DM should not be biased against itself, if all
             DM is in halos. That is, the effective bias of dark matter should be unity
@@ -173,15 +179,16 @@ class DMHaloModel(MassFunction):
     # ===============================================================================
     def validate(self):
         super().validate()
-        assert self.rmin < self.rmax, f"rmin >= rmax: {self.rmin}, {self.rmax}"
+        if not hasattr(self.rmin, "__len__"):
+            assert self.rmin < self.rmax, f"rmin >= rmax: {self.rmin}, {self.rmax}"
         assert len(self.r) > 0, "r has length zero!"
-        assert (
-            self.hm_logk_min < self.hm_logk_max
-        ), f"hm_logk_min >= hm_logk_max: {self.hm_logk_min}, {self.hm_logk_max}"
+        assert self.hm_logk_min < self.hm_logk_max, (
+            f"hm_logk_min >= hm_logk_max: {self.hm_logk_min}, {self.hm_logk_max}"
+        )
         assert len(self.k_hm) > 0, "k_hm has length zero!"
-        assert (
-            self._logr_table_min < self._logr_table_max
-        ), f"_logr_table_min >= logr_table_max: {self._logr_table_min}, {self._logr_table_max}"
+        assert self._logr_table_min < self._logr_table_max, (
+            f"_logr_table_min >= logr_table_max: {self._logr_table_min}, {self._logr_table_max}"
+        )
 
     @parameter("model")
     def bias_model(self, val):
@@ -191,6 +198,8 @@ class DMHaloModel(MassFunction):
     @parameter("param")
     def bias_params(self, val):
         """Dictionary of parameters for the Bias model."""
+        val = val or {}
+        assert isinstance(val, dict)
         return val
 
     @parameter("switch")
@@ -216,16 +225,20 @@ class DMHaloModel(MassFunction):
     @parameter("param")
     def halo_profile_params(self, val):
         """Dictionary of parameters for the Profile model."""
+        val = val or {}
+        assert isinstance(val, dict)
         return val
 
     @parameter("model")
     def halo_concentration_model(self, val):
-        """A halo_concentration-mass relation"""
+        """A halo_concentration-mass relation."""
         return get_mdl(val, CMRelation)
 
     @parameter("param")
     def halo_concentration_params(self, val):
         """Dictionary of parameters for the concentration model."""
+        val = val or {}
+        assert isinstance(val, dict)
         return val
 
     @parameter("switch")
@@ -237,9 +250,12 @@ class DMHaloModel(MassFunction):
     def rmax(self, val):
         """Maximum length scale."""
         val = float(val)
-        if val > 10 ** self._logr_table_max:
+        if val > 10**self._logr_table_max:
             warnings.warn(
-                f"rmax is larger than the interpolation table maximum [{10**self._logr_table_max:.2e}]. Larger values will yield zero correlation."
+                "rmax is larger than the interpolation table maximum "
+                f"[{10**self._logr_table_max:.2e}]. Larger values will yield zero "
+                "correlation.",
+                stacklevel=2,
             )
         return val
 
@@ -284,6 +300,8 @@ class DMHaloModel(MassFunction):
     @parameter("param")
     def sd_bias_params(self, val):
         """Dictionary of parameters for Scale Dependant Bias."""
+        val = val or {}
+        assert isinstance(val, dict)
         return val
 
     @parameter("switch")
@@ -301,11 +319,15 @@ class DMHaloModel(MassFunction):
     @parameter("param")
     def colossus_params(self, val):
         """Options for colossus cosmology not set/derived in the astropy cosmology."""
+        val = val or {}
+        assert isinstance(val, dict)
         return val
 
     @parameter("param")
     def exclusion_params(self, val):
         """Dictionary of parameters for the Exclusion model."""
+        val = val or {}
+        assert isinstance(val, dict)
         return val
 
     # ===========================================================================
@@ -314,9 +336,7 @@ class DMHaloModel(MassFunction):
     @cached_quantity
     def _r_table(self):
         """A high-resolution, high-range table of r values for internal interpolation."""
-        return 10 ** np.arange(
-            self._logr_table_min, self._logr_table_max, self.dr_table
-        )
+        return 10 ** np.arange(self._logr_table_min, self._logr_table_max, self.dr_table)
 
     @cached_quantity
     def colossus_cosmo(self):
@@ -338,9 +358,7 @@ class DMHaloModel(MassFunction):
 
     @cached_quantity
     def r(self):
-        """
-        Scales at which correlation functions are computed [Mpc/h].
-        """
+        """Scales at which correlation functions are computed [Mpc/h]."""
         if hasattr(self.rmin, "__len__"):
             return np.array(self.rmin)
         elif self.rlog:
@@ -373,6 +391,7 @@ class DMHaloModel(MassFunction):
             cm_relation=None,
             mdef=self.mdef,
             z=self.z,
+            nu_fn=self.nu_fn,
             **self.halo_profile_params,
         )
 
@@ -383,6 +402,8 @@ class DMHaloModel(MassFunction):
             profile=this_profile,
             cosmo=Cosmology(cosmo_model=self.cosmo),
             mdef=self.mdef,
+            sigma_8=self.sigma_8,
+            ns=self.n,
             **self.halo_concentration_params,
         )
 
@@ -393,6 +414,7 @@ class DMHaloModel(MassFunction):
             cm_relation=self.halo_concentration,
             mdef=self.mdef,
             z=self.z,
+            nu_fn=self.nu_fn,
             **self.halo_profile_params,
         )
 
@@ -469,8 +491,9 @@ class DMHaloModel(MassFunction):
             return self.linear_power_fnc
         elif self.hc_spectrum == "nonlinear":
             warnings.warn(
-                "Warning: using halofit for tracer stats is only valid up to"
-                + " quasi-linear scales k<~1 (h/Mpc)."
+                "Using halofit for tracer stats is only valid up to"
+                + " quasi-linear scales k<~1 (h/Mpc).",
+                stacklevel=2,
             )
             return self.nonlinear_power_fnc
         else:
@@ -482,7 +505,7 @@ class DMHaloModel(MassFunction):
         return tools.ExtendedSpline(
             self.k,
             self.power,
-            lower_func=lambda k: k ** self.n,
+            lower_func=tools._PowerLawK(self.n),
             upper_func="power_law",
             domain=(0, np.inf),
         )
@@ -493,7 +516,7 @@ class DMHaloModel(MassFunction):
         return tools.ExtendedSpline(
             self.k,
             self.nonlinear_power,
-            lower_func=lambda k: k ** self.n,
+            lower_func=tools._PowerLawK(self.n),
             upper_func="power_law",
             domain=(0, np.inf),
         )
@@ -506,7 +529,7 @@ class DMHaloModel(MassFunction):
             self._r_table,
             corr,
             lower_func="power_law",
-            upper_func=lambda x: np.zeros_like(x),
+            upper_func=tools._zero,
         )
 
     @cached_quantity
@@ -522,7 +545,7 @@ class DMHaloModel(MassFunction):
             self._r_table,
             corr,
             lower_func="power_law",
-            upper_func=lambda x: np.zeros_like(x),
+            upper_func=tools._zero,
         )
 
     @cached_quantity
@@ -578,10 +601,10 @@ class DMHaloModel(MassFunction):
             if mn == mx:
                 return spl(mn)
 
-            mask = np.logical_and(self.m >= 10 ** mn, self.m <= 10 ** mx)
-            return intg.simps(
-                self.halo_bias[mask] * self.dndm[mask], self.m[mask]
-            ) / intg.simps(self.dndm[mask], self.m[mask])
+            mask = np.logical_and(self.m >= 10**mn, self.m <= 10**mx)
+            return intg.simpson(
+                self.halo_bias[mask] * self.dndm[mask], x=self.m[mask]
+            ) / intg.simpson(self.dndm[mask], x=self.m[mask])
 
         return get_b(mmin, mmax) * get_b(mmin2, mmax2) * self._power_halo_centres_fnc(k)
 
@@ -596,9 +619,7 @@ class DMHaloModel(MassFunction):
     @cached_quantity
     def halo_profile_rho(self):
         """Mass-normalised halo density profile, with shape (len(r), len(m))."""
-        return self.halo_profile.rho(
-            self._r_table, self.m, norm="m", c=self.cmz_relation
-        )
+        return self.halo_profile.rho(self._r_table, self.m, norm="m", c=self.cmz_relation)
 
     @cached_quantity
     def halo_profile_lam(self):
@@ -613,26 +634,25 @@ class DMHaloModel(MassFunction):
     # ===========================================================================
     def _do_1halo_integral(self, max_mmin, integrand, mean_dens):
         """Do the 1-halo integral for some quantity, doing the turnover trick."""
-
         dens_min = 4 * np.pi * self.mean_density0 * self.halo_overdensity_mean / 3
         p = np.zeros_like(self.k)
         for i, (k, integ) in enumerate(zip(self.k, integrand)):
             if self.force_1halo_turnover:
                 r = np.pi / k / 10  # The 10 is a complete heuristic hack.
-                mmin = max(max_mmin, dens_min * r ** 3)
+                mmin = max(max_mmin, dens_min * r**3)
             else:
                 mmin = max_mmin
 
             p[i] = tools.spline_integral(self.m, integ, xmin=mmin)
 
-        return p / mean_dens ** 2
+        return p / mean_dens**2
 
     @cached_quantity
     def power_1h_auto_matter_fnc(self):
         """A callable returning the halo model 1-halo DM auto-power spectrum."""
         p = self._do_1halo_integral(
             max_mmin=self.m[0],
-            integrand=self.dndm * self.m ** 2 * self.halo_profile_ukm ** 2,
+            integrand=self.dndm * self.m**2 * self.halo_profile_ukm**2,
             mean_dens=self.mean_density0,
         )
 
@@ -653,23 +673,19 @@ class DMHaloModel(MassFunction):
         """A callable returning the halo model 1-halo DM auto-correlation function."""
         if self.halo_profile.has_lam:
             lam = self.halo_profile_lam
-            integrand = self.dndm * self.m ** 3 * lam
+            integrand = self.dndm * self.m**3 * lam
 
             table = (
-                intg.trapz(integrand, dx=np.log(10) * self.dlog10m)
-                / self.mean_density0 ** 2
-                - 1
+                intg.trapezoid(integrand, dx=np.log(10) * self.dlog10m) / self.mean_density0**2 - 1
             )
         else:
-            table = tools.hankel_transform(
-                self.power_1h_auto_matter_fnc, self._r_table, "r"
-            )
+            table = tools.hankel_transform(self.power_1h_auto_matter_fnc, self._r_table, "r")
 
         return tools.ExtendedSpline(
             self._r_table,
             table,
             lower_func="power_law",
-            upper_func=lambda x: np.zeros_like(x),
+            upper_func=tools._zero,
         )
 
     @property
@@ -677,15 +693,31 @@ class DMHaloModel(MassFunction):
         """The halo model 1-halo dark matter auto-correlation function."""
         return self.corr_1h_auto_matter_fnc(self.r)
 
+    @cached_quantity
+    def _matter_exclusion(self):
+        densityfunc = self.dndm * self.m / self.mean_density_in_halos
+
+        if self.sd_bias_model is not None:
+            bias = np.outer(self.sd_bias_correction, self.halo_bias)
+        else:
+            bias = self.halo_bias
+
+        return self.exclusion_model(
+            m=self.m,
+            density=densityfunc,
+            power_integrand=densityfunc * self.halo_profile_ukm,
+            bias=bias,
+            r=self._r_table,
+            halo_density=self.halo_overdensity_mean * self.mean_density0,
+            **self.exclusion_params,
+        )
+
     def _get_power_2h_primitive(
         self,
-        density: np.ndarray,
-        mean_density: float,
+        exclusion: Exclusion,
         effective_bias: float,
-        ukm: np.ndarray,
-        mask=None,
-        debias=True,
-    ) -> Tuple[Callable, np.ndarray]:
+        debias: bool = True,
+    ) -> tuple[Callable, np.ndarray]:
         """Get the 2-halo term of an auto-power spectrum.
 
         This is 'primitive' because it can be 2D, i.e. it can have an r-based scale
@@ -693,34 +725,12 @@ class DMHaloModel(MassFunction):
         """
         # Instead of having a 2D function here we *could* just get the r-based functions
         # in k-space and convolve them. But I'm not sure that's a more efficient option.
-
-        if mask is None:
-            mask = np.ones(len(density), dtype=bool)
-
-        u = ukm[:, mask]
-        if self.sd_bias_model is not None:
-            bias = np.outer(self.sd_bias_correction, self.halo_bias)[:, mask]
-        else:
-            bias = self.halo_bias[mask]
-
-        inst = self.exclusion_model(
-            m=self.m[mask],
-            density=density[mask],
-            Ifunc=density[mask] * u / mean_density,
-            bias=bias,
-            r=self._r_table,
-            delta_halo=self.halo_overdensity_mean,
-            mean_density=self.mean_density0,
-            **self.exclusion_params,
-        )
-
-        intg = inst.integrate()
+        intg = exclusion.integrate()
         phh = self._power_halo_centres_fnc(self.k)
 
-        if hasattr(inst, "density_mod"):
-            # See Tinker+05 Appendix B for details on using the modified density in halo
-            # exclusion models.
-            intg = (intg.T * inst.density_mod).T
+        # See Tinker+05 Appendix B for details on using the modified density in halo
+        # exclusion models.
+        intg = (intg.T * exclusion.density_mod).T
 
         # Now, we need to debias the results. Mostly, this is for DM correlations, and
         # the point is that even if one uses a perfect pair of HMF/bias, the numerical
@@ -729,12 +739,9 @@ class DMHaloModel(MassFunction):
         # For tracer power spectra, the effective bias passed in should not be unity, but
         # instead should fix itself to the numerically-calculated effective bias.
         if debias:
-            eff_bias = (
-                tools.spline_integral(
-                    self.m[mask], density[mask] * self.halo_bias[mask], log=True
-                )
-                / mean_density
-            )
+            bias = exclusion.bias[-1] if exclusion.bias.ndim == 2 else exclusion.bias
+
+            eff_bias = tools.spline_integral(exclusion.m, exclusion.density * bias, log=True)
             intg *= (effective_bias / eff_bias) ** 2
 
         if intg.ndim == 2:
@@ -745,10 +752,7 @@ class DMHaloModel(MassFunction):
                     lower_func=self.linear_power_fnc,
                     match_lower=True,
                     upper_func="power_law"
-                    if (
-                        self.exclusion_model == NoExclusion
-                        and "filtered" not in self.hc_spectrum
-                    )
+                    if (self.exclusion_model == NoExclusion and "filtered" not in self.hc_spectrum)
                     else tools._zero,
                 )
                 for i, x in enumerate(intg)
@@ -760,64 +764,56 @@ class DMHaloModel(MassFunction):
                 lower_func=self.linear_power_fnc,
                 match_lower=True,
                 upper_func="power_law"
-                if (
-                    self.exclusion_model == NoExclusion
-                    and "filtered" not in self.hc_spectrum
-                )
+                if (self.exclusion_model == NoExclusion and "filtered" not in self.hc_spectrum)
                 else tools._zero,
             )
 
     def _get_corr_2h_auto_fnc(
-        self, density, mean_density, effective_bias, ukm, mask=None, debias=True
-    ) -> Callable[[Union[float, np.ndarray]], Union[float, np.ndarray]]:
+        self, exclusion: Exclusion, effective_bias, debias=True
+    ) -> Callable[[float | np.ndarray], float | np.ndarray]:
         """Get a callable returning the 2-halo term of an auto-correlation."""
-        power_primitive = self._get_power_2h_primitive(
-            density, mean_density, effective_bias, ukm, mask=mask, debias=debias
-        )
+        power_primitive = self._get_power_2h_primitive(exclusion, effective_bias, debias=debias)
+
+        if len(power_primitive) == 1:
+            # In the case that there is no scale-dependence from SD bias or exclusion
+            power_primitive = power_primitive[0]
 
         # Need to set h smaller here because this might need to be transformed back
         # to power.
         corr = tools.hankel_transform(power_primitive, self._r_table, "r", h=1e-4)
 
+        lower_func = "power_law" if isinstance(Exclusion, NoExclusion) else tools._zero
         return tools.ExtendedSpline(
-            self._r_table, corr, lower_func="power_law", upper_func=tools._zero
+            self._r_table, corr, lower_func=lower_func, upper_func=tools._zero
         )
 
     @cached_quantity
     def corr_2h_auto_matter_fnc(
         self,
-    ) -> Callable[[Union[float, np.ndarray]], Union[float, np.ndarray]]:
+    ) -> Callable[[float | np.ndarray], float | np.ndarray]:
         """A callable returning the 2-halo term of the matter auto-correlation at arbitrary k."""
         tools.norm_warn(self)
         return self._get_corr_2h_auto_fnc(
-            self.m * self.dndm,
-            self.mean_density0,
+            self._matter_exclusion,
             self.bias_effective_matter,
-            self.halo_profile_ukm,
             debias=self.force_unity_dm_bias,
         )
 
     @property
     def corr_2h_auto_matter(
         self,
-    ) -> Callable[[Union[float, np.ndarray]], Union[float, np.ndarray]]:
+    ) -> Callable[[float | np.ndarray], float | np.ndarray]:
         """The 2-halo term of the matter auto-correlation."""
         return self.corr_2h_auto_matter_fnc(self.r)
 
-    def _get_power_2h_auto_fnc(
-        self, density, mean_density, effective_bias, ukm, mask=None, debias=True
-    ):
+    def _get_power_2h_auto_fnc(self, exclusion, effective_bias, debias=True):
         """Get the halo model 2-halo matter auto-power spectrum."""
         if self.exclusion_model is NoExclusion and self.sd_bias_model is None:
             # Here we have a 1D primitive power, so we can just return it.
-            return self._get_power_2h_primitive(
-                density, mean_density, effective_bias, ukm, mask=mask, debias=debias
-            )
+            return self._get_power_2h_primitive(exclusion, effective_bias, debias=debias)[0]
 
         # Otherwise, first calculate the correlation function.
-        corr = self._get_corr_2h_auto_fnc(
-            density, mean_density, effective_bias, ukm, mask=mask, debias=debias
-        )
+        corr = self._get_corr_2h_auto_fnc(exclusion, effective_bias, debias=debias)
         out = tools.hankel_transform(corr, self.k, "k", h=0.001)
 
         # Everything below about k=1e-2 is essentially just the linear power biased,
@@ -826,23 +822,20 @@ class DMHaloModel(MassFunction):
         if np.any(mask):
             warnings.warn(
                 "power_2h_auto_tracer for k < 1e-2 is not computed directly, but "
-                "is rather just the linear power * effective bias."
+                "is rather just the linear power * effective bias.",
+                stacklevel=2,
             )
             out[mask] = self.power[mask] * effective_bias
 
-        return tools.ExtendedSpline(
-            self.k, out, lower_func="power_law", upper_func=tools._zero
-        )
+        return tools.ExtendedSpline(self.k, out, lower_func="power_law", upper_func=tools._zero)
 
     @cached_quantity
     def power_2h_auto_matter_fnc(self) -> np.ndarray:
         """Return the halo model 2-halo matter auto-power spectrum at k."""
         tools.norm_warn(self)
         return self._get_power_2h_auto_fnc(
-            self.m * self.dndm,
-            self.mean_density0,
+            self._matter_exclusion,
             self.bias_effective_matter,
-            self.halo_profile_ukm,
             debias=self.force_unity_dm_bias,
         )
 
@@ -854,10 +847,8 @@ class DMHaloModel(MassFunction):
     @cached_quantity
     def corr_auto_matter_fnc(self):
         """A callable returning the halo-model DM auto-correlation function."""
-        return (
-            lambda r: self.corr_1h_auto_matter_fnc(r)
-            + self.corr_2h_auto_matter_fnc(r)
-            + 1
+        return tools._SumCallable(
+            self.corr_1h_auto_matter_fnc, self.corr_2h_auto_matter_fnc, offset=1
         )
 
     @property
@@ -868,9 +859,7 @@ class DMHaloModel(MassFunction):
     @cached_quantity
     def power_auto_matter_fnc(self):
         """A callable returning the halo-model DM auto-power spectrum."""
-        return lambda k: self.power_1h_auto_matter_fnc(
-            k
-        ) + self.power_2h_auto_matter_fnc(k)
+        return tools._SumCallable(self.power_1h_auto_matter_fnc, self.power_2h_auto_matter_fnc)
 
     @property
     def power_auto_matter(self):
@@ -878,9 +867,7 @@ class DMHaloModel(MassFunction):
         return self.power_auto_matter_fnc(self.k_hm)
 
     def _get_naive_bias_effective(self, density, mean_density, mmin=None):
-        return (
-            tools.spline_integral(self.m, density, xmin=mmin, log=True) / mean_density
-        )
+        return tools.spline_integral(self.m, density, xmin=mmin, log=True) / mean_density
 
     @cached_quantity
     def bias_effective_matter(self) -> float:
@@ -948,10 +935,6 @@ class TracerHaloModel(DMHaloModel):
     tracer_density: float, optional
         Total density of the tracer, in the units specified by the HOD model. This
         can be used to set the minimum halo mass of the HOD.
-    force_1halo_turnover : bool, optional
-        Whether to force the 1-halo term to turnover on large scales. THis induces a
-        heuristic modification which ensures that the 1-halo term does not grow
-        larger than the two-halo term on very large scales.
 
     Other Parameters
     ----------------
@@ -967,7 +950,6 @@ class TracerHaloModel(DMHaloModel):
         tracer_concentration_model=None,
         tracer_concentration_params=None,
         tracer_density=None,
-        force_1halo_turnover=True,
         **halomodel_kwargs,
     ):
         super().__init__(**halomodel_kwargs)
@@ -984,7 +966,6 @@ class TracerHaloModel(DMHaloModel):
             tracer_concentration_params or {},
         )
 
-        self.force_1halo_turnover = force_1halo_turnover
         # A special argument, making it possible to define M_min by mean density
         self.tracer_density = tracer_density
 
@@ -997,9 +978,8 @@ class TracerHaloModel(DMHaloModel):
         """Updates any parameter passed."""
         if "tracer_density" in kwargs:
             self.tracer_density = kwargs.pop("tracer_density")
-        elif "hod_params" in kwargs:
-            if "M_min" in kwargs["hod_params"]:
-                self.tracer_density = None
+        elif "hod_params" in kwargs and "M_min" in kwargs["hod_params"]:
+            self.tracer_density = None
 
         super().update(**kwargs)
 
@@ -1012,9 +992,7 @@ class TracerHaloModel(DMHaloModel):
     # ===============================================================================
     def validate(self):
         super().validate()
-        assert (
-            np.sum(self._tm) > 1
-        ), "the HOD model you've supplied masks out all given masses!"
+        assert np.sum(self._tm) > 1, "the HOD model you've supplied masks out all given masses!"
 
     @parameter("param")
     def tracer_density(self, val):
@@ -1024,6 +1002,8 @@ class TracerHaloModel(DMHaloModel):
     @parameter("param")
     def hod_params(self, val: dict):
         """Dictionary of parameters for the HOD model."""
+        val = val or {}
+        assert isinstance(val, dict)
         return val
 
     @parameter("model")
@@ -1091,10 +1071,11 @@ class TracerHaloModel(DMHaloModel):
         if self.hod.mmin < self.Mmin:
             warnings.warn(
                 "The HOD is defined to lower masses than currently calculated. "
-                "Please set Mmin lower."
+                "Please set Mmin lower.",
+                stacklevel=2,
             )
 
-        return self.m >= 10 ** self.hod.mmin
+        return self.m >= 10**self.hod.mmin
 
     @cached_quantity
     def tracer_concentration(self):
@@ -1110,6 +1091,7 @@ class TracerHaloModel(DMHaloModel):
                 cm_relation=None,
                 mdef=self.mdef,
                 z=self.z,
+                nu_fn=self.nu_fn,
                 **self.halo_profile_params,
             )
         else:
@@ -1128,6 +1110,7 @@ class TracerHaloModel(DMHaloModel):
                 cm_relation=None,
                 mdef=self.mdef,
                 z=self.z,
+                nu_fn=self.nu_fn,
                 **tr_params,
             )
 
@@ -1146,6 +1129,8 @@ class TracerHaloModel(DMHaloModel):
             delta_c=self.delta_c,
             profile=this_profile,
             mdef=self.mdef,
+            sigma_8=self.sigma_8,
+            ns=self.n,
             **tr_params,
         )
 
@@ -1160,10 +1145,7 @@ class TracerHaloModel(DMHaloModel):
         if self.tracer_profile_model is None:
             return self.halo_profile
 
-        if (
-            not self.tracer_profile_params
-            and self.tracer_profile_model == self.halo_profile_model
-        ):
+        if not self.tracer_profile_params and self.tracer_profile_model == self.halo_profile_model:
             tr_params = self.halo_profile_params
         else:
             tr_params = self.tracer_profile_params
@@ -1172,12 +1154,13 @@ class TracerHaloModel(DMHaloModel):
             cm_relation=self.tracer_concentration,
             mdef=self.mdef,
             z=self.z,
+            nu_fn=self.nu_fn,
             **tr_params,
         )
 
     @cached_quantity
     def hod(self):
-        """A class representing the HOD"""
+        """A class representing the HOD."""
         return self.hod_model(
             cosmo=self.cosmo,
             cm_relation=self.tracer_concentration,
@@ -1214,10 +1197,7 @@ class TracerHaloModel(DMHaloModel):
         """
         return (
             np.ones_like(self.m)
-            if (
-                self.hod.sharp_cut
-                and (self.hod._central or self.hod.central_condition_inherent)
-            )
+            if (self.hod.sharp_cut and (self.hod._central or self.hod.central_condition_inherent))
             else self.central_occupation
         )
 
@@ -1238,10 +1218,8 @@ class TracerHaloModel(DMHaloModel):
         central's Mmin, but should rather continue to pick up the satellites in lower
         mass haloes.
         """
-        if self.hod.sharp_cut and (
-            self.hod._central or self.hod.central_condition_inherent
-        ):
-            return 10 ** self.hod.mmin
+        if self.hod.sharp_cut and (self.hod._central or self.hod.central_condition_inherent):
+            return 10**self.hod.mmin
         else:
             return None
 
@@ -1263,16 +1241,12 @@ class TracerHaloModel(DMHaloModel):
 
     @cached_quantity
     def mean_tracer_den_unit(self):
-        """
-        The mean density of the tracer, in the units defined in the HOD.
-        """
+        """The mean density of the tracer, in the units defined in the HOD."""
         return self.mean_tracer_den * self.hod.unit_conversion(self.cosmo, self.z)
 
     @cached_quantity
     def bias_effective_tracer(self):
-        """
-        The tracer occupation-weighted halo bias factor (Tinker 2005).
-        """
+        """The tracer occupation-weighted halo bias factor (Tinker 2005)."""
         # Integrand is just the density of galaxies at mass m by bias
         b = tools.spline_integral(
             self.m,
@@ -1283,9 +1257,7 @@ class TracerHaloModel(DMHaloModel):
 
     @cached_quantity
     def mass_effective(self):
-        """
-        Average host-halo mass (in log10 units).
-        """
+        """Average host-halo mass (in log10 units)."""
         # Integrand is just the density of galaxies at mass m by m
         m = tools.spline_integral(
             self.m, self.m * self.dndm * self._total_occupation, xmin=self.tracer_mmin
@@ -1329,23 +1301,20 @@ class TracerHaloModel(DMHaloModel):
     @cached_quantity
     def tracer_profile_rho(self):
         """The mass-normalised density profile of the tracer, with shape (len(r), len(m))."""
-        return self.tracer_profile.rho(
-            self._r_table, self.m, norm="m", c=self.tracer_cmz_relation
-        )
+        return self.tracer_profile.rho(self._r_table, self.m, norm="m", c=self.tracer_cmz_relation)
 
     @cached_quantity
     def tracer_profile_lam(self):
         """The mass-normalised profile self-convolution of the tracer, shape (len(r), len(m))."""
         if self.tracer_profile.has_lam:
-            return self.tracer_profile.lam(
-                self._r_table, self.m, c=self.tracer_cmz_relation
-            )
+            return self.tracer_profile.lam(self._r_table, self.m, c=self.tracer_cmz_relation)
         else:
             return None
 
     # ===========================================================================
     # 2-point tracer-tracer (HOD) statistics
     # ===========================================================================
+
     @cached_quantity
     def power_1h_ss_auto_tracer_fnc(self):
         """A callable returning the satellite-satellite part of
@@ -1355,9 +1324,7 @@ class TracerHaloModel(DMHaloModel):
         """
         p = self._do_1halo_integral(
             max_mmin=self.hod.mmin,
-            integrand=self.tracer_profile_ukm ** 2
-            * self.dndm
-            * self.hod.ss_pairs(self.m),
+            integrand=self.tracer_profile_ukm**2 * self.dndm * self.hod.ss_pairs(self.m),
             mean_dens=self.mean_tracer_den,
         )
 
@@ -1384,7 +1351,6 @@ class TracerHaloModel(DMHaloModel):
 
         Note: May not exist for every kind of tracer.
         """
-
         ss_pairs = self.hod.ss_pairs(self.m)
         if self.tracer_profile.has_lam:
             c = np.zeros_like(self._r_table)
@@ -1392,12 +1358,10 @@ class TracerHaloModel(DMHaloModel):
                 c[i] = tools.spline_integral(
                     self.m, lam * self.dndm * ss_pairs, xmin=self.tracer_mmin
                 )
-            c = c / self.mean_tracer_den ** 2 - 1
+            c = c / self.mean_tracer_den**2 - 1
 
         else:
-            c = tools.hankel_transform(
-                self.power_1h_ss_auto_tracer_fnc, self._r_table, "r"
-            )
+            c = tools.hankel_transform(self.power_1h_ss_auto_tracer_fnc, self._r_table, "r")
         return tools.ExtendedSpline(
             self._r_table, c, lower_func="power_law", upper_func=tools._zero
         )
@@ -1421,10 +1385,7 @@ class TracerHaloModel(DMHaloModel):
         """
         p = self._do_1halo_integral(
             max_mmin=self.hod.mmin,
-            integrand=self.dndm
-            * 2
-            * self.hod.cs_pairs(self.m)
-            * self.tracer_profile_ukm,
+            integrand=self.dndm * 2 * self.hod.cs_pairs(self.m) * self.tracer_profile_ukm,
             mean_dens=self.mean_tracer_den,
         )
 
@@ -1457,7 +1418,7 @@ class TracerHaloModel(DMHaloModel):
                 self.m, self.dndm * 2 * cs_pairs * rho, xmin=self.tracer_mmin
             )
 
-        c = c / self.mean_tracer_den ** 2 - 1
+        c = c / self.mean_tracer_den**2 - 1
 
         return tools.ExtendedSpline(
             self._r_table, c, lower_func="power_law", upper_func=tools._zero
@@ -1473,11 +1434,9 @@ class TracerHaloModel(DMHaloModel):
 
     @cached_quantity
     def power_1h_auto_tracer_fnc(self):
-        """
-        A callable returning the total 1-halo term of the tracer auto power spectrum.
-        """
-        return lambda k: (
-            self.power_1h_cs_auto_tracer_fnc(k) + self.power_1h_ss_auto_tracer_fnc(k)
+        """A callable returning the total 1-halo term of the tracer auto power spectrum."""
+        return tools._SumCallable(
+            self.power_1h_cs_auto_tracer_fnc, self.power_1h_ss_auto_tracer_fnc
         )
 
     @property
@@ -1493,9 +1452,7 @@ class TracerHaloModel(DMHaloModel):
 
             ss_pairs = self.hod.ss_pairs(self.m)
             cs_pairs = self.hod.cs_pairs(self.m)
-            for i, (rho, lam) in enumerate(
-                zip(self.tracer_profile_rho, self.tracer_profile_lam)
-            ):
+            for i, (rho, lam) in enumerate(zip(self.tracer_profile_rho, self.tracer_profile_lam)):
                 c[i] = tools.spline_integral(
                     self.m,
                     self.dndm
@@ -1504,14 +1461,14 @@ class TracerHaloModel(DMHaloModel):
                     xmin=self.tracer_mmin,
                 )
 
-            c /= self.mean_tracer_den ** 2
+            c /= self.mean_tracer_den**2
 
         else:
             try:
-                return (
-                    lambda r: self.corr_1h_cs_auto_tracer_fnc(r)
-                    + self.corr_1h_ss_auto_tracer_fnc(r)
-                    + 1
+                return tools._SumCallable(
+                    self.corr_1h_cs_auto_tracer_fnc,
+                    self.corr_1h_ss_auto_tracer_fnc,
+                    offset=1,
                 )
             except AttributeError:
                 c = tools.hankel_transform(self.power_1h_auto_tracer_fnc, self.r, "r")
@@ -1526,14 +1483,35 @@ class TracerHaloModel(DMHaloModel):
         return self.corr_1h_auto_tracer_fnc(self.r)
 
     @cached_quantity
+    def _tracer_exclusion(self):
+        # Use _total_occupation (which is 1.0 for centrals below mmin for sharp-cut HODs)
+        # so that the integrand is smooth across the lower-mass boundary. The actual
+        # lower bound is enforced via xmin=self.tracer_mmin in the spline integration,
+        # giving a smoothly varying 2-halo term as Mmin is changed.
+        densityfunc = self.dndm * self._total_occupation / self.mean_tracer_den
+
+        if self.sd_bias_model is not None:
+            bias = np.outer(self.sd_bias_correction, self.halo_bias)
+        else:
+            bias = self.halo_bias
+
+        return self.exclusion_model(
+            m=self.m,
+            density=densityfunc,
+            power_integrand=densityfunc * self.tracer_profile_ukm,
+            bias=bias,
+            r=self._r_table,
+            halo_density=self.halo_overdensity_mean * self.mean_density0,
+            xmin=self.tracer_mmin,
+            **self.exclusion_params,
+        )
+
+    @cached_quantity
     def power_2h_auto_tracer_fnc(self):
         """Return the 2-halo term of the tracer auto-power spectrum at k."""
         return self._get_power_2h_auto_fnc(
-            self.dndm * self.total_occupation,
-            self.mean_tracer_den,
+            self._tracer_exclusion,
             self.bias_effective_tracer,
-            self.tracer_profile_ukm,
-            mask=self._tm,
             debias=False,
         )
 
@@ -1546,12 +1524,7 @@ class TracerHaloModel(DMHaloModel):
     def corr_2h_auto_tracer_fnc(self):
         """A callable returning the 2-halo term of the tracer auto-correlation."""
         return self._get_corr_2h_auto_fnc(
-            self.dndm * self.total_occupation,
-            self.mean_tracer_den,
-            self.bias_effective_tracer,
-            self.tracer_profile_ukm,
-            debias=False,
-            mask=self._tm,
+            self._tracer_exclusion, self.bias_effective_tracer, debias=False
         )
 
     @property
@@ -1561,9 +1534,7 @@ class TracerHaloModel(DMHaloModel):
 
     @property
     def power_auto_tracer_fnc(self):
-        return lambda k: (
-            self.power_1h_auto_tracer_fnc(k) + self.power_2h_auto_tracer_fnc(k)
-        )
+        return lambda k: self.power_1h_auto_tracer_fnc(k) + self.power_2h_auto_tracer_fnc(k)
 
     @property
     def power_auto_tracer(self):
@@ -1573,9 +1544,7 @@ class TracerHaloModel(DMHaloModel):
     @property
     def corr_auto_tracer_fnc(self):
         """A callable returning the tracer auto correlation function."""
-        return lambda r: self.corr_1h_auto_tracer_fnc(r) + self.corr_2h_auto_tracer_fnc(
-            r
-        )
+        return lambda r: self.corr_1h_auto_tracer_fnc(r) + self.corr_2h_auto_tracer_fnc(r)
 
     @property
     def corr_auto_tracer(self):
@@ -1592,37 +1561,28 @@ class TracerHaloModel(DMHaloModel):
         between tracer and matter.
         """
         p = np.zeros_like(self.k)
-        for i, (ut, uh) in enumerate(
-            zip(self.tracer_profile_ukm, self.halo_profile_ukm)
-        ):
+        for i, (ut, uh) in enumerate(zip(self.tracer_profile_ukm, self.halo_profile_ukm)):
             p[i] = tools.spline_integral(
                 self.m,
                 self.dndm
-                * (
-                    uh * ut * self._total_occupation * self.m
-                    + uh * self.satellite_occupation
-                ),
+                * self.m
+                * uh
+                * (self._central_occupation + self.satellite_occupation * ut),
                 xmin=self.tracer_mmin,
             )
 
         p /= self.mean_tracer_den * self.mean_density0
-        return tools.ExtendedSpline(
-            self.k, p, lower_func="power_law", upper_func="power_law"
-        )
+        return tools.ExtendedSpline(self.k, p, lower_func="power_law", upper_func="power_law")
 
     @property
     def power_1h_cross_tracer_matter(self):
-        """
-        The total 1-halo cross-power spectrum between tracer and matter.
-        """
+        """The total 1-halo cross-power spectrum between tracer and matter."""
         return self.power_1h_cross_tracer_matter_fnc(self.k_hm)
 
     @cached_quantity
     def corr_1h_cross_tracer_matter_fnc(self):
         """A callable returning the 1-halo cross-corr between tracer and matter."""
-        corr = tools.hankel_transform(
-            self.power_1h_cross_tracer_matter_fnc, self._r_table, "r"
-        )
+        corr = tools.hankel_transform(self.power_1h_cross_tracer_matter_fnc, self._r_table, "r")
         return tools.ExtendedSpline(
             self._r_table, corr, lower_func="power_law", upper_func=tools._zero
         )
@@ -1638,17 +1598,15 @@ class TracerHaloModel(DMHaloModel):
         # Do this the simple way for now
         bt = np.zeros_like(self.k)
         bm = np.zeros_like(self.k)
-        for i, (ut, um) in enumerate(
-            zip(self.tracer_profile_ukm, self.halo_profile_ukm)
-        ):
+        for i, (ut, um) in enumerate(zip(self.tracer_profile_ukm, self.halo_profile_ukm)):
             bt[i] = tools.spline_integral(
                 self.m,
-                self.dndm * self.halo_bias * self._total_occupation * ut,
+                self.dndm
+                * self.halo_bias
+                * (self._central_occupation + self.satellite_occupation * ut),
                 xmin=self.tracer_mmin,
             )
-            bm[i] = tools.spline_integral(
-                self.m, self.dndm * self.halo_bias * self.m * um
-            )
+            bm[i] = tools.spline_integral(self.m, self.dndm * self.halo_bias * self.m * um)
 
         power = (
             bt
@@ -1661,9 +1619,7 @@ class TracerHaloModel(DMHaloModel):
             self.k,
             power,
             lower_func="power_law",
-            upper_func="power_law"
-            if "filtered" not in self.hc_spectrum
-            else tools._zero,
+            upper_func="power_law" if "filtered" not in self.hc_spectrum else tools._zero,
         )
 
     @property
@@ -1674,9 +1630,7 @@ class TracerHaloModel(DMHaloModel):
     @cached_quantity
     def corr_2h_cross_tracer_matter_fnc(self):
         """A callable returning the 2-halo cross-corr between tracer and matter."""
-        corr = tools.hankel_transform(
-            self.power_2h_cross_tracer_matter_fnc, self._r_table, "r"
-        )
+        corr = tools.hankel_transform(self.power_2h_cross_tracer_matter_fnc, self._r_table, "r")
         return tools.ExtendedSpline(
             self._r_table, corr, lower_func="power_law", upper_func=tools._zero
         )
@@ -1689,9 +1643,9 @@ class TracerHaloModel(DMHaloModel):
     @cached_quantity
     def power_cross_tracer_matter_fnc(self):
         """A callable returning cross-power spectrum of tracer and matter."""
-        return lambda k: self.power_1h_cross_tracer_matter_fnc(
-            k
-        ) + self.power_2h_cross_tracer_matter_fnc(k)
+        return tools._SumCallable(
+            self.power_1h_cross_tracer_matter_fnc, self.power_2h_cross_tracer_matter_fnc
+        )
 
     @property
     def power_cross_tracer_matter(self):
@@ -1701,10 +1655,10 @@ class TracerHaloModel(DMHaloModel):
     @cached_quantity
     def corr_cross_tracer_matter_fnc(self):
         """A callable returning the cross-correlation of tracer with matter."""
-        return (
-            lambda r: self.corr_1h_cross_tracer_matter_fnc(r)
-            + self.corr_2h_cross_tracer_matter_fnc(r)
-            + 1
+        return tools._SumCallable(
+            self.corr_1h_cross_tracer_matter_fnc,
+            self.corr_2h_cross_tracer_matter_fnc,
+            offset=1,
         )
 
     @property
@@ -1720,8 +1674,7 @@ class TracerHaloModel(DMHaloModel):
         Calculate the minimum mass of a halo to contain a (central) galaxy
         based on a known mean galaxy density.
         """
-
-        self.power  # This just makes sure the power is gotten and copied
+        _ = self.power  # This just makes sure the power is gotten and copied
         c = self.clone(hod_params={"M_min": self.Mmin}, dlog10m=0.01)
 
         integrand = c.m[c._tm] * c.dndm[c._tm] * c.total_occupation[c._tm]
@@ -1746,97 +1699,20 @@ class TracerHaloModel(DMHaloModel):
             mmin = spline_int(np.log(ng)) / np.log(10)
         else:
             # Anything else requires us to do some optimization unfortunately.
-            integral = intg.simps(integrand, dx=np.log(c.m[1] / c.m[0]))
+            integral = intg.simpson(integrand, dx=np.log(c.m[1] / c.m[0]))
             if integral < ng:
                 raise NGException(density_message.format(integral))
 
             def model(mmin):
                 c.update(hod_params={"M_min": mmin})
                 integrand = c.m[c._tm] * c.dndm[c._tm] * c.total_occupation[c._tm]
-                integral = intg.simps(integrand, dx=np.log(c.m[1] / c.m[0]))
+                integral = intg.simpson(integrand, dx=np.log(c.m[1] / c.m[0]))
                 return abs(integral - ng)
 
-            res = minimize(
-                model, 12.0, tol=1e-3, method="Nelder-Mead", options={"maxiter": 200}
-            )
+            res = minimize(model, 12.0, tol=1e-3, method="Nelder-Mead", options={"maxiter": 200})
             mmin = res.x[0]
 
         return mmin
-
-    # =============================
-    # For Compatibility
-    # =============================
-    @property
-    def corr_gg_1h(self):
-        """See :func:`corr_1h_auto_tracer`."""
-        warnings.warn("This method is deprecated in favour of corr_1h_auto_tracer")
-        return self.corr_1h_auto_tracer
-
-    @property
-    def corr_gg_2h(self):
-        """See :func:`corr_2h_auto_tracer`."""
-        warnings.warn("This method is deprecated in favour of corr_2h_auto_tracer")
-        return self.corr_2h_auto_tracer
-
-    @property
-    def corr_gg(self):
-        """See :func:`corr_auto_tracer`."""
-        warnings.warn("This method is deprecated in favour of corr_auto_tracer")
-        return self.corr_auto_tracer
-
-    @property
-    def power_gg_1h(self):
-        """See :func:`corr_auto_tracer`."""
-        warnings.warn("This method is deprecated in favour of power_1h_auto_tracer")
-        return self.power_1h_auto_tracer
-
-    @property
-    def power_gg_2h(self):
-        """See :func:`power_2h_auto_tracer`."""
-        warnings.warn("This method is deprecated in favour of power_2h_auto_tracer")
-        return self.power_2h_auto_tracer
-
-    @property
-    def power_gg(self):
-        """See :func:`power_auto_tracer`."""
-        warnings.warn("This method is deprecated in favour of power_auto_tracer")
-        return self.power_auto_tracer
-
-    @property
-    def corr_mm_1h(self):
-        """See :func:`corr_1h_auto_matter`."""
-        warnings.warn("This method is deprecated in favour of corr_1h_auto_matter")
-        return self.corr_1h_auto_matter
-
-    @property
-    def corr_mm_2h(self):
-        """See :func:`corr_2h_auto_matter`."""
-        warnings.warn("This method is deprecated in favour of corr_2h_auto_matter")
-        return self.corr_2h_auto_matter
-
-    @property
-    def corr_mm(self):
-        """See :func:`corr_auto_matter`."""
-        warnings.warn("This method is deprecated in favour of corr_auto_matter")
-        return self.corr_auto_matter
-
-    @property
-    def power_mm_1h(self):
-        """See :func:`power_1h_auto_matter`."""
-        warnings.warn("This method is deprecated in favour of power_1h_auto_matter")
-        return self.power_1h_auto_matter
-
-    @property
-    def power_mm_2h(self):
-        """See :func:`power_2h_auto_matter`."""
-        warnings.warn("This method is deprecated in favour of power_2h_auto_matter")
-        return self.power_2h_auto_matter
-
-    @property
-    def power_mm(self):
-        """See :func:`power_auto_matter`."""
-        warnings.warn("This method is deprecated in favour of power_auto_matter")
-        return self.power_auto_matter
 
 
 # For compatibility
@@ -1845,5 +1721,3 @@ HaloModel = TracerHaloModel
 
 class NGException(Exception):
     """Exception raised when mean tracer density errors in computation."""
-
-    pass

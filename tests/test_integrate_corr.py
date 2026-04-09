@@ -1,6 +1,5 @@
-"""
-Simple tests for the integration scheme for ProjectedCF.
-"""
+"""Simple tests for the integration scheme for ProjectedCF."""
+
 import numpy as np
 from astropy.cosmology import Planck15, z_at_value
 from astropy.units import Mpc
@@ -24,11 +23,8 @@ def wprp_power_law_lim(rp, r0, g, rmax):
         * (rp * rmax / r0) ** -g
         * gamma((g - 1) / 2)
         * (
-            gamma(0.5) * rp * rmax ** g
-            - rp ** g
-            * rmax
-            * gamma(g / 2)
-            * hyp2f1A(0.5, (g - 1) / 2, (g + 1) / 2, rp ** 2 / rmax ** 2)
+            gamma(0.5) * rp * rmax**g
+            - rp**g * rmax * gamma(g / 2) * hyp2f1A(0.5, (g - 1) / 2, (g + 1) / 2, rp**2 / rmax**2)
         )
     ).astype("float")
 
@@ -39,7 +35,9 @@ class TestProjCorr:
     r0 = 3.0
 
     def test_auto_rlim(self):
-        h = ProjectedCF(rp_min=self.rp)  # This should imitate an "infinite" upper bound
+        h = ProjectedCF(
+            rp_min=self.rp, transfer_model="EH"
+        )  # This should imitate an "infinite" upper bound
         xir = (h.r / self.r0) ** -self.gamma
 
         wprp_anl = wprp_power_law(self.rp, self.r0, self.gamma)
@@ -47,12 +45,24 @@ class TestProjCorr:
         assert np.allclose(wprp, wprp_anl, rtol=5e-2)
 
     def test_fixed_rlim(self):
-        h = ProjectedCF(rp_min=self.rp, proj_limit=50.0)
+        h = ProjectedCF(rp_min=self.rp, proj_limit=50.0, transfer_model="EH")
         xir = (h.r / self.r0) ** -self.gamma
 
         wprp_anl = wprp_power_law_lim(self.rp, self.r0, self.gamma, 50.0)
         wprp = projected_corr_gal(h.r, xir, h.rlim, self.rp)
         assert np.allclose(wprp, wprp_anl, rtol=5e-2)
+
+    def test_auto_gal_approx_power_law(self):
+        h = ProjectedCF(rp_min=self.rp, transfer_model="EH")
+        # fit the power-law to the auto-correlation function
+        # on small scales it should be a power-law
+        poly_pars = np.polyfit(np.log(h.r[h.r < 1]), np.log(h.corr_auto_tracer[h.r < 1]), 1)
+        gamma_xi = -poly_pars[0]
+        r0 = np.exp(poly_pars[1] / gamma_xi)
+        wp_approx = wprp_power_law(h.rp, r0, gamma_xi)
+        wp_gal = h.projected_corr_gal
+        # only test on small scales
+        assert np.allclose(wp_approx[h.rp < 0.1], wp_gal[h.rp < 0.1], rtol=5e-2)
 
 
 class TestAngularCF:
@@ -63,7 +73,7 @@ class TestAngularCF:
         return [
             2
             * dblquad(
-                lambda u, x: ((u ** 2 + x ** 2 * t ** 2) / r0 ** 2) ** (-gamma / 2),
+                lambda u, x: ((u**2 + x**2 * t**2) / r0**2) ** (-gamma / 2),  # noqa: B023
                 a=1000,
                 b=2000,
                 gfun=0,
@@ -82,8 +92,10 @@ class TestAngularCF:
                 [
                     2
                     * quad(
-                        lambda u: ((u ** 2 + xx ** 2 * t ** 2) / r0 ** 2)
-                        ** (-gamma / 2),
+                        lambda u: (
+                            ((u**2 + xx**2 * t**2) / r0**2)  # noqa: B023
+                            ** (-gamma / 2)
+                        ),
                         a=0,
                         b=np.inf,
                     )[0]
@@ -121,7 +133,7 @@ class TestAngularCF:
         assert np.allclose(num, anl, rtol=5e-2)
 
     def test_against_blake(self):
-        """Simple order-of-magnitude test of ACF against Blake+08 (Fig 4)"""
+        """Simple order-of-magnitude test of ACF against Blake+08 (Fig 4)."""
         acf = AngularCF(
             z=0.475,
             zmin=0.45,

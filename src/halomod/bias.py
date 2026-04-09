@@ -58,17 +58,18 @@ Constructing and using a colossus-based halo bias::
     >>> comparat = bias.make_colossus_bias(model="comparat17")
     >>> hm = HaloModel(bias_model=comparat)
 """
+
+from __future__ import annotations
+
 import numpy as np
 from astropy.cosmology import FLRW, Planck15
+from colossus.cosmology.cosmology import fromAstropy
 from colossus.lss.bias import haloBiasFromNu
-from scipy.interpolate import InterpolatedUnivariateSpline as spline
-from typing import Optional, Union
-
 from hmf import Component
 from hmf._internals import pluggable
-from hmf.cosmology.cosmo import astropy_to_colossus
 from hmf.halos.mass_definitions import SOMean
 from hmf.mass_function import fitting_functions as ff
+from scipy.interpolate import InterpolatedUnivariateSpline as spline
 
 SO_MEAN = SOMean()
 
@@ -110,6 +111,7 @@ class Bias(Component):
         Hubble parameter in units of 100 km/s/Mpc.
 
     """
+
     #: The HMF model that pairs with this bias in the peak-background split
     pair_hmf = ()
 
@@ -120,15 +122,15 @@ class Bias(Component):
         self,
         nu: np.ndarray,
         delta_c: float = 1.686,
-        m: Optional[np.ndarray] = None,
-        mstar: Optional[float] = None,
-        delta_halo: Optional[float] = 200,
-        n: Optional[float] = 1,
-        sigma_8: Optional[float] = 0.8,
+        m: np.ndarray | None = None,
+        mstar: float | None = None,
+        delta_halo: float | None = 200,
+        n: float | None = 1,
+        sigma_8: float | None = 0.8,
         cosmo: FLRW = Planck15,
-        n_eff: Union[None, np.ndarray] = None,
+        n_eff: None | np.ndarray = None,
         z: float = 0.0,
-        **model_parameters
+        **model_parameters,
     ):
         self.nu = nu
         self.n = n
@@ -143,7 +145,7 @@ class Bias(Component):
         self.sigma_8 = sigma_8
         self.n_eff = n_eff
 
-        super(Bias, self).__init__(**model_parameters)
+        super().__init__(**model_parameters)
 
     def bias(self) -> np.ndarray:
         """Calculate the first-order, linear, deterministic halo bias.
@@ -173,9 +175,7 @@ class UnityBias(Bias):
     model has no free parameters.
     """
 
-    pair_hmf = tuple(
-        hmf for hmf in ff.FittingFunction.get_models().values() if hmf.normalized
-    )
+    pair_hmf = tuple(hmf for hmf in ff.FittingFunction.get_models().values() if hmf.normalized)
 
     def bias(self):
         return np.ones_like(self.nu)
@@ -201,6 +201,7 @@ class Mo96(Bias):
            of dark matter haloes", https://ui.adsabs.harvard.edu/abs/1996MNRAS.282..347M,
            1996
     """
+
     pair_hmf = (ff.PS,)
 
     def bias(self):
@@ -242,7 +243,7 @@ class Jing98(Bias):
         a = self.params["a"]
         b = self.params["b"]
         c = self.params["c"]
-        return (a / nu ** 2 + 1) ** (b - c * self.n_eff) * (1 + (nu - 1) / self.delta_c)
+        return (a / nu**2 + 1) ** (b - c * self.n_eff) * (1 + (nu - 1) / self.delta_c)
 
 
 class ST99(Bias):
@@ -272,6 +273,7 @@ class ST99(Bias):
     .. [1] Sheth, R. K.. and Tormen, G., "Large-scale bias and the peak background
            split", https://ui.adsabs.harvard.edu/abs/1999MNRAS.308..119S, 1999
     """
+
     pair_hmf = (ff.SMT,)
     _defaults = {"q": 0.707, "p": 0.3}
 
@@ -279,9 +281,7 @@ class ST99(Bias):
         p = self.params["p"]
         q = self.params["q"]
         return (
-            1
-            + (q * self.nu - 1) / self.delta_c
-            + (2 * p / self.delta_c) / (1 + (q * self.nu) ** p)
+            1 + (q * self.nu - 1) / self.delta_c + (2 * p / self.delta_c) / (1 + (q * self.nu) ** p)
         )
 
 
@@ -298,7 +298,9 @@ class SMT01(Bias):
     for the HMF and allowing for ellipsoidal collapse, as shown for example in [1]_.
     The form is
 
-    .. math:: 1 + \frac{1}{\delta_c \sqrt{a}} \left(\sqrt{a} a \nu + \sqrt{a} b (a\nu)^{1-c}  - \frac{(a\nu)^c}{(a\nu)^c + b(1-c)(1 - c/2)}\right)
+    .. math:: 1 + \frac{1}{\delta_c \sqrt{a}} \left(\sqrt{a} a \nu +
+              \sqrt{a} b (a\nu)^{1-c}  - \frac{(a\nu)^c}{(a\nu)^c +
+              b(1-c)(1 - c/2)}\right)
 
     with ``a``, ``b`` and ``c`` having default values of ``(0.707, 0.5, 0.6)``.
     They are free in this implementation for the user to modify.
@@ -314,6 +316,7 @@ class SMT01(Bias):
            the number and spatial distribution of dark matter haloes",
            https://ui.adsabs.harvard.edu/abs/2001MNRAS.323....1S, 2001
     """
+
     pair_hmf = (ff.SMT,)
     _defaults = {"a": 0.707, "b": 0.5, "c": 0.6}
 
@@ -377,7 +380,7 @@ class Seljak04(Bias):
         f = self.params["f"]
         g = self.params["g"]
         x = self.m / self.mstar
-        return a + b * x ** c + d / (e * x + 1) + f * x ** g
+        return a + b * x**c + d / (e * x + 1) + f * x**g
 
 
 class Seljak04Cosmo(Seljak04):
@@ -392,7 +395,9 @@ class Seljak04Cosmo(Seljak04):
     This the form from [1]_ *with* cosmological dependence -- except we do not include
     the running of the spectral index. The form is
 
-    .. math:: b_{\rm no cosmo} + \log_10(x) \left[a_1 (\Omega_{m,0} - 0.3 + n - 1) + a_2(\sigma_8 - 0.9 + h-0.7)\right]
+    .. math:: b_{\rm no cosmo} +
+              \log_10(x) \left[a_1 (\Omega_{m,0} - 0.3 + n - 1) +
+              a_2(\sigma_8 - 0.9 + h-0.7)\right]
 
     with :math:`x = m/m_\star` (and :math:`m_{\star}` the nonlinear mass -- see :class:`Bias`
     for details). The non-cosmologically-dependent bias is that given by :class:`Seljak04`.
@@ -431,8 +436,7 @@ class Seljak04Cosmo(Seljak04):
         x = np.log10(self.m / self.mstar)
         x[x < -1] = -1
         return b + x * (
-            a1 * (self.Om0 - 0.3 + self.n - 1)
-            + a2 * (self.sigma_8 - 0.9 + self.h - 0.7)
+            a1 * (self.Om0 - 0.3 + self.n - 1) + a2 * (self.sigma_8 - 0.9 + self.h - 0.7)
         )
 
 
@@ -533,7 +537,8 @@ class Manera10(ST99):
 
     Notes
     -----
-    .. note:: This form from [1]_ has the same form as :class:`ST99`, but has refitted the parameters with ``(q, p) = (0.709, 0.2)``.
+    .. note:: This form from [1]_ has the same form as :class:`ST99`, but has refitted
+              the parameters with ``(q, p) = (0.709, 0.2)``.
 
     References
     ----------
@@ -541,6 +546,7 @@ class Manera10(ST99):
             inaccuracy of the peak-background split ",
             https://ui.adsabs.harvard.edu/abs/2010MNRAS.402..589M, 2010
     """
+
     pair_hmf = (ff.Manera,)
     _defaults = {"q": 0.709, "p": 0.248}
 
@@ -605,9 +611,7 @@ class Tinker10(Bias):
         B = self.params["B"]
         c = self.params["c"]
         b = self.params["b"]
-        return (
-            1 - A * nu ** a / (nu ** a + self.delta_c ** a) + B * nu ** b + C * nu ** c
-        )
+        return 1 - A * nu**a / (nu**a + self.delta_c**a) + B * nu**b + C * nu**c
 
 
 class Tinker10PBSplit(Bias):
@@ -650,6 +654,7 @@ class Tinker10PBSplit(Bias):
         Bias from the same study but without the constraint of the peak-background
         split formalism.
     """
+
     _defaults = {  # --- alpha
         "alpha_200": 0.368,
         "alpha_300": 0.363,
@@ -712,12 +717,10 @@ class Tinker10PBSplit(Bias):
 
     def bias(self):
         if self.delta_halo not in self.delta_virs:
-            beta_array = np.array([self.params["beta_%s" % d] for d in self.delta_virs])
-            gamma_array = np.array(
-                [self.params["gamma_%s" % d] for d in self.delta_virs]
-            )
-            phi_array = np.array([self.params["phi_%s" % d] for d in self.delta_virs])
-            eta_array = np.array([self.params["eta_%s" % d] for d in self.delta_virs])
+            beta_array = np.array([self.params[f"beta_{d}"] for d in self.delta_virs])
+            gamma_array = np.array([self.params[f"gamma_{d}"] for d in self.delta_virs])
+            phi_array = np.array([self.params[f"phi_{d}"] for d in self.delta_virs])
+            eta_array = np.array([self.params[f"eta_{d}"] for d in self.delta_virs])
 
             beta_func = spline(self.delta_virs, beta_array)
             gamma_func = spline(self.delta_virs, gamma_array)
@@ -729,25 +732,20 @@ class Tinker10PBSplit(Bias):
             phi_0 = phi_func(self.delta_halo)
             eta_0 = eta_func(self.delta_halo)
         else:
-            beta_0 = self.params["beta_%s" % (int(self.delta_halo))]
-            gamma_0 = self.params["gamma_%s" % (int(self.delta_halo))]
-            phi_0 = self.params["phi_%s" % (int(self.delta_halo))]
-            eta_0 = self.params["eta_%s" % (int(self.delta_halo))]
+            beta_0 = self.params[f"beta_{int(self.delta_halo)}"]
+            gamma_0 = self.params[f"gamma_{int(self.delta_halo)}"]
+            phi_0 = self.params[f"phi_{int(self.delta_halo)}"]
+            eta_0 = self.params[f"eta_{int(self.delta_halo)}"]
 
-        beta = (
-            beta_0 * (1 + min(self.z, self.params["max_z"])) ** self.params["beta_exp"]
-        )
+        beta = beta_0 * (1 + min(self.z, self.params["max_z"])) ** self.params["beta_exp"]
         phi = phi_0 * (1 + min(self.z, self.params["max_z"])) ** self.params["phi_exp"]
         eta = eta_0 * (1 + min(self.z, self.params["max_z"])) ** self.params["eta_exp"]
-        gamma = (
-            gamma_0
-            * (1 + min(self.z, self.params["max_z"])) ** self.params["gamma_exp"]
-        )
+        gamma = gamma_0 * (1 + min(self.z, self.params["max_z"])) ** self.params["gamma_exp"]
 
         return (
             1
             + (gamma * self.nu - (1 + 2 * eta)) / self.delta_c
-            + 2 * phi / self.delta_c / (1 + (beta ** 2 * self.nu) ** phi)
+            + 2 * phi / self.delta_c / (1 + (beta**2 * self.nu) ** phi)
         )
 
 
@@ -763,7 +761,7 @@ class ScaleDepBias(Component):
 
     def __init__(self, xi_dm: np.ndarray, **model_parameters):
         self.xi_dm = xi_dm
-        super(ScaleDepBias, self).__init__(**model_parameters)
+        super().__init__(**model_parameters)
 
     def bias_scale(self) -> np.ndarray:
         """Return the scale dependent bias as a function of r.
@@ -772,7 +770,6 @@ class ScaleDepBias(Component):
         function, and the length of the returned array should be the same size as the
         instance :attr:`xi_dm`.
         """
-        pass
 
 
 class TinkerSD05(ScaleDepBias):
@@ -816,8 +813,9 @@ def make_colossus_bias(model="comparat17", mdef=SO_MEAN, **defaults):
         _mdef = mdef
 
         def __init__(self, *args, **kwargs):
-            super(CustomColossusBias, self).__init__(*args, **kwargs)
-            astropy_to_colossus(self.cosmo, sigma8=self.sigma_8, ns=self.n)
+            super().__init__(*args, **kwargs)
+
+            fromAstropy(self.cosmo, sigma8=self.sigma_8, ns=self.n)
 
         def bias(self):
             return haloBiasFromNu(
@@ -825,7 +823,7 @@ def make_colossus_bias(model="comparat17", mdef=SO_MEAN, **defaults):
                 z=self.z,
                 mdef=self._mdef.colossus_name,
                 model=self._model_name,
-                **self.params
+                **self.params,
             )
 
     CustomColossusBias.__name__ = model.capitalize()

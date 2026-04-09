@@ -21,14 +21,16 @@ Cross-correlating the same galaxy samples in different redshifts::
 `pkcorr` corresponds to the cross-power at `cross.halo_model_1.k_hm`.
 """
 
-import numpy as np
-from abc import ABC, abstractmethod
-from scipy import integrate as intg
-from typing import Optional
+from __future__ import annotations
 
+from abc import ABC, abstractmethod
+
+import numpy as np
 from hmf import Component, Framework
 from hmf._internals._cache import cached_quantity, parameter, subframework
 from hmf._internals._framework import get_mdl, pluggable
+from scipy import integrate as intg
+from scipy.interpolate import InterpolatedUnivariateSpline as _IUS
 
 from . import tools
 from .halo_model import TracerHaloModel
@@ -54,12 +56,12 @@ class _HODCross(ABC, Component):
         -----
         Defined by
 
-        .. math:: \langle T_1 T_2 \rangle  = \langle T_1 \rangle \langle T_2 \rangle + \sigma_1 \sigma_2 R_{ss},
+        .. math:: \langle T_1 T_2 \rangle  = \langle T_1 \rangle \langle T_2 \rangle +
+                  \sigma_1 \sigma_2 R_{ss},
 
-        where :math:`T` is the total amount of tracer in the halo's profile (i.e. not counting the
-        central component, if this exists).
+        where :math:`T` is the total amount of tracer in the halo's profile (i.e. not
+        counting the central component, if this exists).
         """
-        pass
 
     @abstractmethod
     def R_cs(self, m):
@@ -72,12 +74,13 @@ class _HODCross(ABC, Component):
         -----
         Defined by
 
-        .. math:: \langle T^c_1 T^s_2 \rangle  = \langle T^c_1 \rangle \langle T^s_2 \rangle + \sigma^c_1 \sigma^s_2 R_{cs},
+        .. math:: \langle T^c_1 T^s_2 \rangle  =
+                  \langle T^c_1 \rangle \langle T^s_2 \rangle +
+                  \sigma^c_1 \sigma^s_2 R_{cs},
 
-        where :math:`T^s` is the total amount of tracer in the halo's profile (i.e. not counting the
-        central component,if this exists).
+        where :math:`T^s` is the total amount of tracer in the halo's profile (i.e. not
+        counting the central component,if this exists).
         """
-        pass
 
     @abstractmethod
     def R_sc(self, m):
@@ -90,17 +93,17 @@ class _HODCross(ABC, Component):
         -----
         Defined by
 
-        .. math:: \langle T^s_1 T^c_2 \rangle  = \langle T^s_1 \rangle \langle T^c_2 \rangle + \sigma^s_1 \sigma^c_2 R_{sc},
+        .. math:: \langle T^s_1 T^c_2 \rangle  =
+                  \langle T^s_1 \rangle \langle T^c_2 \rangle +
+                  \sigma^s_1 \sigma^c_2 R_{sc},
 
-        where :math:`T^s` is the total amount of tracer in the halo's profile (i.e. not counting
-        the central component,if this exists).
+        where :math:`T^s` is the total amount of tracer in the halo's profile (i.e. not
+        counting the central component,if this exists).
         """
-        pass
 
     @abstractmethod
     def self_pairs(self, m):
         r"""The expected number of cross-pairs at a separation of zero."""
-        pass
 
     def ss_cross_pairs(self, m):
         r"""The average value of cross-pairs in a halo of mass m.
@@ -134,7 +137,7 @@ class _HODCross(ABC, Component):
         ) * h2.sigma_satellite(m) * self.R_cs(m)
 
     def sc_cross_pairs(self, m):
-        r"""The average value of cross-pairs in a halo of mass m,
+        r"""The average value of cross-pairs in a halo of mass m,.
 
         Notes
         -----
@@ -148,7 +151,7 @@ class _HODCross(ABC, Component):
 
 
 class ConstantCorr(_HODCross):
-    """Correlation relation for constant cross-correlation pairs"""
+    """Correlation relation for constant cross-correlation pairs."""
 
     _defaults = {"R_ss": 0.0, "R_cs": 0.0, "R_sc": 0.0}
 
@@ -188,9 +191,9 @@ class CrossCorrelations(Framework):
     def __init__(
         self,
         cross_hod_model,
-        cross_hod_params: Optional[dict] = None,
-        halo_model_1_params: Optional[dict] = None,
-        halo_model_2_params: Optional[dict] = None,
+        cross_hod_params: dict | None = None,
+        halo_model_1_params: dict | None = None,
+        halo_model_2_params: dict | None = None,
     ):
         super().__init__()
 
@@ -210,12 +213,12 @@ class CrossCorrelations(Framework):
 
     @subframework
     def halo_model_1(self) -> TracerHaloModel:
-        """Halo Model of the first tracer"""
+        """Halo Model of the first tracer."""
         return TracerHaloModel(**self._halo_model_1_params)
 
     @subframework
     def halo_model_2(self) -> TracerHaloModel:
-        """Halo Model of the second tracer"""
+        """Halo Model of the second tracer."""
         return TracerHaloModel(**self._halo_model_2_params)
 
     # ===========================================================================
@@ -223,7 +226,7 @@ class CrossCorrelations(Framework):
     # ===========================================================================
     @cached_quantity
     def cross_hod(self):
-        """HOD model of the cross-correlation"""
+        """HOD model of the cross-correlation."""
         return self.cross_hod_model(
             [self.halo_model_1.hod, self.halo_model_2.hod], **self.cross_hod_params
         )
@@ -250,12 +253,10 @@ class CrossCorrelations(Framework):
             + u2 * self.cross_hod.cs_cross_pairs(m)
         )
 
-        p = intg.simps(integ, m)
+        p = intg.simpson(integ, x=m)
 
         p /= hm1.mean_tracer_den * hm2.mean_tracer_den
-        return tools.ExtendedSpline(
-            hm1.k, p, lower_func="power_law", upper_func="power_law"
-        )
+        return tools.ExtendedSpline(hm1.k, p, lower_func="power_law", upper_func="power_law")
 
     @property
     def power_1h_cross(self):
@@ -264,10 +265,8 @@ class CrossCorrelations(Framework):
 
     @cached_quantity
     def corr_1h_cross_fnc(self):
-        """The 1-halo term of the cross correlation"""
-        corr = tools.hankel_transform(
-            self.power_1h_cross_fnc, self.halo_model_1._r_table, "r"
-        )
+        """The 1-halo term of the cross correlation."""
+        corr = tools.hankel_transform(self.power_1h_cross_fnc, self.halo_model_1._r_table, "r")
         return tools.ExtendedSpline(
             self.halo_model_1._r_table,
             corr,
@@ -277,28 +276,50 @@ class CrossCorrelations(Framework):
 
     @cached_quantity
     def corr_1h_cross(self):
-        """The 1-halo term of the cross correlation"""
+        """The 1-halo term of the cross correlation."""
         return self.corr_1h_cross_fnc(self.halo_model_1.r)
 
     @cached_quantity
     def power_2h_cross_fnc(self):
-        """The 2-halo term of the cross-power spectrum."""
+        """The 2-halo term of the cross-power spectrum.
+
+        Uses spline integration from ``tracer_mmin`` (the same lower-bound
+        convention as :attr:`~halomod.HaloModel.power_2h_auto_tracer`) so
+        that the result varies smoothly as the HOD ``M_min`` parameter is
+        changed and is consistent with the auto-power spectrum when both
+        tracer populations are identical.
+        """
         hm1, hm2 = self.halo_model_1, self.halo_model_2
 
-        u1 = hm1.tracer_profile_ukm[:, hm1._tm]
-        u2 = hm2.tracer_profile_ukm[:, hm2._tm]
+        u1 = hm1.tracer_profile_ukm  # (k, m)
+        u2 = hm2.tracer_profile_ukm  # (k, m)
 
-        bias = hm1.halo_bias
+        # Build integrands including the m-Jacobian for log-mass integration:
+        #   ∫ f(m) dm  =  ∫ f(m)·m  d(ln m)
+        # Each model uses its own halo_bias so grids don't need to match.
+        integrand1 = hm1.dndm * hm1.halo_bias * hm1._total_occupation * u1 * hm1.m  # (k, m)
+        integrand2 = hm2.dndm * hm2.halo_bias * hm2._total_occupation * u2 * hm2.m  # (k, m)
 
-        # Do this the simple way for now
-        b1 = intg.simps(
-            hm1.dndm[hm1._tm] * bias[hm1._tm] * hm1.total_occupation[hm1._tm] * u1,
-            hm1.m[hm1._tm],
-        )
-        b2 = intg.simps(
-            hm2.dndm[hm2._tm] * bias[hm2._tm] * hm2.total_occupation[hm2._tm] * u2,
-            hm2.m[hm2._tm],
-        )
+        lnm1 = np.log(hm1.m)
+        lnm2 = np.log(hm2.m)
+
+        xmin1 = hm1.tracer_mmin
+        if xmin1 is not None and xmin1 > hm1.m[0]:
+            lnxmin1 = np.log(xmin1)
+            b1 = np.apply_along_axis(
+                lambda f: _IUS(lnm1, f).integral(lnxmin1, lnm1[-1]), -1, integrand1
+            )
+        else:
+            b1 = intg.simpson(integrand1, x=lnm1)
+
+        xmin2 = hm2.tracer_mmin
+        if xmin2 is not None and xmin2 > hm2.m[0]:
+            lnxmin2 = np.log(xmin2)
+            b2 = np.apply_along_axis(
+                lambda f: _IUS(lnm2, f).integral(lnxmin2, lnm2[-1]), -1, integrand2
+            )
+        else:
+            b2 = intg.simpson(integrand2, x=lnm2)
 
         p = (
             b1

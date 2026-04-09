@@ -47,17 +47,17 @@ Note that while ``statistic`` is a valid argument to the `diemer19` model in COL
 we have constructed it without access to that argument (and so it recieves its default
 value of "median"). This means we *cannot* update it via the ``HaloModel`` interface.
 """
-import numpy as np
-import warnings
-from colossus.halo import concentration
-from scipy import special as sp
-from scipy.interpolate import interp1d
-from scipy.optimize import minimize
-from typing import Optional
 
+from __future__ import annotations
+
+import warnings
+
+import numpy as np
+from colossus.cosmology.cosmology import fromAstropy
+from colossus.halo import concentration
 from hmf import Component
 from hmf._internals import pluggable
-from hmf.cosmology.cosmo import Cosmology, astropy_to_colossus
+from hmf.cosmology.cosmo import Cosmology
 from hmf.cosmology.growth_factor import GrowthFactor
 from hmf.density_field.filters import Filter
 from hmf.halos.mass_definitions import (
@@ -67,6 +67,9 @@ from hmf.halos.mass_definitions import (
     SOVirial,
     from_colossus_name,
 )
+from scipy import special as sp
+from scipy.interpolate import interp1d
+from scipy.optimize import minimize
 
 from .profiles import NFW, Profile
 
@@ -75,9 +78,8 @@ DEFAULT_COSMO = Cosmology()
 
 @pluggable
 class CMRelation(Component):
-    r"""
-    Base-class for Concentration-Mass relations
-    """
+    r"""Base-class for Concentration-Mass relations."""
+
     _pdocs = r"""
 
         Parameters
@@ -107,11 +109,13 @@ class CMRelation(Component):
     def __init__(
         self,
         cosmo: Cosmology = DEFAULT_COSMO,
-        filter0: Optional[Filter] = None,
-        growth: Optional[GrowthFactor] = None,
+        filter0: Filter | None = None,
+        growth: GrowthFactor | None = None,
         delta_c: float = 1.686,
-        profile: Optional[Profile] = None,
-        mdef: Optional[MassDefinition] = None,
+        profile: Profile | None = None,
+        mdef: MassDefinition | None = None,
+        sigma_8: float = 0.8,
+        ns: float = 1.0,
         **model_parameters,
     ):
         # Save instance variables
@@ -124,6 +128,8 @@ class CMRelation(Component):
         self.profile = NFW(self, mdef=self.mdef) if profile is None else profile
 
         self.cosmo = cosmo
+        self.sigma_8 = sigma_8
+        self.ns = ns
         self.mean_density0 = cosmo.mean_density0
 
         # TODO: actually implement conversion of mass definitions.
@@ -131,10 +137,11 @@ class CMRelation(Component):
             warnings.warn(
                 f"Requested mass definition '{mdef}' is not in native definitions for "
                 f"the '{self.__class__.__name__}' CMRelation. No mass conversion will be "
-                f"performed, so results will be wrong. Using '{self.mdef}'."
+                f"performed, so results will be wrong. Using '{self.mdef}'.",
+                stacklevel=2,
             )
 
-        super(CMRelation, self).__init__(**model_parameters)
+        super().__init__(**model_parameters)
 
     def mass_nonlinear(self, z):
         """
@@ -148,8 +155,7 @@ class CMRelation(Component):
 
         def model(lnr):
             return (
-                self.filter.sigma(np.exp(lnr)) * self.growth.growth_factor(z)
-                - self.delta_c
+                self.filter.sigma(np.exp(lnr)) * self.growth.growth_factor(z) - self.delta_c
             ) ** 2
 
         res = minimize(
@@ -161,11 +167,9 @@ class CMRelation(Component):
 
         if res.success:
             r = np.exp(res.x[0])
-            return self.filter.radius_to_mass(
-                r, self.mean_density0
-            )  # TODO *(1+z)**3 ????
+            return self.filter.radius_to_mass(r, self.mean_density0)  # TODO *(1+z)**3 ????
         else:
-            warnings.warn("Minimization failed :(")
+            warnings.warn("Minimization failed :(", stacklevel=2)
             return 0
 
     def cm(self, m, z=0):
@@ -179,7 +183,6 @@ class CMRelation(Component):
         m : float
             Halo Mass.
         """
-        pass
 
 
 def make_colossus_cm(model="diemer15", **defaults):
@@ -193,17 +196,21 @@ def make_colossus_cm(model="diemer15", **defaults):
     class CustomColossusCM(CMRelation):
         _model_name = model
         _defaults = defaults
-        native_mdefs = tuple(
-            from_colossus_name(d) for d in concentration.models[model].mdefs
-        )
+        native_mdefs = tuple(from_colossus_name(d) for d in concentration.models[model].mdefs)
 
-        def __init__(self, *args, **kwargs):
-            super(CustomColossusCM, self).__init__(*args, **kwargs)
-            # TODO: may want a more accurate way of passing sigma8 and ns here.
-            astropy_to_colossus(self.cosmo.cosmo, sigma8=0.8, ns=1)
+        def __init__(self, norm=1.0, *args, **kwargs):
+            self.norm = norm
+            super().__init__(*args, **kwargs)
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore", "Astropy cosmology class contains massive neutrinos"
+                )
+                fromAstropy(
+                    self.cosmo.cosmo, sigma8=self.sigma_8, ns=self.ns, cosmo_name="", persistence=""
+                )
 
         def cm(self, m, z=0):
-            return concentration.concentration(
+            return self.norm * concentration.concentration(
                 M=m,
                 mdef=self.mdef.colossus_name,
                 z=z,
@@ -217,6 +224,36 @@ def make_colossus_cm(model="diemer15", **defaults):
     CustomColossusCM.__qualname__ = model.capitalize()
 
     return CustomColossusCM
+
+
+def interp_concentration(base):
+    r"""
+    A factory function that interpolates every concentration class in halomod
+    in order to remove zeros (stemming mostly from undefined mass ranges in Colossus)
+    """
+
+    class InterpConc(base):
+        r"""
+        Interpolation to any concentration-mass relation.
+        """
+
+        _defaults = base._defaults
+        native_mdefs = base.native_mdefs
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+
+        def cm(self, m, z):
+            c = base.cm(self, m, z)
+            if len(c[c > 0]) == 0:
+                return np.ones_like(m)
+            else:
+                c_interp = interp1d(
+                    m[c > 0], c[c > 0], kind="linear", bounds_error=False, fill_value=1.0
+                )
+                return c_interp(m)
+
+    return InterpConc
 
 
 class Bullock01(CMRelation):
@@ -239,24 +276,36 @@ class Bullock01(CMRelation):
     F, K : float
         Default value is ``F=0.01`` and ``K=0.34``
 
+    norm : float
+        Additional normalisation, default is ``norm=1.0``
+
     References
     ----------
     .. [1] Bullock, J.S. et al., " Profiles of dark haloes: evolution, scatter and
            environment ", https://ui.adsabs.harvard.edu/abs/1996MNRAS.282..347M.
     """
-    _defaults = {"F": 0.01, "K": 3.4}
+
+    _defaults = {"F": 0.01, "K": 3.4, "norm": 1.0}
     native_mdefs = (SOCritical(),)
 
     def zc(self, m, z=0):
         r = self.filter.mass_to_radius(self.params["F"] * m, self.mean_density0)
         nu = self.filter.nu(r, self.delta_c)
-        g = self.growth.growth_factor_fn(inverse=True)
+        # Build numerical inverse of growth_factor: z as a function of D(z).
+        # z_max=50 avoids the radiation-dominated regime where hmf may switch
+        # ODE solvers, causing a normalization inconsistency in growth_factor.
+        z_fine = np.linspace(0, 50, 5000)
+        gf_fine = self.growth.growth_factor(z_fine)
+        g = interp1d(gf_fine[::-1], z_fine[::-1], bounds_error=False, fill_value=(z_fine[-1], 0.0))
         zc = g(np.sqrt(nu))
+        zc[np.logical_or.accumulate(zc == zc.min())] = zc.min()
+        # As massive halos have not formed yet,
+        # we need to set the formation time of those to the future
         zc[zc < z] = z  # hack?
         return zc
 
     def cm(self, m, z=0):
-        return self.params["K"] * (self.zc(m, z) + 1.0) / (z + 1.0)
+        return self.params["norm"] * self.params["K"] * (self.zc(m, z) + 1.0) / (z + 1.0)
 
 
 class Bullock01Power(CMRelation):
@@ -282,13 +331,17 @@ class Bullock01Power(CMRelation):
     ms : float
         Default value is ``None``, where it's set to be the non-linear mass at z.
 
+    norm : float
+        Additional normalisation, default is ``norm=1.0``
+
     References
     ----------
     .. [1] Bullock, J.S. et al., " Profiles of dark haloes:
            evolution, scatter and environment ",
            https://ui.adsabs.harvard.edu/abs/1996MNRAS.282..347M.
     """
-    _defaults = {"a": 9.0, "b": -0.13, "c": 1.0, "ms": None}
+
+    _defaults = {"a": 9.0, "b": -0.13, "c": 1.0, "ms": None, "norm": 1.0}
     native_mdefs = (SOCritical(),)
 
     def _cm(self, m, ms, a, b, c, z=0):
@@ -296,7 +349,9 @@ class Bullock01Power(CMRelation):
 
     def cm(self, m, z=0):
         ms = self.params["ms"] or self.mass_nonlinear(z)
-        return self._cm(m, ms, self.params["a"], self.params["b"], self.params["c"], z)
+        return self.params["norm"] * self._cm(
+            m, ms, self.params["a"], self.params["b"], self.params["c"], z
+        )
 
 
 class Maccio07(CMRelation):
@@ -315,12 +370,13 @@ class Maccio07(CMRelation):
            https://ui.adsabs.harvard.edu/abs/2017MNRAS.469.2323P/abstract.
     """
 
-    _defaults = {"c_0": 28.65, "gamma": 1.45}
+    _defaults = {"c_0": 28.65, "gamma": 1.45, "norm": 1.0}
     native_mdefs = (SOMean(),)
 
     def cm(self, m, z):
         return (
-            self.params["c_0"]
+            self.params["norm"]
+            * self.params["c_0"]
             * (m * 10 ** (-11)) ** (-0.109)
             * 4
             / (1 + z) ** self.params["gamma"]
@@ -355,6 +411,9 @@ class Duffy08(Bullock01Power):
         Either "relaxed" (default) or "full". Specifies which set of parameters to take
         as default parameters, from Table 1 of [1]_.
 
+    norm : float
+        Additional normalisation, default is ``norm=1.0``
+
     References
     ----------
     .. [1] Duffy, A. R. et al., "Dark matter halo concentrations in the
@@ -362,7 +421,7 @@ class Duffy08(Bullock01Power):
            https://ui.adsabs.harvard.edu/abs/2008MNRAS.390L..64D.
     """
 
-    _defaults = {"a": None, "b": None, "c": None, "ms": 2e12, "sample": "relaxed"}
+    _defaults = {"a": None, "b": None, "c": None, "ms": 2e12, "sample": "relaxed", "norm": 1.0}
     native_mdefs = (SOCritical(), SOMean(), SOVirial())
 
     def cm(self, m, z=0):
@@ -412,7 +471,7 @@ class Duffy08(Bullock01Power):
         a = self.params["a"] or parameter_set["a"]
         b = self.params["b"] or parameter_set["b"]
         c = self.params["c"] or parameter_set["c"]
-        return self._cm(m, self.params["ms"], a, b, c, z)
+        return self.params["norm"] * self._cm(m, self.params["ms"], a, b, c, z)
 
 
 class Zehavi11(Bullock01Power):
@@ -430,13 +489,17 @@ class Zehavi11(Bullock01Power):
     a, b, c, ms: float
         Default is ``(11.0,-0.13,1.0,2.26e12)``.
 
+    norm : float
+        Additional normalisation, default is ``norm=1.0``
+
     References
     ----------
     .. [1] Zehavi, I. et al., "Galaxy Clustering in the Completed SDSS Redshift Survey:
            The Dependence on Color and Luminosity",
            https://ui.adsabs.harvard.edu/abs/2011ApJ...736...59Z.
     """
-    _defaults = {"a": 11.0, "b": -0.13, "c": 1.0, "ms": 2.26e12}
+
+    _defaults = {"a": 11.0, "b": -0.13, "c": 1.0, "ms": 2.26e12, "norm": 1.0}
 
 
 class Ludlow16(CMRelation):
@@ -455,16 +518,21 @@ class Ludlow16(CMRelation):
     f, C : float
         Default value is ``f=0.02`` and ``C=650``
 
+    norm : float
+        Additional normalisation, default is ``norm=1.0``
+
     References
     ----------
     .. [1]  Ludlow, A. D. et al., "The mass-concentration-redshift relation
             of cold and warm dark matter haloes ",
             https://ui.adsabs.harvard.edu/abs/2016MNRAS.460.1214L.
     """
+
     # Note: only defined for NFW for now.
     _defaults = {
         "f": 0.02,  # Fraction of mass assembled at "formation"
         "C": 650,  # Constant scaling
+        "norm": 1.0,
     }
     native_mdefs = (SOCritical(),)
 
@@ -474,14 +542,12 @@ class Ludlow16(CMRelation):
     def _eq6_zf(self, c, C, z):
         cosmo = self.cosmo.cosmo
         M2 = self.profile._h(1) / self.profile._h(c)
-        rho_2 = self.delta_halo(z) * c ** 3 * M2
+        rho_2 = self.delta_halo(z) * c**3 * M2
         rhoc = rho_2 / C
-        in_brackets = (
-            rhoc * (cosmo.Om0 * (1 + z) ** 3 + cosmo.Ode0) - cosmo.Ode0
-        ) / cosmo.Om0
+        in_brackets = (rhoc * (cosmo.Om0 * (1 + z) ** 3 + cosmo.Ode0) - cosmo.Ode0) / cosmo.Om0
         c = c[in_brackets > 0]
         in_brackets = in_brackets[in_brackets > 0]
-        return c, in_brackets ** 0.33333 - 1.0
+        return c, in_brackets**0.33333 - 1.0
 
     def _eq7(self, f, C, m, z):
         cvec = np.logspace(0, 2, 400)
@@ -501,8 +567,9 @@ class Ludlow16(CMRelation):
         sigf = self.filter.sigma(rf) ** 2
         sigr = self.filter.sigma(r) ** 2
 
-        gf = self.growth.growth_factor_fn()
-        num = self.delta_c * (1.0 / gf(zf) - 1.0 / gf(z))
+        num = self.delta_c * (
+            1.0 / self.growth.growth_factor(zf) - 1.0 / self.growth.growth_factor(z)
+        )
         den = np.sqrt(2 * (sigf - sigr))
         rhs = sp.erfc(np.outer(num, 1.0 / den))
 
@@ -535,7 +602,7 @@ class Ludlow16(CMRelation):
             return out
 
     def cm(self, m, z=0):
-        return self._eq7(self.params["f"], self.params["C"], m, z)
+        return self.params["norm"] * self._eq7(self.params["f"], self.params["C"], m, z)
 
 
 class Ludlow16Empirical(CMRelation):
@@ -555,12 +622,16 @@ class Ludlow16Empirical(CMRelation):
     c0_0, c0_z, beta_0, beta_z, gamma1_0, gamma1_z, gamma2_0, gamma2_z : float
         Default value is ``(3.395,-0.215,0.307,0.54,0.628,-0.047,0.317,-0.893)``.
 
+    norm : float
+        Additional normalisation, default is ``norm=1.0``
+
     References
     ----------
     .. [1]  Ludlow, A. D. et al., "The mass-concentration-redshift relation
             of cold and warm dark matter haloes ",
             https://ui.adsabs.harvard.edu/abs/2016MNRAS.460.1214L.
     """
+
     _defaults = {
         "c0_0": 3.395,
         "c0_z": -0.215,
@@ -570,6 +641,7 @@ class Ludlow16Empirical(CMRelation):
         "gamma1_z": -0.047,
         "gamma2_0": 0.317,
         "gamma2_z": -0.893,
+        "norm": 1.0,
     }
     native_mdefs = (SOCritical(),)
 
@@ -588,13 +660,10 @@ class Ludlow16Empirical(CMRelation):
     def _nu_0(self, z):
         a = 1.0 / (1 + z)
         return (
-            4.135 - 0.564 / a - 0.21 / a ** 2 + 0.0557 / a ** 3 - 0.00348 / a ** 4
+            4.135 - 0.564 / a - 0.21 / a**2 + 0.0557 / a**3 - 0.00348 / a**4
         ) / self.growth.growth_factor(z)
 
     def cm(self, m, z=0):
-        warnings.warn(
-            "Only use Ludlow16Empirical c(m,z) relation when using Planck-like cosmology"
-        )
         # May be better to use real nu, but we'll do what they do in the paper
         # r = self.filter.mass_to_radius(m, self.mean_density0)
         # nu = self.filter.nu(r,self.delta_c)/self.growth.growth_factor(z)
@@ -602,12 +671,13 @@ class Ludlow16Empirical(CMRelation):
         sig = (
             self.growth.growth_factor(z)
             * 22.26
-            * xi ** 0.292
-            / (1 + 1.53 * xi ** 0.275 + 3.36 * xi ** 0.198)
+            * xi**0.292
+            / (1 + 1.53 * xi**0.275 + 3.36 * xi**0.198)
         )
         nu = self.delta_c / sig
         return (
-            self._c0(z)
+            self.params["norm"]
+            * self._c0(z)
             * (nu / self._nu_0(z)) ** (-self._gamma1(z))
             * (1 + (nu / self._nu_0(z)) ** (1.0 / self._beta(z)))
             ** (-self._beta(z) * (self._gamma2(z) - self._gamma1(z)))
@@ -621,6 +691,7 @@ class Ludlow2016(Ludlow16):
         warnings.warn(
             "This class is deprecated -- use Ludlow16 instead.",
             category=DeprecationWarning,
+            stacklevel=2,
         )
         super().__init__(*args, **kwargs)
 
@@ -632,5 +703,6 @@ class Ludlow2016Empirical(Ludlow16Empirical):
         warnings.warn(
             "This class is deprecated -- use Ludlow16Empirical instead.",
             category=DeprecationWarning,
+            stacklevel=2,
         )
         super().__init__(*args, **kwargs)

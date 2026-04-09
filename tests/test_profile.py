@@ -1,9 +1,7 @@
-"""
-Test various halo profile properties.
-"""
-import pytest
+"""Test various halo profile properties."""
 
 import numpy as np
+import pytest
 
 from halomod import TracerHaloModel
 from halomod import profiles as pf
@@ -30,17 +28,19 @@ class NFWnumInf(pf.ProfileInf):
 
 @pytest.fixture(scope="module")
 def thm():
-    return TracerHaloModel(rmin=0.01, rmax=50, rnum=20)
+    return TracerHaloModel(rmin=0.01, rmax=50, rnum=20, transfer_model="EH")
 
 
 @pytest.fixture(scope="module")
 def thmnum():
-    return TracerHaloModel(rmin=0.01, rmax=50, rnum=20, halo_profile_model=NFWnum)
+    return TracerHaloModel(
+        rmin=0.01, rmax=50, rnum=20, halo_profile_model=NFWnum, transfer_model="EH"
+    )
 
 
 @pytest.mark.parametrize(
     "profile",
-    (
+    [
         pf.NFW,
         pf.NFWInf,
         pf.CoredNFW,
@@ -51,7 +51,7 @@ def thmnum():
         pf.Moore,
         pf.MooreInf,
         pf.PowerLawWithExpCut,
-    ),
+    ],
 )
 def test_decreasing_profile(profile):
     prof = profile(bullock)
@@ -60,7 +60,7 @@ def test_decreasing_profile(profile):
 
 @pytest.mark.parametrize(
     "profile",
-    (
+    [
         pf.NFW,
         pf.NFWInf,
         pf.CoredNFW,
@@ -71,7 +71,7 @@ def test_decreasing_profile(profile):
         pf.Moore,
         pf.MooreInf,
         pf.PowerLawWithExpCut,
-    ),
+    ],
 )
 def test_increasing_cdf(profile):
     prof = profile(bullock)
@@ -80,7 +80,7 @@ def test_increasing_cdf(profile):
 
 @pytest.mark.parametrize(
     "profile",
-    (
+    [
         pf.NFW,
         pf.NFWInf,
         pf.CoredNFW,
@@ -91,7 +91,7 @@ def test_increasing_cdf(profile):
         pf.Moore,
         pf.MooreInf,
         # pf.PowerLawWithExpCut,
-    ),
+    ],
 )
 def test_decreasing_convolution(profile):
     prof = profile(bullock)
@@ -103,7 +103,7 @@ def test_decreasing_convolution(profile):
 
 @pytest.mark.parametrize(
     "profile",
-    (
+    [
         pf.NFW,
         #        pf.NFWInf,  infinite profile can't be normalised by mass.
         pf.CoredNFW,
@@ -113,10 +113,10 @@ def test_decreasing_convolution(profile):
         pf.Hernquist,
         pf.Moore,
         #        pf.MooreInf,
-    ),
+    ],
 )
 def test_ukm_low_k(profile):
-    """Test that all fourier transforms, when normalised by mass, are 1 at low k"""
+    """Test that all fourier transforms, when normalised by mass, are 1 at low k."""
     k = np.array([1e-10])
     m = np.logspace(10, 18, 100)
 
@@ -181,3 +181,11 @@ def test_get_k_variable(thmnum, thm):
     attnum = thmnum.halo_profile._get_k_variables
     att = thm.halo_profile._get_k_variables
     assert np.allclose(att(k, m, coord="kappa"), attnum(k, m, coord="kappa"), rtol=1e-2)
+
+
+def test_eta(thm, thmnum):
+    m = np.array([1e12, 1e13])
+    thm.update(halo_profile_params={"eta_bloat": 1.0})
+    attnum = thmnum.halo_profile._rs_from_m
+    att = thm.halo_profile._rs_from_m
+    assert np.allclose(att(m), attnum(m) * np.sqrt(thmnum.nu_fn(m)), rtol=1e-2)
