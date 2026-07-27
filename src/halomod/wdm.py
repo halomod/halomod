@@ -17,8 +17,7 @@ from .integrate_corr import ProjectedCF
 # ===============================================================================
 def CMRelationWDMRescaled(name):
     """Class factory for Rescaled CM relations."""
-    if name.endswith("WDM"):
-        name = name[:-3]
+    name = name.removesuffix("WDM")
 
     x = getattr(sys.modules["halomod.concentration"], name)
 

@@ -16,6 +16,11 @@ with contextlib.suppress(PackageNotFoundError):
     __version__ = version(__name__)
 
 __all__ = [
+    "AngularCF",
+    "DMHaloModel",
+    "HaloModel",
+    "ProjectedCF",
+    "TracerHaloModel",
     "bias",
     "concentration",
     "cross_correlations",
@@ -25,14 +30,9 @@ __all__ = [
     "hod",
     "integrate_corr",
     "profiles",
+    "projected_corr_gal",
     "tools",
     "wdm",
-    "DMHaloModel",
-    "HaloModel",
-    "TracerHaloModel",
-    "AngularCF",
-    "ProjectedCF",
-    "projected_corr_gal",
 ]
 
 from . import (
