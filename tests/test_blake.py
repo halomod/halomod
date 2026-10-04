@@ -63,7 +63,7 @@ def test_blake_quantity(hod, datadir, q):
     if q == "nonlinpk":
         steve = spline(hod.k, hod.nonlinear_power)(chris[:, 0])
     if q == "m_vs_nu":
-        steve = spline(hod.m, hod.nu)(chris[:, 0])
+        steve = spline(hod.m, hod.nu2)(chris[:, 0])
     if q == "biasfn":
         steve = spline(hod.m, hod.halo_bias)(chris[:, 0])
     if q == "massfn":
