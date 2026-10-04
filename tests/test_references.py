@@ -2,7 +2,6 @@
 
 import re
 
-import hmf
 import pytest
 
 from halomod import TracerHaloModel, _references
@@ -12,11 +11,6 @@ from halomod.cross_correlations import ConstantCorr, CrossCorrelations, _HODCros
 from halomod.halo_exclusion import Exclusion
 from halomod.hod import HOD
 from halomod.profiles import Profile
-
-HAS_ACKNOWLEDGMENTS = hasattr(hmf.Framework, "get_acknowledgments")
-needs_hmf37 = pytest.mark.skipif(
-    not HAS_ACKNOWLEDGMENTS, reason="get_acknowledgments needs hmf>=3.7"
-)
 
 COMPONENTS = (Bias, ScaleDepBias, CMRelation, Profile, HOD, Exclusion, _HODCross)
 
@@ -90,7 +84,6 @@ def test_shared_references_are_reused():
     assert halo_exclusion.NgMatched.references == halo_exclusion.DblEllipsoid.references
 
 
-@needs_hmf37
 def test_acknowledgments_tracer_halo_model():
     hm = TracerHaloModel(transfer_model="EH")
     refs = hm.get_acknowledgments()
@@ -115,7 +108,6 @@ def test_acknowledgments_tracer_halo_model():
     assert refs["hod_model"] == hm.hod_model.references
 
 
-@needs_hmf37
 def test_acknowledgments_tracer_models():
     """Optional halomod-specific models are included when they are set."""
     hm = TracerHaloModel(
@@ -132,7 +124,6 @@ def test_acknowledgments_tracer_models():
     assert refs["exclusion_model"] == (_references.TINKER05,)
 
 
-@needs_hmf37
 def test_acknowledgments_flat():
     hm = TracerHaloModel(
         transfer_model="EH", sd_bias_model="TinkerSD05", exclusion_model="DblEllipsoid"
@@ -143,7 +134,6 @@ def test_acknowledgments_flat():
     assert flat.count(_references.TINKER05) == 1
 
 
-@needs_hmf37
 def test_acknowledgments_cross_correlations():
     cross = CrossCorrelations(
         cross_hod_model=ConstantCorr,
@@ -154,12 +144,6 @@ def test_acknowledgments_cross_correlations():
     assert list(refs)[:2] == ["hmf", "halomod"]
     assert refs["halo_model_2.hod_model"] == (_references.ZHENG05,)
     assert _references.HALOMOD in cross.get_acknowledgments(flat=True)
-
-
-@pytest.mark.skipif(HAS_ACKNOWLEDGMENTS, reason="only for hmf<3.7")
-def test_acknowledgments_old_hmf():
-    with pytest.raises(NotImplementedError, match="hmf>=3.7"):
-        TracerHaloModel(transfer_model="EH").get_acknowledgments()
 
 
 def test_with_halomod_reference_ordering():

@@ -206,11 +206,11 @@ class CrossCorrelations(Framework):
     def get_acknowledgments(self, flat: bool = False) -> dict[str, tuple[str, ...]] | list[str]:
         """Get the references to cite for the current setup of the cross-correlation.
 
-        This extends hmf's ``Framework.get_acknowledgments`` (available from hmf 3.7)
-        with an entry ``"halomod"`` (the paper describing halomod), placed right after
-        the ``"hmf"`` entry. The other entries hold the references of the
-        ``cross_hod_model``, and those of the models of each halo model, prefixed by
-        its name (e.g. ``"halo_model_1.hod_model"``).
+        This extends hmf's ``Framework.get_acknowledgments`` with an entry ``"halomod"``
+        (the paper describing halomod), placed right after the ``"hmf"`` entry. The
+        other entries hold the references of the ``cross_hod_model``, and those of the
+        models of each halo model, prefixed by its name (e.g.
+        ``"halo_model_1.hod_model"``).
 
         Parameters
         ----------
@@ -224,21 +224,12 @@ class CrossCorrelations(Framework):
             A dict mapping each source to a tuple of formatted citations, or a flat
             list of citations if ``flat`` is True.
 
-        Raises
-        ------
-        NotImplementedError
-            If the installed hmf is older than 3.7.
-
         Examples
         --------
         >>> cross = CrossCorrelations(cross_hod_model=ConstantCorr)
         >>> bibliography = cross.get_acknowledgments(flat=True)
         """
-        try:
-            parent = super().get_acknowledgments
-        except AttributeError:
-            raise NotImplementedError("get_acknowledgments requires hmf>=3.7") from None
-        return _references.get_acknowledgments(parent, flat)
+        return _references.get_acknowledgments(super().get_acknowledgments, flat)
 
     @parameter("model")
     def cross_hod_model(self, val):

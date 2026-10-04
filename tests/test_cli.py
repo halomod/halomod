@@ -1,13 +1,8 @@
-import hmf
 import numpy as np
 import pytest
 from click.testing import CliRunner
 
 from halomod._cli import run
-
-# Models given by import path ("package.module:ClassName") need hmf>=3.7, which also
-# introduced get_acknowledgments.
-HMF_IMPORT_PATHS = hasattr(hmf.Framework, "get_acknowledgments")
 
 
 def test_cli(tmp_path_factory):
@@ -18,7 +13,6 @@ def test_cli(tmp_path_factory):
     assert result.exit_code == 0
 
 
-@pytest.mark.skipif(not HMF_IMPORT_PATHS, reason="import-path models need hmf>=3.7")
 @pytest.mark.filterwarnings("ignore:MassFunction.nu is:DeprecationWarning")
 def test_cli_import_path_model_in_toml(tmp_path):
     cfg = tmp_path / "config.toml"
