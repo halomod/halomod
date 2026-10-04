@@ -370,7 +370,7 @@ class DMHaloModel(MassFunction):
     def bias(self):
         """The halo bias as a function of halo mass."""
         return self.bias_model(
-            nu=self.nu,
+            nu=self.nu2,
             delta_c=self.delta_c,
             m=self.m,
             mstar=self.mass_nonlinear,

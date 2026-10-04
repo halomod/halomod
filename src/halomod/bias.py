@@ -20,16 +20,16 @@ transparently uses ``colossus`` the background to do the actual computation of t
 halo bias. This means it is easy to use any of the updated models
 from ``colossus`` in a native way.
 
-Most models are specified in terms of the peak-height parameter,
-though it is possible to specify them in terms of mass, and include
-cosmological parameters.
+Most models are specified in terms of the peak height, though it is possible
+to specify them in terms of mass, and include cosmological parameters.
 
 To define your own bias model, subclass either :class:`Bias` or any of the in-built
 models provided here. The only method required to be implemented is ``bias()``, which
 takes no parameters. It must return the local first-order bias as an array of the
-same shape as ``m`` (you also have access to the peak-height ``nu`` as an instance
-variable). See documentation for :class:`Bias` for more information on the instance
-variables available in the definition.
+same shape as ``m`` (you also have access to ``nu`` as an instance variable; note
+that ``nu`` is the *squared* peak height, ``(delta_c/sigma)^2``, not the peak height
+``delta_c/sigma`` itself). See documentation for :class:`Bias` for more information
+on the instance variables available in the definition.
 
 As with all ``Component`` subclasses, arbitrary user-specified variables can be received
 by defining them in the `_defaults` class-level dictionary.
@@ -87,7 +87,8 @@ class Bias(Component):
     Parameters
     ----------
     nu : array-like
-        Peak-height, ``delta^2_c/sigma^2``.
+        The *squared* peak height, ``delta_c^2/sigma^2`` (e.g. ``MassFunction.nu2``),
+        not the peak height ``delta_c/sigma``.
     delta_c : float, optional
         Critical over-density for collapse. Not all bias components require this
         parameter.

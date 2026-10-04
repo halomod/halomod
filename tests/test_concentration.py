@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 import pytest
 from hmf import MassFunction
@@ -91,3 +93,20 @@ def test_decreasing_cm(cmr):
         halo_concentration_model=cm.interp_concentration(cmr), transfer_model="EH"
     )
     assert np.all(np.diff(hm_interp.halo_concentration.cm(m, z=0)) <= 0)
+
+
+def test_bullock01_no_nu_deprecation():
+    """Regression test for #263: Bullock01 must not use deprecated ``BaseFilter.nu``."""
+    hm = TracerHaloModel(halo_concentration_model=cm.Bullock01, transfer_model="EH")
+    m = np.logspace(10, 15, 100)
+    conc = hm.halo_concentration
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        c = conc.cm(m, z=0)
+        zc = conc.zc(m, z=0)
+
+    # Halos cannot collapse after they are observed, so z_c >= z and therefore
+    # c = norm * K * (1 + z_c) / (1 + z) >= norm * K.
+    assert np.all(zc >= 0)
+    assert np.all(c >= conc.params["norm"] * conc.params["K"] * (1 - 1e-12))
+    assert np.all(np.isfinite(c))
