@@ -127,16 +127,6 @@ def test_cross_outputs_invalidate_on_subframework_update(via, order):
 # quantities, at indices ``REF_INDICES``. They depend on the hmf version.
 REF_INDICES = [0, 20, 40, 60, 80]
 REF_VALUES = {
-    "3.6.0": {
-        "power_cross": [26538.37621203703, 7161.636646540437, 314.5134039578263],
-        "corr_cross": [
-            53996.86424423596,
-            2122.390908838655,
-            81.89447173545713,
-            3.3864625828476984,
-            1.1172244567096186,
-        ],
-    },
     "3.7.1": {
         "power_cross": [26538.933298118438, 7161.510135575586, 314.2841509389841],
         "corr_cross": [

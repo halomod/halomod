@@ -485,8 +485,6 @@ FAST_KW = {
 }
 
 
-# hmf<3.7 instantiates the class (with its CAMB default) to list its quantities.
-@pytest.mark.filterwarnings("ignore:'extrapolate_with_eh' was not set")
 @pytest.mark.parametrize(
     ("model", "names"),
     [(DMHaloModel, DM_OUTPUTS), (TracerHaloModel, DM_OUTPUTS + TRACER_OUTPUTS)],
@@ -585,29 +583,6 @@ def test_cached_output_is_fnc_on_grid(name, fnc, grid):
 # depend on the hmf version, so are keyed by it.
 REF_INDICES = [0, 20, 40, 60, 80]
 REF_VALUES = {
-    "3.6.0": {
-        "power_auto_tracer": [23644.241167825094, 6180.715296805746, 283.45796741827473],
-        "corr_auto_tracer": [
-            58918.16127459432,
-            2128.3029892436443,
-            76.72178329069574,
-            2.1420495164642377,
-            0.10570816666995948,
-        ],
-        "power_auto_matter": [21729.240353958383, 5680.827166313392, 348.83757677778567],
-        "corr_auto_matter": [
-            3537.9161172834647,
-            1033.0622525949736,
-            101.03829706583996,
-            2.0126554452660015,
-            0.09715792840164839,
-        ],
-        "power_cross_tracer_matter": [
-            19600.535934509215,
-            5363.280278626038,
-            310.79591275404334,
-        ],
-    },
     "3.7.1": {
         "power_auto_tracer": [23648.651803224664, 6181.837493342404, 283.26176497701977],
         "corr_auto_tracer": [
