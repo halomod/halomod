@@ -196,6 +196,9 @@ def test_large_scale_bias(dmhm):
         assert np.isclose(dm2.power_2h_auto_matter[0], dm2.linear_power_fnc(dm2.k_hm[0]), rtol=1e-4)
 
 
+# On hmf < 3.7, get_all_parameter_names() instantiates a default (CAMB) model, which
+# warns that extrapolate_with_eh was not set; that is irrelevant to this check.
+@pytest.mark.filterwarnings("ignore:'extrapolate_with_eh' was not set")
 def test_force_unity_dm_bias_is_parameter():
     """force_unity_dm_bias must be a declared parameter (so update/clone/CLI accept it)."""
     assert "force_unity_dm_bias" in DMHaloModel.get_all_parameter_names()
