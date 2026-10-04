@@ -6,8 +6,8 @@ import numpy as np
 import pytest
 
 from halomod import DMHaloModel
-from halomod.concentration import CMRelation, Duffy08
-from halomod.wdm import CMRelationWDMRescaled, HaloModelWDM
+from halomod.concentration import CMRelation, Duffy08, Ludlow16
+from halomod.wdm import CMRelationWDMRescaled, HaloModelWDM, TracerHaloModelWDM
 
 
 def test_cmz_wdm():
@@ -181,3 +181,14 @@ def test_subclass_of_wdm_cm_relation():
     sub = MyDuffy08WDM(m_hm=1e10)
     assert sub.m_hm == 1e10
     np.testing.assert_allclose(sub.cm(m, z=0.5), base(m_hm=1e10).cm(m, z=0.5), rtol=1e-12)
+
+
+@pytest.mark.filterwarnings("ignore:Requested mass definition")
+@pytest.mark.parametrize("framework", [HaloModelWDM, TracerHaloModelWDM])
+def test_wdm_default_concentration_is_ludlow16(framework):
+    """The WDM frameworks default to Ludlow16, not its deprecated alias."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        hm = framework(transfer_model="EH", Mmin=7.0)
+        assert hm.halo_concentration_model is Ludlow16
+        assert isinstance(hm.halo_concentration, Ludlow16)

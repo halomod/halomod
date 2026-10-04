@@ -31,7 +31,7 @@ classifiers = [
 	"Topic :: Scientific/Engineering :: Astronomy",
 ]
 dependencies = [
-    "hmf>=3.6.0",
+    "hmf>=3.7",
     "mpmath",
     "numpy",
     "scipy>=1.12",
