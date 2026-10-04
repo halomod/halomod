@@ -365,3 +365,63 @@ def test_pickle_after_computation(thm):
     # Verify that the unpickled model produces the same results
     assert np.allclose(thm.corr_auto_tracer, thm2.corr_auto_tracer)
     assert np.allclose(thm.corr_auto_matter, thm2.corr_auto_matter)
+
+
+_COLOSSUS_NU_WARNING = "Astropy cosmology class contains massive neutrinos"
+
+
+def _build_colossus_cosmo(hm: DMHaloModel):
+    """Build ``hm.colossus_cosmo``, turning any DeprecationWarning into an error."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        # COLOSSUS ignores massive neutrinos and says so; that is expected.
+        warnings.filterwarnings("ignore", message=_COLOSSUS_NU_WARNING, category=UserWarning)
+        return hm.colossus_cosmo
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {},
+        {
+            "cosmo_params": {"H0": 70.0, "Om0": 0.28, "Ob0": 0.045, "m_nu": 0.0},
+            "sigma_8": 0.78,
+            "n": 0.95,
+        },
+    ],
+)
+def test_colossus_cosmo_matches_model(kwargs):
+    """The COLOSSUS cosmology is built without deprecated hmf helpers and matches."""
+    hm = DMHaloModel(transfer_model="EH", **kwargs)
+    cc = _build_colossus_cosmo(hm)
+
+    np.testing.assert_allclose(cc.sigma8, hm.sigma_8, rtol=1e-10)
+    np.testing.assert_allclose(cc.ns, hm.n, rtol=1e-10)
+    np.testing.assert_allclose(cc.H0, hm.cosmo.H0.value, rtol=1e-10)
+    np.testing.assert_allclose(cc.Om0, hm.cosmo.Om0, rtol=1e-10)
+    np.testing.assert_allclose(cc.Ob0, hm.cosmo.Ob0, rtol=1e-10)
+
+    if kwargs:
+        np.testing.assert_allclose(cc.sigma8, 0.78, rtol=1e-10)
+        np.testing.assert_allclose(cc.ns, 0.95, rtol=1e-10)
+        np.testing.assert_allclose(cc.H0, 70.0, rtol=1e-10)
+        np.testing.assert_allclose(cc.Om0, 0.28, rtol=1e-10)
+        np.testing.assert_allclose(cc.Ob0, 0.045, rtol=1e-10)
+
+
+def test_colossus_cosmo_growth_factor_agrees_with_hmf():
+    """COLOSSUS and hmf compute the same linear growth for the same cosmology.
+
+    Massive neutrinos are switched off, since COLOSSUS does not model them.
+    """
+    hm = DMHaloModel(transfer_model="EH", z=1.0, cosmo_params={"m_nu": 0.0})
+    assert not hm.cosmo.has_massive_nu
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        cc = hm.colossus_cosmo
+        d_colossus = cc.growthFactor(1.0)
+
+    np.testing.assert_allclose(d_colossus, hm.growth_factor, rtol=5e-3)
+    # Sanity: growth at z=1 is suppressed relative to z=0, but not absurdly.
+    assert 0.5 < d_colossus < 1.0
