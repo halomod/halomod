@@ -1,6 +1,6 @@
 """Contains WDM versions of all models and frameworks."""
 
-import sys
+import functools
 
 import numpy as np
 from hmf import cached_quantity, parameter
@@ -8,38 +8,87 @@ from hmf._internals._framework import get_mdl
 from hmf.alternatives.wdm import MassFunctionWDM
 from scipy import integrate as intg
 
+from . import concentration
+from .concentration import CMRelation
 from .halo_model import DMHaloModel, TracerHaloModel
 from .integrate_corr import ProjectedCF
-
 
 # ===============================================================================
 # C-M relations
 # ===============================================================================
-def CMRelationWDMRescaled(name):
-    """Class factory for Rescaled CM relations."""
-    name = name.removesuffix("WDM")
+#: Default parameters of the WDM rescaling of Schneider et al. (2012), added to the
+#: parameters of the CDM concentration-mass relation being rescaled.
+_WDM_RESCALING_DEFAULTS = {"g1": 60, "g2": 0.17, "beta0": 0.026, "beta1": 0.04}
 
-    x = getattr(sys.modules["halomod.concentration"], name)
 
-    def __init__(self, m_hm=1000, **kwargs):
-        super(self.__class__, self).__init__(**kwargs)
+@functools.cache
+def _make_wdm_rescaled_cm_relation(name: str) -> type[CMRelation]:
+    """Build the WDM-rescaled subclass of the CDM concentration model ``name``.
+
+    This is memoised, so that each CDM model has exactly one WDM counterpart, which
+    is registered exactly once in the :class:`~halomod.concentration.CMRelation`
+    plugin registry.
+    """
+    parent = getattr(concentration, name)
+
+    def __init__(self, m_hm: float = 1000, **kwargs):
+        super(K, self).__init__(**kwargs)
         self.m_hm = m_hm
 
     def cm(self, m, z=0):
         """Rescaled Concentration-Mass relation for WDM."""
-        cm = super(self.__class__, self).cm(m, z)
+        cm = super(K, self).cm(m, z)
         g1 = self.params["g1"]
         g2 = self.params["g2"]
         b0 = self.params["beta0"]
         b1 = self.params["beta1"]
         return cm * (1 + g1 * self.m_hm / m) ** (-g2) * (1 + z) ** (b0 * z - b1)
 
-    K = type(name + "WDM", (x,), {})
-    K._defaults.update({"g1": 60, "g2": 0.17, "beta0": 0.026, "beta1": 0.04})
-
-    K.__init__ = __init__
-    K.cm = cm
+    K = type(
+        name + "WDM",
+        (parent,),
+        {
+            "__module__": __name__,
+            "__qualname__": name + "WDM",
+            "__doc__": (
+                f"WDM-rescaled version of :class:`~halomod.concentration.{name}`.\n\n"
+                "The CDM concentration is multiplied by "
+                "``(1 + g1 * m_hm / m)**(-g2) * (1 + z)**(beta0 * z - beta1)``, "
+                "following Schneider et al. (2012), where ``m_hm`` is the "
+                "half-mode mass of the WDM model."
+            ),
+            # The subclass needs its own dict, otherwise the WDM parameters would be
+            # written into the parent (CDM) model's defaults.
+            "_defaults": {**parent._defaults, **_WDM_RESCALING_DEFAULTS},
+            "__init__": __init__,
+            "cm": cm,
+        },
+    )
     return K
+
+
+def CMRelationWDMRescaled(name: str) -> type[CMRelation]:
+    """Return the WDM-rescaled version of a CDM concentration-mass relation.
+
+    The returned class multiplies the concentration of the CDM model by
+    ``(1 + g1 * m_hm / m)**(-g2) * (1 + z)**(beta0 * z - beta1)`` (Schneider et al.
+    2012), where ``m_hm`` is the WDM half-mode mass, passed to its constructor (and
+    set by :class:`HaloModelWDM`). Its parameters are those of the CDM model plus
+    ``g1``, ``g2``, ``beta0`` and ``beta1``; the CDM model itself is not modified.
+
+    Parameters
+    ----------
+    name : str
+        Name of a concentration-mass relation in :mod:`halomod.concentration`,
+        optionally with a ``"WDM"`` suffix (e.g. ``"Duffy08"`` or ``"Duffy08WDM"``).
+
+    Returns
+    -------
+    type
+        A subclass of the named CDM model, called ``name + "WDM"``. Repeated calls
+        with the same model return the same class.
+    """
+    return _make_wdm_rescaled_cm_relation(name.removesuffix("WDM"))
 
 
 # ===============================================================================
