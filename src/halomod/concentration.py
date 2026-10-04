@@ -70,7 +70,7 @@ from hmf.halos.mass_definitions import (
 )
 from scipy import special as sp
 from scipy.interpolate import interp1d
-from scipy.optimize import minimize
+from scipy.optimize import brentq
 
 from . import _references as refs
 from .profiles import NFW, Profile
@@ -145,34 +145,50 @@ class CMRelation(Component):
 
         super().__init__(**model_parameters)
 
-    def mass_nonlinear(self, z):
-        """
+    def mass_nonlinear(self, z: float) -> float:
+        r"""
         Return the nonlinear mass at z.
+
+        The nonlinear mass is the mass whose Lagrangian radius :math:`R` satisfies
+        :math:`\sigma(R) D(z) = \delta_c`. It is found with a bracketed root find
+        over the radii supported by the filter's k grid.
 
         Parameters
         ----------
         z : float
             Redshift. Must not be an array.
+
+        Returns
+        -------
+        float
+            The nonlinear mass, in :math:`M_\odot h^{-1}`.
+
+        Raises
+        ------
+        ValueError
+            If :math:`\sigma(R) D(z)` does not cross :math:`\delta_c` over the
+            radii supported by the k grid (e.g. at very high redshift, where every
+            scale is still linear).
         """
+        growth = self.growth.growth_factor(z)
 
-        def model(lnr):
-            return (
-                self.filter.sigma(np.exp(lnr)) * self.growth.growth_factor(z) - self.delta_c
-            ) ** 2
+        def lnsig_over_dc(lnr):
+            return np.log(growth * self.filter.sigma(np.exp(lnr))[0] / self.delta_c)
 
-        res = minimize(
-            model,
-            [
-                1.0,
-            ],
-        )
-
-        if res.success:
-            r = np.exp(res.x[0])
-            return self.filter.radius_to_mass(r, self.mean_density0)  # TODO *(1+z)**3 ????
-        else:
-            warnings.warn("Minimization failed :(", stacklevel=2)
-            return 0
+        # sigma(R) decreases monotonically with R. Bracket the root by the radii the
+        # k grid supports.
+        lo = -np.log(self.filter.k.max()) + 1e-8
+        hi = -np.log(self.filter.k.min()) - 1e-8
+        f_lo, f_hi = lnsig_over_dc(lo), lnsig_over_dc(hi)
+        if not (f_lo >= 0 >= f_hi):
+            raise ValueError(
+                f"Cannot find the nonlinear mass (sigma = delta_c) at z={z}: sigma ranges "
+                f"from {np.exp(f_lo) * self.delta_c:.4g} to {np.exp(f_hi) * self.delta_c:.4g} "
+                "over the radii supported by the k grid. Extend lnk_min/lnk_max, or "
+                "pass an explicit value for the nonlinear mass."
+            )
+        r = np.exp(brentq(lnsig_over_dc, lo, hi, xtol=1e-12, rtol=1e-12))
+        return float(self.filter.radius_to_mass(r, self.mean_density0))
 
     def cm(self, m, z=0):
         """
@@ -294,7 +310,7 @@ class Bullock01(CMRelation):
 
     def zc(self, m, z=0):
         r = self.filter.mass_to_radius(self.params["F"] * m, self.mean_density0)
-        nu = self.filter.nu(r, self.delta_c)
+        nu = self.filter.nu2(r, self.delta_c)
         # Build numerical inverse of growth_factor: z as a function of D(z).
         # z_max=50 avoids the radiation-dominated regime where hmf may switch
         # ODE solvers, causing a normalization inconsistency in growth_factor.

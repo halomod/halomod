@@ -122,10 +122,25 @@ def get_hash(z, params):
 datadir = Path(__file__).parent / "data/regression"
 
 
-def compress_data(data):
+def compress_data(data, step: int = 5):
+    """Thin an array by keeping every ``step``-th value along each axis.
+
+    Parameters
+    ----------
+    data : scalar or array_like
+        The quantity to compress. Scalars are returned unchanged.
+    step : int, optional
+        Keep every ``step``-th element (starting from the first) along each axis.
+
+    Returns
+    -------
+    scalar or ndarray
+        The compressed quantity.
+    """
     if not np.isscalar(data):
+        data = np.asarray(data)
         for i in range(data.ndim):
-            slc = np.arange(data.shape[i], data.shape[i] // 5)
+            slc = np.arange(0, data.shape[i], step)
             data = np.take(data, slc, axis=i)
     return data
 
@@ -166,8 +181,8 @@ if __name__ == "__main__":
             if data is None:
                 continue
 
-            # We minimize the data to make things a lot smaller (i.e. take every 20th
-            # value). We can't just initialize the hm like this because we might get
+            # We minimize the data to make things a lot smaller (i.e. take every 5th
+            # value along each axis). We can't just initialize the hm like this because we might get
             # resolution issues.
             data = compress_data(data)
 
@@ -182,5 +197,4 @@ if __name__ == "__main__":
 
         # Make a little readme in the directory
         with Path(param_dir / "params.yaml").open("w") as fl:
-            params.update(z=z)
-            yaml.dump(params, fl)
+            yaml.dump({**params, "z": z}, fl)

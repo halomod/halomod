@@ -20,19 +20,26 @@ transparently uses ``colossus`` the background to do the actual computation of t
 halo bias. This means it is easy to use any of the updated models
 from ``colossus`` in a native way.
 
-Most models are specified in terms of the peak-height parameter,
-though it is possible to specify them in terms of mass, and include
-cosmological parameters.
+Most models are specified in terms of the peak height, though it is possible
+to specify them in terms of mass, and include cosmological parameters.
 
 To define your own bias model, subclass either :class:`Bias` or any of the in-built
 models provided here. The only method required to be implemented is ``bias()``, which
 takes no parameters. It must return the local first-order bias as an array of the
-same shape as ``m`` (you also have access to the peak-height ``nu`` as an instance
-variable). See documentation for :class:`Bias` for more information on the instance
-variables available in the definition.
+same shape as ``m`` (you also have access to ``nu`` as an instance variable; note
+that ``nu`` is the *squared* peak height, ``(delta_c/sigma)^2``, not the peak height
+``delta_c/sigma`` itself). See documentation for :class:`Bias` for more information
+on the instance variables available in the definition.
 
 As with all ``Component`` subclasses, arbitrary user-specified variables can be received
 by defining them in the `_defaults` class-level dictionary.
+
+Some inputs are expensive to compute, or are undefined in some regimes (e.g. the
+nonlinear mass ``mstar`` does not exist at very high redshift). The halo model only
+computes and passes these to a bias model that lists them in its ``requires``
+class attribute. If your model uses ``mstar`` or ``n_eff``, declare it, e.g.
+``requires = ("mstar",)``. Otherwise these attributes are ``None`` when the model is
+used inside a halo model.
 
 The module also defines a :class:`ScaleDependentBias`, which corrects the bias function
 on different length scales.
@@ -91,7 +98,8 @@ class Bias(Component):
     Parameters
     ----------
     nu : array-like
-        Peak-height, ``delta^2_c/sigma^2``.
+        The *squared* peak height, ``delta_c^2/sigma^2`` (e.g. ``MassFunction.nu2``),
+        not the peak height ``delta_c/sigma``.
     delta_c : float, optional
         Critical over-density for collapse. Not all bias components require this
         parameter.
@@ -101,7 +109,8 @@ class Bias(Component):
     mstar : float, optional
         Nonlinear mass, defined by the relation ``sigma(mstar) = delta_c``, with
         ``sigma`` the mass variance in spheres corresponding to virial radii of halos
-        of mass ``mstar``.
+        of mass ``mstar``. Only computed by the halo model for models that list
+        ``"mstar"`` in :attr:`requires`.
     delta_halo : float, optional
         The over-density of halos with respect to the mean background matter density.
     n : float, optional
@@ -113,11 +122,20 @@ class Bias(Component):
         present day (normalizes the power spectrum).
     h : float, optional
         Hubble parameter in units of 100 km/s/Mpc.
+    n_eff : array-like, optional
+        Effective spectral index at the scale of each halo mass. Only computed by
+        the halo model for models that list ``"n_eff"`` in :attr:`requires`.
 
     """
 
     #: The HMF model that pairs with this bias in the peak-background split
     pair_hmf = ()
+
+    #: Optional inputs (out of ``"mstar"`` and ``"n_eff"``) that this model uses.
+    #: :class:`~halomod.halo_model.DMHaloModel` only computes and passes the ones
+    #: listed here, since they can be expensive or undefined (e.g. there is no
+    #: nonlinear mass at very high redshift).
+    requires: ClassVar[tuple[str, ...]] = ()
 
     _models = {}
     _defaults = {}
@@ -244,6 +262,7 @@ class Jing98(Bias):
     references: ClassVar[tuple[str, ...]] = (refs.JING98,)
 
     _defaults = {"a": 0.5, "b": 0.06, "c": 0.02}
+    requires = ("n_eff",)
 
     def bias(self):
         nu = self.nu
@@ -384,6 +403,7 @@ class Seljak04(Bias):
         "f": 5e-4,
         "g": 1.5,
     }
+    requires = ("mstar",)
 
     def bias(self):
         a = self.params["a"]
