@@ -19,9 +19,9 @@ from copy import copy
 
 import numpy as np
 import scipy.integrate as intg
+from colossus.cosmology.cosmology import fromAstropy
 from hmf import Cosmology, MassFunction, cached_quantity, parameter
 from hmf._internals import get_mdl
-from hmf.cosmology.cosmo import astropy_to_colossus
 from hmf.density_field import transfer_models as tm
 from hmf.density_field.filters import TopHat
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
@@ -461,9 +461,25 @@ class DMHaloModel(MassFunction):
         """
         An instance of a COLOSSUS cosmology, which can be used to perform various
         COLOSSUS operations.
+
+        It is built from :attr:`cosmo` with COLOSSUS's ``fromAstropy``, using
+        :attr:`sigma_8` and :attr:`n` for the power spectrum normalization and tilt,
+        and passing :attr:`colossus_params` through as extra COLOSSUS parameters.
+        As with any COLOSSUS cosmology created this way, it is also set as the
+        current global COLOSSUS cosmology.
+
+        Notes
+        -----
+        COLOSSUS does not model massive neutrinos. If :attr:`cosmo` has them (as
+        the default ``Planck18`` does), COLOSSUS emits a ``UserWarning`` and ignores
+        them.
         """
-        return astropy_to_colossus(
-            self.cosmo, sigma8=self.sigma_8, ns=self.n, **self.colossus_params
+        return fromAstropy(
+            astropy_cosmo=self.cosmo,
+            sigma8=self.sigma_8,
+            ns=self.n,
+            cosmo_name="custom",
+            **self.colossus_params,
         )
 
     @cached_quantity
