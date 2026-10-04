@@ -55,7 +55,7 @@ class HaloModelWDM(DMHaloModel, MassFunctionWDM):
     """
 
     def __init__(self, **kw):
-        kw.setdefault("halo_concentration_model", "Ludlow2016")
+        kw.setdefault("halo_concentration_model", "Ludlow16")
         super().__init__(**kw)
 
     @cached_quantity
@@ -133,7 +133,7 @@ class HaloModelWDM(DMHaloModel, MassFunctionWDM):
 
 class TracerHaloModelWDM(TracerHaloModel, HaloModelWDM):
     def __init__(self, **kw):
-        kw.setdefault("halo_concentration_model", "Ludlow2016")
+        kw.setdefault("halo_concentration_model", "Ludlow16")
         super().__init__(**kw)
 
 
