@@ -49,6 +49,24 @@ def test_lud16_scalarm():
     assert np.allclose(l16.cm(1e12), l16c.cm(1e12), rtol=0.2)
 
 
+@pytest.mark.parametrize("z", [1.0, 2.0, 4.0])
+def test_ludlow16_vs_colossus_high_z(z):
+    """Ludlow16 at z > 0 agrees with the independent COLOSSUS implementation.
+
+    With hmf 3.6.0, ``GrowthFactor.growth_factor`` was wrong for redshift arrays
+    reaching the radiation era, which pinned Ludlow16 at its c=100 bracket edge for
+    z >= 2 (#268).
+    """
+    m = np.logspace(10, 15, 20)
+    hm = TracerHaloModel(transfer_model="EH", halo_concentration_model="Ludlow16", z=z)
+    l16 = hm.halo_concentration
+    l16c = cm.make_colossus_cm(model="ludlow16")(filter0=l16.filter, cosmo=l16.cosmo, mdef=l16.mdef)
+
+    c = l16.cm(m, z=z)
+    assert np.all((c > 1.5) & (c < 15))
+    assert np.allclose(c, l16c.cm(m, z=z), rtol=0.06)
+
+
 @pytest.mark.filterwarnings("ignore:Requested mass definition")
 @pytest.mark.parametrize(
     "cmr",
