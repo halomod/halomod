@@ -20,8 +20,6 @@ from matplotlib import pyplot
 
 from halomod import DMHaloModel
 
-MassFunction.ERROR_ON_BAD_MDEF = False
-
 
 def read_power(fname: Path):
     """Read the power.dat file from HMcode."""
@@ -42,11 +40,26 @@ def hmcode_data(datadir):
 
 
 @pytest.fixture(scope="module")
-def hm():
+def _allow_unconverted_mdef():
+    """Let SMT be used in SOMean without mass conversion, for this module only.
+
+    HMcode uses the SMT mass function as-is in its own (SOMean) mass definition, so
+    the test does the same. Patching the class attribute at import time would leak
+    into every other test module, so it is scoped to the lifetime of this module.
+    """
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(MassFunction, "ERROR_ON_BAD_MDEF", False)
+        yield
+
+
+@pytest.fixture(scope="module")
+def hm(_allow_unconverted_mdef):
     with warnings.catch_warnings():
         warnings.filterwarnings(
             "ignore", category=UserWarning, message="Your input mass definition"
         )
+        # sigma(M) must be converged over the full mass range (see lnk_max below).
+        warnings.filterwarnings("error", category=UserWarning, message="The k-range")
         return DMHaloModel(
             exclusion_model=None,
             sd_bias_model=None,
@@ -65,8 +78,12 @@ def hm():
             n=0.96,  # Line 594
             Mmin=2,  # Line 795
             Mmax=18,  # Line 796,
-            lnk_min=np.log(1e-3),  # Line 50
-            lnk_max=np.log(1e2),  # Line 51
+            # HMcode outputs P(k) on 1e-3 < k < 1e2 (Lines 50-51), but it integrates
+            # sigma(M) over all k. With the TopHat filter, sigma at M = 1e2 Msun/h
+            # (R ~ 7e-4 Mpc/h) needs k up to ~1e4 h/Mpc; stopping at 1e2 makes it
+            # ~40% too low there (and still 0.4% low at 1e7 Msun/h).
+            lnk_min=np.log(1e-3),
+            lnk_max=np.log(1e4),
             dlnk=0.01,
             dlog10m=16 / 256,
             mdef_model="SOMean",

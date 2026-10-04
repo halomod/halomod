@@ -89,14 +89,15 @@ def test_monotonic_bias(bias_model, hmf: MassFunction):
 )
 def test_bias_against_colossus(hmf_bias, col_bias):
     # don't care that the mdef isn't compatible with the HMF, because we're not testing
-    # the HMF.
+    # the HMF: let hmf convert it rather than error on the mismatch.
     if col_bias in ["seljak04", "jing98"]:
         pytest.skip("Uses nonlinear mass which has to be investigated.")
 
     cbias = bias.make_colossus_bias(col_bias, mdef=SOMean())
 
-    hm = DMHaloModel(transfer_model="EH", mdef_model=SOMean, bias_model=hmf_bias)
-    col = DMHaloModel(transfer_model="EH", mdef_model=SOMean, bias_model=cbias)
+    kw = {"transfer_model": "EH", "mdef_model": SOMean, "disable_mass_conversion": False}
+    hm = DMHaloModel(bias_model=hmf_bias, **kw)
+    col = DMHaloModel(bias_model=cbias, **kw)
 
     assert np.allclose(hm.halo_bias, col.halo_bias, rtol=1e-2)
 
