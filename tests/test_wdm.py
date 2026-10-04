@@ -38,14 +38,18 @@ def test_cmz_wdm():
 
 @pytest.mark.filterwarnings("ignore:Your input mass definition")
 def test_ludlow_cmz_wdm():
-    # SOCritical(200) does not match the SMT HMF, but that's OK here, we don't care
-    # about the actual mass function.
+    """WDM Ludlow16 concentrations lie below the CDM ones below the half-mode mass."""
+    # SOCritical(200) is the definition Ludlow16 is calibrated in, but it does not
+    # match the SOVirial definition SMT was measured in. We don't care about the
+    # mass function here (the c(M) relation does not depend on it), so let hmf
+    # convert it rather than error on the mismatch.
     wdm = HaloModelWDM(
         hmf_model="SMT",
         z=0,
         hmf_params={"a": 1},
         filter_model="TopHat",
         mdef_model="SOCritical",
+        disable_mass_conversion=False,
         halo_concentration_model="Ludlow16",
         halo_profile_model="Einasto",
         wdm_mass=3.3,
@@ -61,6 +65,7 @@ def test_ludlow_cmz_wdm():
         halo_profile_model="Einasto",
         Mmin=7.0,
         mdef_model="SOCritical",
+        disable_mass_conversion=False,
         transfer_model="EH",
     )
 
