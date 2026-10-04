@@ -196,6 +196,75 @@ def test_large_scale_bias(dmhm):
         assert np.isclose(dm2.power_2h_auto_matter[0], dm2.linear_power_fnc(dm2.k_hm[0]), rtol=1e-4)
 
 
+def test_force_unity_dm_bias_is_parameter():
+    """force_unity_dm_bias must be a declared parameter (so update/clone/CLI accept it)."""
+    assert "force_unity_dm_bias" in DMHaloModel.get_all_parameter_names()
+    assert "force_unity_dm_bias" in TracerHaloModel.get_all_parameter_names()
+
+
+@pytest.mark.filterwarnings("ignore:You are using an un-normalized mass function")
+def test_force_unity_dm_bias_update_invalidates_2h():
+    """Updating force_unity_dm_bias must recompute the cached 2-halo matter power.
+
+    Regression test for halomod/halomod#264: previously the update left the cached
+    2-halo terms stale (hmf <= 3.6) or raised (hmf >= 3.7).
+    """
+    kw = {"transfer_model": "EH"}
+    hm = DMHaloModel(force_unity_dm_bias=True, **kw)
+    p_true = hm.power_2h_auto_matter.copy()
+
+    hm.update(force_unity_dm_bias=False)
+    assert hm.force_unity_dm_bias is False
+    p_updated = hm.power_2h_auto_matter
+
+    p_fresh = DMHaloModel(force_unity_dm_bias=False, **kw).power_2h_auto_matter
+    np.testing.assert_allclose(p_updated, p_fresh, rtol=1e-10)
+
+    # The naive effective bias is not unity on the default model, so the results
+    # must actually differ (by much more than numerical noise).
+    assert not np.allclose(p_updated, p_true, rtol=1e-3)
+
+
+@pytest.mark.filterwarnings("ignore:You are using an un-normalized mass function")
+def test_force_unity_dm_bias_clone():
+    """clone(force_unity_dm_bias=...) works and matches a fresh instance."""
+    kw = {"transfer_model": "EH"}
+    hm = DMHaloModel(force_unity_dm_bias=True, **kw)
+    clone = hm.clone(force_unity_dm_bias=False)
+
+    assert hm.force_unity_dm_bias is True
+    assert clone.force_unity_dm_bias is False
+    np.testing.assert_allclose(
+        clone.power_2h_auto_matter,
+        DMHaloModel(force_unity_dm_bias=False, **kw).power_2h_auto_matter,
+        rtol=1e-10,
+    )
+
+
+@pytest.mark.filterwarnings("ignore:You are using an un-normalized mass function")
+def test_force_unity_dm_bias_update_recovers_linear_power():
+    """Switching force_unity_dm_bias on via update() recovers linear power at large scales.
+
+    With unit matter bias, no exclusion and a linear halo-centre spectrum, the 2-halo
+    matter power on the largest scales (where u(k|m) -> 1) must equal linear power.
+    """
+    hm = DMHaloModel(
+        transfer_model="EH",
+        hc_spectrum="linear",
+        exclusion_model="NoExclusion",
+        bias_model="Tinker10PBSplit",
+        hmf_model="Tinker10",
+        force_unity_dm_bias=False,
+    )
+    k0 = hm.k_hm[0]
+    # Without the renormalization, the finite-mass-range integral falls short of unity.
+    assert not np.isclose(hm.power_2h_auto_matter[0], hm.linear_power_fnc(k0), rtol=1e-2)
+
+    hm.update(force_unity_dm_bias=True)
+    assert hm.bias_effective_matter == 1.0
+    assert np.isclose(hm.power_2h_auto_matter[0], hm.linear_power_fnc(k0), rtol=1e-4)
+
+
 def test_passing_r_array(dmhm):
     rr = dmhm.r.copy()
     dmhm2 = dmhm.clone(rmin=rr)

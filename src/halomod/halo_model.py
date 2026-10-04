@@ -309,6 +309,30 @@ class DMHaloModel(MassFunction):
         """Suppress 1-halo power on scales larger than a few virial radii."""
         return bool(val)
 
+    @parameter("switch")
+    def force_unity_dm_bias(self, val: bool) -> bool:
+        """Whether to force the large-scale effective bias of matter to unity.
+
+        If all dark matter is in halos, the matter should not be biased against
+        itself on the largest scales, i.e. its effective bias should be unity.
+        The numerical integral over the halo mass function and bias does not
+        reach unity exactly (it is over a finite mass range, and the HMF/bias pair
+        may not be normalized), so if this is True, :attr:`bias_effective_matter`
+        is set to unity and the 2-halo matter terms are renormalized accordingly.
+        If False, the naive integral is used without any renormalization.
+
+        Parameters
+        ----------
+        val : bool
+            The value of the switch.
+
+        Returns
+        -------
+        bool
+            The value coerced to a ``bool``.
+        """
+        return bool(val)
+
     @parameter("model")
     def exclusion_model(self, val):
         """A string identifier for the type of halo exclusion used (or None)."""
