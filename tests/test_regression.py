@@ -44,6 +44,12 @@ _expected_warnings = [
 ]
 
 
+# Absolute tolerances for quantities whose tails are numerical noise around zero. The
+# normalised profile u(k|m) is 1 at k -> 0 and rings at ~1e-10 at high k, where a purely
+# relative comparison fails across platforms.
+_atol = {"halo_profile_ukm": 1e-8}
+
+
 def _ignore_expected_warnings(func):
     for mark in _expected_warnings:
         func = mark(func)
@@ -68,7 +74,7 @@ def test_regression_quantity_tracerhm(tr, z, params, quantity):
     this = compress_data(this)
     data = np.load(param_dir / (quantity + ".npy"))
     assert data.shape == np.shape(this)
-    assert np.allclose(data, this, rtol=1e-3, atol=0)
+    assert np.allclose(data, this, rtol=1e-3, atol=_atol.get(quantity, 0))
 
 
 def test_compress_data_keeps_every_fifth_value():
