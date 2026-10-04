@@ -1,7 +1,9 @@
 """Integration-style tests of the full HaloModel class."""
 
+import sys
 import warnings
 
+import hmf
 import numpy as np
 import pytest
 from hmf.density_field.filters import Filter
@@ -365,3 +367,212 @@ def test_pickle_after_computation(thm):
     # Verify that the unpickled model produces the same results
     assert np.allclose(thm.corr_auto_tracer, thm2.corr_auto_tracer)
     assert np.allclose(thm.corr_auto_matter, thm2.corr_auto_matter)
+
+
+# ---------------------------------------------------------------------------
+# Main outputs are cached quantities (issue #267)
+# ---------------------------------------------------------------------------
+DM_OUTPUTS = [
+    "power_auto_matter",
+    "power_1h_auto_matter",
+    "power_2h_auto_matter",
+    "corr_auto_matter",
+    "corr_1h_auto_matter",
+    "corr_2h_auto_matter",
+]
+
+TRACER_OUTPUTS = [
+    "power_auto_tracer",
+    "power_1h_auto_tracer",
+    "power_1h_ss_auto_tracer",
+    "power_1h_cs_auto_tracer",
+    "power_2h_auto_tracer",
+    "corr_auto_tracer",
+    "corr_1h_auto_tracer",
+    "corr_1h_ss_auto_tracer",
+    "corr_1h_cs_auto_tracer",
+    "corr_2h_auto_tracer",
+    "power_auto_tracer_fnc",
+    "corr_auto_tracer_fnc",
+    "power_cross_tracer_matter",
+    "power_1h_cross_tracer_matter",
+    "power_2h_cross_tracer_matter",
+    "corr_cross_tracer_matter",
+    "corr_1h_cross_tracer_matter",
+    "corr_2h_cross_tracer_matter",
+    "tracer_mmin",
+]
+
+# A small, fast model setup shared by the caching tests below.
+FAST_KW = {
+    "transfer_model": "EH",
+    "hm_logk_min": -2,
+    "hm_logk_max": 1,
+    "hm_dlog10k": 0.05,
+    "rnum": 100,
+}
+
+
+# hmf<3.7 instantiates the class (with its CAMB default) to list its quantities.
+@pytest.mark.filterwarnings("ignore:'extrapolate_with_eh' was not set")
+@pytest.mark.parametrize(
+    ("model", "names"),
+    [(DMHaloModel, DM_OUTPUTS), (TracerHaloModel, DM_OUTPUTS + TRACER_OUTPUTS)],
+)
+def test_main_outputs_in_quantities_available(model, names):
+    """The documented outputs must be discoverable via quantities_available()."""
+    available = set(model.quantities_available())
+    missing = [name for name in names if name not in available]
+    assert not missing
+
+
+@pytest.mark.filterwarnings("ignore:You are using an un-normalized mass function")
+@pytest.mark.parametrize(
+    "update",
+    [{"z": 1.0}, {"hod_params": {"M_min": 12.5}}],
+    ids=["z", "M_min"],
+)
+def test_cached_outputs_invalidate_on_update(update):
+    """Cached outputs recomputed after update() must equal those of a fresh model."""
+    names = ["power_auto_tracer", "corr_auto_tracer", "power_auto_matter"]
+
+    hm = TracerHaloModel(**FAST_KW)
+    before = {name: getattr(hm, name).copy() for name in names}
+
+    hm.update(**update)
+    fresh = TracerHaloModel(**FAST_KW, **update)
+
+    for name in names:
+        updated = getattr(hm, name)
+        np.testing.assert_allclose(updated, getattr(fresh, name), rtol=1e-10, atol=0)
+
+        # The update must actually have changed the output (so that the comparison above
+        # is a real test of invalidation), except that the matter power spectrum does
+        # not depend on the HOD.
+        if name == "power_auto_matter" and "hod_params" in update:
+            np.testing.assert_allclose(updated, before[name], rtol=1e-12, atol=0)
+        else:
+            assert not np.allclose(updated, before[name], rtol=1e-6, atol=0)
+
+
+@pytest.mark.filterwarnings("ignore:You are using an un-normalized mass function")
+def test_successive_updates_match_fresh():
+    """Chained updates (z, then HOD) still give the same outputs as a fresh model."""
+    names = ["power_auto_tracer", "corr_auto_tracer", "power_auto_matter"]
+
+    hm = TracerHaloModel(**FAST_KW)
+    for name in names:
+        getattr(hm, name)
+
+    hm.update(z=1.0)
+    for name in names:
+        getattr(hm, name)
+    hm.update(hod_params={"M_min": 12.5})
+
+    fresh = TracerHaloModel(**FAST_KW, z=1.0, hod_params={"M_min": 12.5})
+    for name in names:
+        np.testing.assert_allclose(getattr(hm, name), getattr(fresh, name), rtol=1e-10, atol=0)
+
+
+@pytest.mark.filterwarnings("ignore:You are using an un-normalized mass function")
+def test_tracer_mmin_follows_hod():
+    """tracer_mmin is 10**M_min for a sharp-cut central HOD, and tracks updates to it."""
+    # Tinker05 has a sharp cut at M_min and inherently enforces the central condition.
+    hm = TracerHaloModel(**FAST_KW, hod_model="Tinker05", hod_params={"M_min": 12.0})
+    np.testing.assert_allclose(hm.tracer_mmin, 1e12, rtol=1e-12)
+
+    hm.update(hod_params={"M_min": 12.5})
+    np.testing.assert_allclose(hm.tracer_mmin, 10**12.5, rtol=1e-12)
+
+    # Zheng05 has a smooth central occupation, so no lower mass limit is imposed.
+    hm.update(hod_model="Zheng05")
+    assert hm.tracer_mmin is None
+
+
+@pytest.mark.filterwarnings("ignore:You are using an un-normalized mass function")
+@pytest.mark.parametrize(
+    ("name", "fnc", "grid"),
+    [
+        ("power_auto_matter", "power_auto_matter_fnc", "k_hm"),
+        ("corr_auto_matter", "corr_auto_matter_fnc", "r"),
+        ("power_auto_tracer", "power_auto_tracer_fnc", "k_hm"),
+        ("corr_auto_tracer", "corr_auto_tracer_fnc", "r"),
+        ("power_cross_tracer_matter", "power_cross_tracer_matter_fnc", "k_hm"),
+        ("corr_cross_tracer_matter", "corr_cross_tracer_matter_fnc", "r"),
+    ],
+)
+def test_cached_output_is_fnc_on_grid(name, fnc, grid):
+    """Each array output equals its callable evaluated on the model's grid."""
+    hm = TracerHaloModel(**FAST_KW)
+    x = getattr(hm, grid)
+    np.testing.assert_allclose(getattr(hm, name), getattr(hm, fnc)(x), rtol=1e-12, atol=0)
+
+
+# Values computed with ``TracerHaloModel(**FAST_KW)`` on the commit preceding the
+# conversion of these outputs to cached quantities, at indices ``REF_INDICES``. They
+# depend on the hmf version, so are keyed by it.
+REF_INDICES = [0, 20, 40, 60, 80]
+REF_VALUES = {
+    "3.6.0": {
+        "power_auto_tracer": [23644.241167825094, 6180.715296805746, 283.45796741827473],
+        "corr_auto_tracer": [
+            58918.16127459432,
+            2128.3029892436443,
+            76.72178329069574,
+            2.1420495164642377,
+            0.10570816666995948,
+        ],
+        "power_auto_matter": [21729.240353958383, 5680.827166313392, 348.83757677778567],
+        "corr_auto_matter": [
+            3537.9161172834647,
+            1033.0622525949736,
+            101.03829706583996,
+            2.0126554452660015,
+            0.09715792840164839,
+        ],
+        "power_cross_tracer_matter": [
+            19600.535934509215,
+            5363.280278626038,
+            310.79591275404334,
+        ],
+    },
+    "3.7.1": {
+        "power_auto_tracer": [23648.651803224664, 6181.837493342404, 283.26176497701977],
+        "corr_auto_tracer": [
+            58920.35858834676,
+            2128.026396860861,
+            76.67483469824671,
+            2.142131134471782,
+            0.10572785771509996,
+        ],
+        "power_auto_matter": [21729.2405230342, 5680.792435144981, 348.55014976171657],
+        "corr_auto_matter": [
+            3537.510012977628,
+            1032.7149839436397,
+            100.97006738318066,
+            2.0122798527980956,
+            0.09715789709544165,
+        ],
+        "power_cross_tracer_matter": [
+            19601.657173717285,
+            5363.293131430889,
+            310.55510401207016,
+        ],
+    },
+}
+# Bit-level agreement is only expected on the platform the references were made on.
+REF_RTOL = 1e-12 if sys.platform.startswith("linux") else 1e-6
+
+
+@pytest.mark.filterwarnings("ignore:You are using an un-normalized mass function")
+@pytest.mark.skipif(
+    hmf.__version__ not in REF_VALUES,
+    reason=f"No reference values for hmf {hmf.__version__}",
+)
+def test_cached_outputs_unchanged():
+    """Converting outputs to cached quantities must not change their values."""
+    hm = TracerHaloModel(**FAST_KW)
+    for name, ref in REF_VALUES[hmf.__version__].items():
+        value = getattr(hm, name)
+        idx = [i for i in REF_INDICES if i < len(value)]
+        np.testing.assert_allclose(value[idx], ref, rtol=REF_RTOL, atol=0, err_msg=name)
