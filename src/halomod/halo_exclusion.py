@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import warnings
 from functools import cached_property
+from typing import ClassVar
 
 import numpy as np
 from hmf import Component
 from hmf._internals import pluggable
 from scipy import integrate as intg
 from scipy.interpolate import InterpolatedUnivariateSpline as _IUS
+
+from . import _references as refs
 
 try:
     from numba import jit
@@ -479,6 +482,8 @@ class DblEllipsoid(DblSphere):
     .. [1]  Tinker, J. et al., " On the Mass-to-Light Ratio of Large-Scale Structure",
             https://ui.adsabs.harvard.edu/abs/2005ApJ...631...41T.
     """
+
+    references: ClassVar[tuple[str, ...]] = (refs.TINKER05,)
 
     @cached_property
     def mask(self):

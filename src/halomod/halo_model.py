@@ -27,7 +27,7 @@ from scipy.interpolate import InterpolatedUnivariateSpline as spline
 from scipy.optimize import minimize
 
 # import hmf.tools as ht
-from . import tools
+from . import _references, tools
 from .concentration import CMRelation
 from .halo_exclusion import Exclusion, NoExclusion
 
@@ -173,6 +173,45 @@ class DMHaloModel(MassFunction):
         self.force_1halo_turnover = force_1halo_turnover
         self.force_unity_dm_bias = force_unity_dm_bias
         self.colossus_params = colossus_params or {}
+
+    def get_acknowledgments(self, flat: bool = False) -> dict[str, tuple[str, ...]] | list[str]:
+        """Get the references to cite for the current setup of the halo model.
+
+        This extends hmf's ``Framework.get_acknowledgments`` (available from hmf 3.7)
+        with an entry ``"halomod"`` (the paper describing halomod), placed right after
+        the ``"hmf"`` entry. The other entries hold the references of the model set on
+        each ``*_model`` parameter, e.g. ``"bias_model"``.
+
+        Parameters
+        ----------
+        flat
+            If True, return a single list of all the references with duplicates
+            removed (keeping the first occurrence), e.g. for a paper's bibliography.
+
+        Returns
+        -------
+        dict or list
+            A dict mapping each source to a tuple of formatted citations, or a flat
+            list of citations if ``flat`` is True.
+
+        Raises
+        ------
+        NotImplementedError
+            If the installed hmf is older than 3.7.
+
+        Examples
+        --------
+        >>> from halomod import TracerHaloModel
+        >>> hm = TracerHaloModel(hod_model="Zheng05")
+        >>> by_model = hm.get_acknowledgments()
+        >>> by_model["hod_model"]  # the references of Zheng05
+        >>> bibliography = hm.get_acknowledgments(flat=True)
+        """
+        try:
+            parent = super().get_acknowledgments
+        except AttributeError:
+            raise NotImplementedError("get_acknowledgments requires hmf>=3.7") from None
+        return _references.get_acknowledgments(parent, flat)
 
     # ===============================================================================
     # Parameters

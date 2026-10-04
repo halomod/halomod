@@ -49,6 +49,7 @@ from __future__ import annotations
 
 import warnings
 from pathlib import Path
+from typing import ClassVar
 
 import hankel
 import mpmath
@@ -63,6 +64,8 @@ from scipy.integrate import quad
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 from scipy.interpolate import RectBivariateSpline
 from scipy.special import gamma, gammainc, sici
+
+from . import _references as refs
 
 SO_MEAN = SOMean()
 
@@ -675,6 +678,8 @@ class NFW(Profile):
            https://ui.adsabs.harvard.edu/abs/1997ApJ...490..493N.
     """
 
+    references: ClassVar[tuple[str, ...]] = (refs.NFW96, refs.NFW97)
+
     def _f(self, x):
         return 1.0 / (x * (1 + x) ** 2)
 
@@ -758,6 +763,8 @@ class Hernquist(Profile):
         https://ui.adsabs.harvard.edu/abs/1990ApJ...356..359H.
     """
 
+    references: ClassVar[tuple[str, ...]] = (refs.HERNQUIST90,)
+
     def _f(self, x):
         return 1.0 / (x * (1 + x) ** 3)
 
@@ -811,6 +818,8 @@ class Moore(Profile):
     .. [2] Moore, B. et al., "Cold collapse and the core catastrophe ",
            https://ui.adsabs.harvard.edu/abs/1999MNRAS.310.1147M.
     """
+
+    references: ClassVar[tuple[str, ...]] = (refs.MOORE98, refs.MOORE99)
 
     def _f(self, x):
         return 1.0 / (x**1.5 * (1 + x**1.5))
@@ -907,6 +916,8 @@ class GeneralizedNFW(Profile):
            https://ui.adsabs.harvard.edu/abs/1996MNRAS.278..488Z.
     """
 
+    references: ClassVar[tuple[str, ...]] = (refs.ZHAO96,)
+
     _defaults = Profile._defaults | {"alpha": 1}
 
     def _f(self, x):
@@ -987,6 +998,8 @@ class Einasto(Profile):
            Trudy Inst. Astrofiz. Alma-Ata 5, 87.
     """
 
+    references: ClassVar[tuple[str, ...]] = (refs.EINASTO65,)
+
     _defaults = Profile._defaults | {"alpha": 0.18, "use_interp": True}
 
     def __init__(self, *args, **kwargs):
@@ -1053,6 +1066,8 @@ class CoredNFW(Profile):
         https://ui.adsabs.harvard.edu/abs/2004MNRAS.355..694M.
     """
 
+    references: ClassVar[tuple[str, ...]] = (refs.MALLER04,)
+
     def _f(self, x):
         return 1.0 / (x + 0.75) / (x + 1) ** 2
 
@@ -1099,6 +1114,8 @@ class PowerLawWithExpCut(ProfileInf):
            "The atomic hydrogen content of the post-reionization Universe",
            https://ui.adsabs.harvard.edu/abs/2020MNRAS.493.5434S/abstract.
     """
+
+    references: ClassVar[tuple[str, ...]] = (refs.SPINELLI20,)
 
     _defaults = ProfileInf._defaults | {"a": 0.049, "b": 2.248}
 

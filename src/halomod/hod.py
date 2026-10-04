@@ -56,6 +56,7 @@ satellite/central decomposition. So here are the assumptions:
 from __future__ import annotations
 
 from abc import ABCMeta, abstractmethod
+from typing import ClassVar
 
 import astropy.constants as astroconst
 import numpy as np
@@ -67,6 +68,7 @@ from hmf._internals import pluggable
 from hmf.halos.mass_definitions import MassDefinition, SOMean
 from scipy.interpolate import interp1d
 
+from . import _references as refs
 from .concentration import CMRelation
 from .profiles import Profile
 
@@ -287,6 +289,8 @@ class Zehavi05(HODPoisson):
 
     """
 
+    references: ClassVar[tuple[str, ...]] = (refs.ZEHAVI05,)
+
     _defaults = {"M_min": 11.6222, "M_1": 12.851, "alpha": 1.049}
     sharp_cut = True
 
@@ -326,6 +330,8 @@ class Zheng05(HODPoisson):
            https://ui.adsabs.harvard.edu/abs/2005ApJ...633..791Z.
 
     """
+
+    references: ClassVar[tuple[str, ...]] = (refs.ZHENG05,)
 
     _defaults = {
         "M_min": 11.6222,
@@ -387,6 +393,8 @@ class Contreras13(HODPoisson):
 
     """
 
+    references: ClassVar[tuple[str, ...]] = (refs.CONTRERAS13,)
+
     _defaults = {
         "M_min": 11.6222,
         "M_1": 12.851,
@@ -436,6 +444,8 @@ class Geach12(Contreras13):
 
     """
 
+    references: ClassVar[tuple[str, ...]] = (refs.GEACH12,)
+
 
 class Tinker05(Zehavi05):
     """
@@ -447,6 +457,8 @@ class Tinker05(Zehavi05):
            https://ui.adsabs.harvard.edu/abs/2005ApJ...631...41T.
 
     """
+
+    references: ClassVar[tuple[str, ...]] = (refs.TINKER05,)
 
     _defaults = {"M_min": 11.6222, "M_1": 12.851, "M_cut": 12.0}
     central_condition_inherent = True
@@ -581,6 +593,8 @@ class Spinelli19(HODPoisson):
            "The atomic hydrogen content of the post-reionization Universe",
            https://ui.adsabs.harvard.edu/abs/2020MNRAS.493.5434S/abstract.
     """
+
+    references: ClassVar[tuple[str, ...]] = (refs.SPINELLI20,)
 
     _defaults = {
         "a1": 0.0016,  # gives HI mass amplitude of the power law
@@ -748,6 +762,12 @@ class Leauthaud11(HODPoisson):
     bcut : float, default = 1.47
         Normalization of the scaling of Mcut. <Nsat>
     """
+
+    references: ClassVar[tuple[str, ...]] = (
+        refs.LEAUTHAUD11_FRAMEWORK,
+        refs.LEAUTHAUD11_COSMOS,
+        refs.BEHROOZI10,
+    )
 
     _defaults = {
         "redshift": 0.0,
