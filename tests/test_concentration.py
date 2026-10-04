@@ -93,3 +93,22 @@ def test_decreasing_cm(cmr):
         halo_concentration_model=cm.interp_concentration(cmr), transfer_model="EH"
     )
     assert np.all(np.diff(hm_interp.halo_concentration.cm(m, z=0)) <= 0)
+
+
+@pytest.mark.filterwarnings("ignore:Requested mass definition")
+@pytest.mark.parametrize("z", [0.0, 2.0, 6.0, 10.0])
+def test_cm_mass_nonlinear_matches_hmf(z):
+    """CMRelation.mass_nonlinear agrees with hmf's independent root find (#265).
+
+    At z=10 the old ``minimize``-based search silently returned ~6e-16.
+    """
+    hm = TracerHaloModel(z=z, transfer_model="EH", halo_concentration_model="Bullock01Power")
+    assert hm.halo_concentration.mass_nonlinear(z) == pytest.approx(hm.mass_nonlinear, rel=1e-3)
+
+
+@pytest.mark.filterwarnings("ignore:Requested mass definition")
+def test_cm_mass_nonlinear_raises_when_undefined():
+    """At z=15, sigma(R) D(z) < delta_c on all scales, so there is no nonlinear mass."""
+    hm = TracerHaloModel(z=15, transfer_model="EH", halo_concentration_model="Bullock01Power")
+    with pytest.raises(ValueError, match="Cannot find the nonlinear mass"):
+        hm.halo_concentration.mass_nonlinear(15.0)

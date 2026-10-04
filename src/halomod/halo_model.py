@@ -393,16 +393,19 @@ class DMHaloModel(MassFunction):
     @cached_quantity
     def bias(self):
         """The halo bias as a function of halo mass."""
+        # Only compute the optional inputs the model uses: mass_nonlinear is undefined
+        # at high redshift, and would otherwise raise for every bias model.
+        requires = getattr(self.bias_model, "requires", ())
         return self.bias_model(
             nu=self.nu2,
             delta_c=self.delta_c,
             m=self.m,
-            mstar=self.mass_nonlinear,
+            mstar=self.mass_nonlinear if "mstar" in requires else None,
             delta_halo=self.halo_overdensity_mean,
             n=self.n,
             cosmo=self.cosmo,
             sigma_8=self.sigma_8,
-            n_eff=self.n_eff,
+            n_eff=self.n_eff if "n_eff" in requires else None,
             **self.bias_params,
         )
 

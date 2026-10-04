@@ -34,6 +34,13 @@ on the instance variables available in the definition.
 As with all ``Component`` subclasses, arbitrary user-specified variables can be received
 by defining them in the `_defaults` class-level dictionary.
 
+Some inputs are expensive to compute, or are undefined in some regimes (e.g. the
+nonlinear mass ``mstar`` does not exist at very high redshift). The halo model only
+computes and passes these to a bias model that lists them in its ``requires``
+class attribute. If your model uses ``mstar`` or ``n_eff``, declare it, e.g.
+``requires = ("mstar",)``. Otherwise these attributes are ``None`` when the model is
+used inside a halo model.
+
 The module also defines a :class:`ScaleDependentBias`, which corrects the bias function
 on different length scales.
 
@@ -60,6 +67,8 @@ Constructing and using a colossus-based halo bias::
 """
 
 from __future__ import annotations
+
+from typing import ClassVar
 
 import numpy as np
 from astropy.cosmology import FLRW, Planck15
@@ -98,7 +107,8 @@ class Bias(Component):
     mstar : float, optional
         Nonlinear mass, defined by the relation ``sigma(mstar) = delta_c``, with
         ``sigma`` the mass variance in spheres corresponding to virial radii of halos
-        of mass ``mstar``.
+        of mass ``mstar``. Only computed by the halo model for models that list
+        ``"mstar"`` in :attr:`requires`.
     delta_halo : float, optional
         The over-density of halos with respect to the mean background matter density.
     n : float, optional
@@ -110,11 +120,20 @@ class Bias(Component):
         present day (normalizes the power spectrum).
     h : float, optional
         Hubble parameter in units of 100 km/s/Mpc.
+    n_eff : array-like, optional
+        Effective spectral index at the scale of each halo mass. Only computed by
+        the halo model for models that list ``"n_eff"`` in :attr:`requires`.
 
     """
 
     #: The HMF model that pairs with this bias in the peak-background split
     pair_hmf = ()
+
+    #: Optional inputs (out of ``"mstar"`` and ``"n_eff"``) that this model uses.
+    #: :class:`~halomod.halo_model.DMHaloModel` only computes and passes the ones
+    #: listed here, since they can be expensive or undefined (e.g. there is no
+    #: nonlinear mass at very high redshift).
+    requires: ClassVar[tuple[str, ...]] = ()
 
     _models = {}
     _defaults = {}
@@ -237,6 +256,7 @@ class Jing98(Bias):
     """
 
     _defaults = {"a": 0.5, "b": 0.06, "c": 0.02}
+    requires = ("n_eff",)
 
     def bias(self):
         nu = self.nu
@@ -371,6 +391,7 @@ class Seljak04(Bias):
         "f": 5e-4,
         "g": 1.5,
     }
+    requires = ("mstar",)
 
     def bias(self):
         a = self.params["a"]
