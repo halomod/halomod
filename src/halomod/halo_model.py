@@ -22,6 +22,7 @@ import scipy.integrate as intg
 from hmf import Cosmology, MassFunction, cached_quantity, parameter
 from hmf._internals import get_mdl
 from hmf.cosmology.cosmo import astropy_to_colossus
+from hmf.density_field import transfer_models as tm
 from hmf.density_field.filters import TopHat
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 from scipy.optimize import minimize
@@ -31,9 +32,21 @@ from . import tools
 from .concentration import CMRelation
 from .halo_exclusion import Exclusion, NoExclusion
 
+#: The matter field that halomod asks Boltzmann-code transfer models (CAMB, CLASS) for
+#: when ``transfer_params`` doesn't set ``matter_species``: CDM + baryons, excluding
+#: massive neutrinos. See :attr:`DMHaloModel.transfer`.
+DEFAULT_MATTER_SPECIES = "cb"
+
+#: Transfer models whose ``matter_species`` halomod sets to
+#: :data:`DEFAULT_MATTER_SPECIES` if the user doesn't. ``FromFile``/``FromArray`` are
+#: not included, since a user's table need not have a CDM+baryon column.
+_BOLTZMANN_TRANSFER_MODELS = tuple(
+    getattr(tm, name) for name in ("CAMB", "CLASS") if hasattr(tm, name)
+)
+
 
 class DMHaloModel(MassFunction):
-    """
+    r"""
     Dark-matter-only halo model class.
 
     This Framework is subclassed from hmf's ``MassFunction`` class, and operates in a
@@ -41,6 +54,29 @@ class DMHaloModel(MassFunction):
 
     **kwargs: anything that can be used in the MassFunction class
 
+    Notes
+    -----
+    **Massive neutrinos.** With a Boltzmann-code transfer model (``CAMB``, the
+    default, or ``CLASS``), halomod computes the linear power spectrum of the
+    CDM+baryon field, :math:`\delta_{\rm cb}`, unless ``transfer_params`` sets
+    ``matter_species`` explicitly (see :attr:`transfer`). This is the field in which
+    the halo mass function and halo bias are universal (Costanzi et al. 2013;
+    Castorina et al. 2014), and it matches :attr:`mean_density0`, which excludes
+    neutrinos. :attr:`sigma_8` still normalises the *total* matter field (hmf's
+    ``sigma_8_species="tot"``), as Planck quotes it.
+
+    As a consequence, the "matter" statistics -- :attr:`power`, :attr:`corr_linear_mm`,
+    :attr:`power_auto_matter`, :attr:`corr_auto_matter` and the tracer--matter cross
+    spectra of :class:`TracerHaloModel` -- describe the CDM+baryon field, not total
+    matter. For the default Planck18 cosmology (one 0.06 eV neutrino), the CDM+baryon
+    linear power is larger than the total-matter one by 0.3% at
+    :math:`k = 0.01\,h/{\rm Mpc}`, rising to 0.9% at :math:`k \gtrsim 1\,h/{\rm Mpc}`
+    (where it tends to :math:`(1 - f_\nu)^{-2}`, with :math:`f_\nu` the neutrino
+    fraction of the matter density). For total-matter spectra (e.g. for lensing),
+    pass ``transfer_params={"matter_species": "tot"}``, which also reproduces the results of
+    hmf < 3.7; the mass function and bias then use the total field too. With
+    massless neutrinos, or a transfer model without a ``matter_species`` parameter
+    (e.g. ``EH``, ``BBKS``), the two fields are the same and this has no effect.
     """
 
     def __init__(
@@ -136,7 +172,11 @@ class DMHaloModel(MassFunction):
 
         Other Parameters
         ----------------
-        All other parameters are passed to :class:`~MassFunction`.
+        All other parameters are passed to :class:`~MassFunction`. Note that for the
+        ``CAMB`` and ``CLASS`` transfer models, ``transfer_params["matter_species"]``
+        defaults to ``"cb"`` (CDM + baryons) in halomod; pass
+        ``transfer_params={"matter_species": "tot"}`` for total matter. See
+        :attr:`transfer`.
         """
         # bias_model must be set before hmf_model, which may be paired with it.
         self.bias_model, self.bias_params = bias_model, bias_params or {}
@@ -390,6 +430,30 @@ class DMHaloModel(MassFunction):
         """Suppress 1-halo power on scales larger than a few virial radii."""
         return bool(val)
 
+    @parameter("switch")
+    def force_unity_dm_bias(self, val: bool) -> bool:
+        """Whether to force the large-scale effective bias of matter to unity.
+
+        If all dark matter is in halos, the matter should not be biased against
+        itself on the largest scales, i.e. its effective bias should be unity.
+        The numerical integral over the halo mass function and bias does not
+        reach unity exactly (it is over a finite mass range, and the HMF/bias pair
+        may not be normalized), so if this is True, :attr:`bias_effective_matter`
+        is set to unity and the 2-halo matter terms are renormalized accordingly.
+        If False, the naive integral is used without any renormalization.
+
+        Parameters
+        ----------
+        val : bool
+            The value of the switch.
+
+        Returns
+        -------
+        bool
+            The value coerced to a ``bool``.
+        """
+        return bool(val)
+
     @parameter("model")
     def exclusion_model(self, val):
         """A string identifier for the type of halo exclusion used (or None)."""
@@ -414,6 +478,30 @@ class DMHaloModel(MassFunction):
     # ===========================================================================
     # Basic Quantities
     # ===========================================================================
+    @cached_quantity
+    def transfer(self):
+        """The instantiated transfer model.
+
+        This is hmf's ``Transfer.transfer``, except that for the Boltzmann-code models
+        ``CAMB`` and ``CLASS``, ``matter_species`` defaults to
+        :data:`DEFAULT_MATTER_SPECIES` (``"cb"``, CDM + baryons) when
+        :attr:`transfer_params` doesn't set it (or sets it to ``None``). hmf's own
+        default is also ``"cb"``, but it warns about it whenever the cosmology has
+        massive neutrinos; halomod makes the choice explicitly instead. An explicit
+        ``matter_species`` in :attr:`transfer_params` is always used as given, and other
+        transfer models receive :attr:`transfer_params` unchanged.
+
+        See the Notes of :class:`DMHaloModel` for what this means for the "matter"
+        statistics.
+        """
+        params = dict(self.transfer_params)
+        if (
+            issubclass(self.transfer_model, _BOLTZMANN_TRANSFER_MODELS)
+            and params.get("matter_species") is None
+        ):
+            params["matter_species"] = DEFAULT_MATTER_SPECIES
+        return self.transfer_model(self.cosmo, **params)
+
     @cached_quantity
     def _r_table(self):
         """A high-resolution, high-range table of r values for internal interpolation."""
@@ -450,16 +538,19 @@ class DMHaloModel(MassFunction):
     @cached_quantity
     def bias(self):
         """The halo bias as a function of halo mass."""
+        # Only compute the optional inputs the model uses: mass_nonlinear is undefined
+        # at high redshift, and would otherwise raise for every bias model.
+        requires = getattr(self.bias_model, "requires", ())
         return self.bias_model(
-            nu=self.nu,
+            nu=self.nu2,
             delta_c=self.delta_c,
             m=self.m,
-            mstar=self.mass_nonlinear,
+            mstar=self.mass_nonlinear if "mstar" in requires else None,
             delta_halo=self.halo_overdensity_mean,
             n=self.n,
             cosmo=self.cosmo,
             sigma_8=self.sigma_8,
-            n_eff=self.n_eff,
+            n_eff=self.n_eff if "n_eff" in requires else None,
             **self.bias_params,
         )
 

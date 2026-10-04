@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pytest
 
 from halomod import DMHaloModel
-from halomod.wdm import HaloModelWDM
+from halomod.concentration import Ludlow16
+from halomod.wdm import HaloModelWDM, TracerHaloModelWDM
 
 
 def test_cmz_wdm():
@@ -35,14 +38,18 @@ def test_cmz_wdm():
 
 @pytest.mark.filterwarnings("ignore:Your input mass definition")
 def test_ludlow_cmz_wdm():
-    # SOCritical(200) does not match the SMT HMF, but that's OK here, we don't care
-    # about the actual mass function.
+    """WDM Ludlow16 concentrations lie below the CDM ones below the half-mode mass."""
+    # SOCritical(200) is the definition Ludlow16 is calibrated in, but it does not
+    # match the SOVirial definition SMT was measured in. We don't care about the
+    # mass function here (the c(M) relation does not depend on it), so let hmf
+    # convert it rather than error on the mismatch.
     wdm = HaloModelWDM(
         hmf_model="SMT",
         z=0,
         hmf_params={"a": 1},
         filter_model="TopHat",
         mdef_model="SOCritical",
+        disable_mass_conversion=False,
         halo_concentration_model="Ludlow16",
         halo_profile_model="Einasto",
         wdm_mass=3.3,
@@ -58,7 +65,19 @@ def test_ludlow_cmz_wdm():
         halo_profile_model="Einasto",
         Mmin=7.0,
         mdef_model="SOCritical",
+        disable_mass_conversion=False,
         transfer_model="EH",
     )
 
     assert np.all(cdm.cmz_relation[cdm.m <= wdm.wdm.m_hm] > wdm.cmz_relation[wdm.m <= wdm.wdm.m_hm])
+
+
+@pytest.mark.filterwarnings("ignore:Requested mass definition")
+@pytest.mark.parametrize("framework", [HaloModelWDM, TracerHaloModelWDM])
+def test_wdm_default_concentration_is_ludlow16(framework):
+    """The WDM frameworks default to Ludlow16, not its deprecated alias."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        hm = framework(transfer_model="EH", Mmin=7.0)
+        assert hm.halo_concentration_model is Ludlow16
+        assert isinstance(hm.halo_concentration, Ludlow16)
