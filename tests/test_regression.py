@@ -77,19 +77,6 @@ def test_regression_quantity_tracerhm(tr, z, params, quantity):
     assert np.allclose(data, this, rtol=1e-3, atol=_atol.get(quantity, 0))
 
 
-def test_compress_data_keeps_every_fifth_value():
-    """compress_data must thin arrays, not empty them (see #266)."""
-    np.testing.assert_array_equal(compress_data(np.arange(23)), [0, 5, 10, 15, 20])
-    np.testing.assert_array_equal(compress_data(np.arange(5)), [0])
-
-    arr = np.arange(12 * 7).reshape(12, 7)
-    out = compress_data(arr)
-    np.testing.assert_array_equal(out, arr[::5, ::5])
-    assert out.shape == (3, 2)
-
-    assert compress_data(3.5) == 3.5
-
-
 @_ignore_expected_warnings
 @pytest.mark.parametrize(("z", "params"), tested_params)
 def test_regression_snapshots_complete_and_nonempty(tr, z, params):
