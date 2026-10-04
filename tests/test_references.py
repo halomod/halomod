@@ -22,9 +22,6 @@ NO_REFERENCES = {
     ("HOD", "ContinuousPowerLaw"),
     ("HOD", "Constant"),
     ("Exclusion", "NoExclusion"),
-    ("Exclusion", "Sphere"),
-    ("Exclusion", "DblSphere"),
-    ("Exclusion", "DblSphere_"),
     ("_HODCross", "ConstantCorr"),
 }
 
@@ -82,6 +79,24 @@ def test_shared_references_are_reused():
     assert hod.Tinker05.references == halo_exclusion.DblEllipsoid.references
     # Subclasses inherit their parent's references.
     assert halo_exclusion.NgMatched.references == halo_exclusion.DblEllipsoid.references
+    for excl in (halo_exclusion.Sphere, halo_exclusion.DblSphere):
+        assert excl.references == (_references.TINKER05,)
+
+
+def test_colossus_factories_cite_colossus():
+    from halomod.bias import make_colossus_bias
+    from halomod.concentration import make_colossus_cm
+
+    assert make_colossus_cm("diemer15").references == (_references.DIEMER18,)
+    assert make_colossus_bias("comparat17").references == (_references.DIEMER18,)
+
+
+def test_tinker10_reference_shared_with_hmf():
+    """The Tinker10 bias and mass function cite the same paper, listed once."""
+    hm = TracerHaloModel(transfer_model="EH", hmf_model="Tinker10", bias_model="Tinker10")
+    refs = hm.get_acknowledgments()
+    assert refs["hmf_model"] == refs["bias_model"] == (_references.TINKER10,)
+    assert hm.get_acknowledgments(flat=True).count(_references.TINKER10) == 1
 
 
 def test_acknowledgments_tracer_halo_model():
@@ -91,7 +106,7 @@ def test_acknowledgments_tracer_halo_model():
     keys = list(refs)
     assert keys[:2] == ["hmf", "halomod"]
     assert refs["halomod"] == (_references.HALOMOD,)
-    assert "arXiv:2009.14066" in refs["halomod"][0]
+    assert "10.1016/j.ascom.2021.100487" in refs["halomod"][0]
 
     for key in (
         "bias_model",

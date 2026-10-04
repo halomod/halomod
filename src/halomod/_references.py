@@ -12,9 +12,17 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from hmf.mass_function.fitting_functions import Tinker10 as _HMFTinker10
+
 #: The reference for halomod itself, always included by
 #: :meth:`halomod.DMHaloModel.get_acknowledgments`.
-HALOMOD = "Murray, S. G., Diemer, B., Chen, Z., et al., 2020. arXiv:2009.14066"
+HALOMOD = (
+    "Murray, S. G., Diemer, B., Chen, Z., et al., 2021. Astronomy and Computing 36, "
+    "100487. https://doi.org/10.1016/j.ascom.2021.100487"
+)
+
+#: COLOSSUS, used by the models built with ``make_colossus_cm`` and ``make_colossus_bias``.
+DIEMER18 = "Diemer, B., 2018. ApJS 239, 35. https://ui.adsabs.harvard.edu/abs/2018ApJS..239...35D"
 
 # ---------------------------------------------------------------------------------------
 # Bias
@@ -49,10 +57,9 @@ MANERA10 = (
     "Manera, M., Sheth, R. K., Scoccimarro, R., 2010. MNRAS 402, 589. "
     "https://ui.adsabs.harvard.edu/abs/2010MNRAS.402..589M"
 )
-TINKER10 = (
-    "Tinker, J. L., et al., 2010. ApJ 724, 878. "
-    "https://ui.adsabs.harvard.edu/abs/2010ApJ...724..878T"
-)
+# The same paper as hmf's Tinker10 mass function: reuse hmf's string so that
+# get_acknowledgments(flat=True) lists it once when both are used.
+TINKER10 = _HMFTinker10.references[0]
 
 # ---------------------------------------------------------------------------------------
 # Concentration-mass relations

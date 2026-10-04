@@ -212,6 +212,7 @@ def make_colossus_cm(model="diemer15", **defaults):
     """
 
     class CustomColossusCM(CMRelation):
+        references: ClassVar[tuple[str, ...]] = (refs.DIEMER18,)
         _model_name = model
         _defaults = defaults
         native_mdefs = tuple(from_colossus_name(d) for d in concentration.models[model].mdefs)

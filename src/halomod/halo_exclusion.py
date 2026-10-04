@@ -312,6 +312,8 @@ class Sphere(Exclusion):
     will be accounted for.
     """
 
+    references: ClassVar[tuple[str, ...]] = (refs.TINKER05,)
+
     @cached_property
     def density_mod(self) -> np.ndarray:
         """The modified density after accounting for different integral mass limits.

@@ -858,6 +858,7 @@ def make_colossus_bias(model="comparat17", mdef=SO_MEAN, **defaults):
     """
 
     class CustomColossusBias(Bias):
+        references: ClassVar[tuple[str, ...]] = (refs.DIEMER18,)
         _model_name = model
         _defaults = defaults
         _mdef = mdef
