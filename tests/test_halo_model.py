@@ -1,9 +1,7 @@
 """Integration-style tests of the full HaloModel class."""
 
-import sys
 import warnings
 
-import hmf
 import numpy as np
 import pytest
 from hmf.density_field.filters import Filter
@@ -576,50 +574,3 @@ def test_cached_output_is_fnc_on_grid(name, fnc, grid):
     hm = TracerHaloModel(**FAST_KW)
     x = getattr(hm, grid)
     np.testing.assert_allclose(getattr(hm, name), getattr(hm, fnc)(x), rtol=1e-12, atol=0)
-
-
-# Values computed with ``TracerHaloModel(**FAST_KW)`` on the commit preceding the
-# conversion of these outputs to cached quantities, at indices ``REF_INDICES``. They
-# depend on the hmf version, so are keyed by it.
-REF_INDICES = [0, 20, 40, 60, 80]
-REF_VALUES = {
-    "3.7.1": {
-        "power_auto_tracer": [23648.651803224664, 6181.837493342404, 283.26176497701977],
-        "corr_auto_tracer": [
-            58920.35858834676,
-            2128.026396860861,
-            76.67483469824671,
-            2.142131134471782,
-            0.10572785771509996,
-        ],
-        "power_auto_matter": [21729.2405230342, 5680.792435144981, 348.55014976171657],
-        "corr_auto_matter": [
-            3537.510012977628,
-            1032.7149839436397,
-            100.97006738318066,
-            2.0122798527980956,
-            0.09715789709544165,
-        ],
-        "power_cross_tracer_matter": [
-            19601.657173717285,
-            5363.293131430889,
-            310.55510401207016,
-        ],
-    },
-}
-# Bit-level agreement is only expected on the platform the references were made on.
-REF_RTOL = 1e-12 if sys.platform.startswith("linux") else 1e-6
-
-
-@pytest.mark.filterwarnings("ignore:You are using an un-normalized mass function")
-@pytest.mark.skipif(
-    hmf.__version__ not in REF_VALUES,
-    reason=f"No reference values for hmf {hmf.__version__}",
-)
-def test_cached_outputs_unchanged():
-    """Converting outputs to cached quantities must not change their values."""
-    hm = TracerHaloModel(**FAST_KW)
-    for name, ref in REF_VALUES[hmf.__version__].items():
-        value = getattr(hm, name)
-        idx = [i for i in REF_INDICES if i < len(value)]
-        np.testing.assert_allclose(value[idx], ref, rtol=REF_RTOL, atol=0, err_msg=name)

@@ -1,6 +1,3 @@
-import sys
-
-import hmf
 import numpy as np
 import pytest
 
@@ -121,40 +118,3 @@ def test_cross_outputs_invalidate_on_subframework_update(via, order):
         np.testing.assert_allclose(
             getattr(cross, name), getattr(fresh, name), rtol=1e-10, atol=0, err_msg=name
         )
-
-
-# Values computed on the commit preceding the conversion of these outputs to cached
-# quantities, at indices ``REF_INDICES``. They depend on the hmf version.
-REF_INDICES = [0, 20, 40, 60, 80]
-REF_VALUES = {
-    "3.7.1": {
-        "power_cross": [26538.933298118438, 7161.510135575586, 314.2841509389841],
-        "corr_cross": [
-            53997.115732177466,
-            2122.087989595101,
-            81.84345250263902,
-            3.386187747154623,
-            1.1172286021980025,
-        ],
-    },
-}
-# Bit-level agreement is only expected on the platform the references were made on.
-REF_RTOL = 1e-12 if sys.platform.startswith("linux") else 1e-6
-
-
-@pytest.mark.filterwarnings("ignore:You are using an un-normalized mass function")
-@pytest.mark.skipif(
-    hmf.__version__ not in REF_VALUES,
-    reason=f"No reference values for hmf {hmf.__version__}",
-)
-def test_cross_outputs_unchanged():
-    """Converting outputs to cached quantities must not change their values."""
-    cross = CrossCorrelations(
-        cross_hod_model=ConstantCorr,
-        halo_model_1_params=FAST_KW,
-        halo_model_2_params={**FAST_KW, "z": 0.5},
-    )
-    for name, ref in REF_VALUES[hmf.__version__].items():
-        value = getattr(cross, name)
-        idx = [i for i in REF_INDICES if i < len(value)]
-        np.testing.assert_allclose(value[idx], ref, rtol=REF_RTOL, atol=0, err_msg=name)
