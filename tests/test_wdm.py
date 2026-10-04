@@ -67,6 +67,7 @@ def test_ludlow_cmz_wdm():
     assert np.all(cdm.cmz_relation[cdm.m <= wdm.wdm.m_hm] > wdm.cmz_relation[wdm.m <= wdm.wdm.m_hm])
 
 
+@pytest.mark.filterwarnings("ignore:Requested mass definition")
 @pytest.mark.parametrize("framework", [HaloModelWDM, TracerHaloModelWDM])
 def test_wdm_default_concentration_is_ludlow16(framework):
     """The WDM frameworks default to Ludlow16, not its deprecated alias."""

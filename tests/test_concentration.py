@@ -49,6 +49,8 @@ def test_lud16_scalarm():
     assert np.allclose(l16.cm(1e12), l16c.cm(1e12), rtol=0.2)
 
 
+# Both implementations use the same (non-native) mass definition, so the mismatch is moot.
+@pytest.mark.filterwarnings("ignore:Requested mass definition")
 @pytest.mark.parametrize("z", [1.0, 2.0, 4.0])
 def test_ludlow16_vs_colossus_high_z(z):
     """Ludlow16 at z > 0 agrees with the independent COLOSSUS implementation.
