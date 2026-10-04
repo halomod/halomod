@@ -290,7 +290,7 @@ class Bullock01(CMRelation):
 
     def zc(self, m, z=0):
         r = self.filter.mass_to_radius(self.params["F"] * m, self.mean_density0)
-        nu = self.filter.nu(r, self.delta_c)
+        nu = self.filter.nu2(r, self.delta_c)
         # Build numerical inverse of growth_factor: z as a function of D(z).
         # z_max=50 avoids the radiation-dominated regime where hmf may switch
         # ODE solvers, causing a normalization inconsistency in growth_factor.
