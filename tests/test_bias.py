@@ -101,6 +101,8 @@ def test_bias_against_colossus(hmf_bias, col_bias):
     assert np.allclose(hm.halo_bias, col.halo_bias, rtol=1e-2)
 
 
+# The default hmf_model is not paired with every bias model; that is irrelevant here.
+@pytest.mark.filterwarnings("ignore:You are using an un-normalized mass function")
 @pytest.mark.parametrize("bias_model", ["Tinker10", "SMT01", "Mo96", "Jing98"])
 def test_high_z_bias_without_nonlinear_mass(bias_model):
     """Bias models that don't use M* work at z=20, where M* is undefined (#265).
