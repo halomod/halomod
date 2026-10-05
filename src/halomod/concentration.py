@@ -51,6 +51,7 @@ value of "median"). This means we *cannot* update it via the ``HaloModel`` inter
 from __future__ import annotations
 
 import warnings
+from typing import ClassVar
 
 import numpy as np
 from colossus.cosmology.cosmology import fromAstropy
@@ -71,6 +72,7 @@ from scipy import special as sp
 from scipy.interpolate import interp1d
 from scipy.optimize import brentq
 
+from . import _references as refs
 from .profiles import NFW, Profile
 
 DEFAULT_COSMO = Cosmology()
@@ -210,6 +212,7 @@ def make_colossus_cm(model="diemer15", **defaults):
     """
 
     class CustomColossusCM(CMRelation):
+        references: ClassVar[tuple[str, ...]] = (refs.DIEMER18,)
         _model_name = model
         _defaults = defaults
         native_mdefs = tuple(from_colossus_name(d) for d in concentration.models[model].mdefs)
@@ -298,8 +301,10 @@ class Bullock01(CMRelation):
     References
     ----------
     .. [1] Bullock, J.S. et al., " Profiles of dark haloes: evolution, scatter and
-           environment ", https://ui.adsabs.harvard.edu/abs/1996MNRAS.282..347M.
+           environment ", https://ui.adsabs.harvard.edu/abs/2001MNRAS.321..559B.
     """
+
+    references: ClassVar[tuple[str, ...]] = (refs.BULLOCK01,)
 
     _defaults = {"F": 0.01, "K": 3.4, "norm": 1.0}
     native_mdefs = (SOCritical(),)
@@ -354,8 +359,10 @@ class Bullock01Power(CMRelation):
     ----------
     .. [1] Bullock, J.S. et al., " Profiles of dark haloes:
            evolution, scatter and environment ",
-           https://ui.adsabs.harvard.edu/abs/1996MNRAS.282..347M.
+           https://ui.adsabs.harvard.edu/abs/2001MNRAS.321..559B.
     """
+
+    references: ClassVar[tuple[str, ...]] = (refs.BULLOCK01,)
 
     _defaults = {"a": 9.0, "b": -0.13, "c": 1.0, "ms": None, "norm": 1.0}
     native_mdefs = (SOCritical(),)
@@ -385,6 +392,8 @@ class Maccio07(CMRelation):
            abundances and clustering ",
            https://ui.adsabs.harvard.edu/abs/2017MNRAS.469.2323P/abstract.
     """
+
+    references: ClassVar[tuple[str, ...]] = (refs.MACCIO07, refs.PADMANABHAN17)
 
     _defaults = {"c_0": 28.65, "gamma": 1.45, "norm": 1.0}
     native_mdefs = (SOMean(),)
@@ -436,6 +445,8 @@ class Duffy08(Bullock01Power):
            Wilkinson Microwave Anisotropy Probe year 5 cosmology ",
            https://ui.adsabs.harvard.edu/abs/2008MNRAS.390L..64D.
     """
+
+    references: ClassVar[tuple[str, ...]] = (refs.DUFFY08,)
 
     _defaults = {"a": None, "b": None, "c": None, "ms": 2e12, "sample": "relaxed", "norm": 1.0}
     native_mdefs = (SOCritical(), SOMean(), SOVirial())
@@ -515,6 +526,8 @@ class Zehavi11(Bullock01Power):
            https://ui.adsabs.harvard.edu/abs/2011ApJ...736...59Z.
     """
 
+    references: ClassVar[tuple[str, ...]] = (refs.ZEHAVI11,)
+
     _defaults = {"a": 11.0, "b": -0.13, "c": 1.0, "ms": 2.26e12, "norm": 1.0}
 
 
@@ -543,6 +556,8 @@ class Ludlow16(CMRelation):
             of cold and warm dark matter haloes ",
             https://ui.adsabs.harvard.edu/abs/2016MNRAS.460.1214L.
     """
+
+    references: ClassVar[tuple[str, ...]] = (refs.LUDLOW16,)
 
     # Note: only defined for NFW for now.
     _defaults = {
@@ -647,6 +662,8 @@ class Ludlow16Empirical(CMRelation):
             of cold and warm dark matter haloes ",
             https://ui.adsabs.harvard.edu/abs/2016MNRAS.460.1214L.
     """
+
+    references: ClassVar[tuple[str, ...]] = (refs.LUDLOW16,)
 
     _defaults = {
         "c0_0": 3.395,

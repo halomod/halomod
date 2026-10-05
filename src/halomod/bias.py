@@ -80,6 +80,8 @@ from hmf.halos.mass_definitions import SOMean
 from hmf.mass_function import fitting_functions as ff
 from scipy.interpolate import InterpolatedUnivariateSpline as spline
 
+from . import _references as refs
+
 SO_MEAN = SOMean()
 
 
@@ -222,6 +224,8 @@ class Mo96(Bias):
            1996
     """
 
+    references: ClassVar[tuple[str, ...]] = (refs.MO96,)
+
     pair_hmf = (ff.PS,)
 
     def bias(self):
@@ -254,6 +258,8 @@ class Jing98(Bias):
     .. [1] Jing, Y. P., "Accurate Fitting Formula for the Two-Point Correlation Function
            of Dark Matter Halos", http://adsabs.harvard.edu/abs/1998ApJ...503L...9J, 1998.
     """
+
+    references: ClassVar[tuple[str, ...]] = (refs.JING98,)
 
     _defaults = {"a": 0.5, "b": 0.06, "c": 0.02}
     requires = ("n_eff",)
@@ -295,6 +301,8 @@ class ST99(Bias):
            split", https://ui.adsabs.harvard.edu/abs/1999MNRAS.308..119S, 1999
     """
 
+    references: ClassVar[tuple[str, ...]] = (refs.ST99,)
+
     pair_hmf = (ff.SMT,)
     _defaults = {"q": 0.707, "p": 0.3}
 
@@ -333,10 +341,12 @@ class SMT01(Bias):
 
     References
     ----------
-    .. [1] Sheth, R. K. and Tormen G., "Ellipsoidal collapse and an improved model for
+    .. [1] Sheth, R. K., Mo, H. J. and Tormen G., "Ellipsoidal collapse and an improved model for
            the number and spatial distribution of dark matter haloes",
            https://ui.adsabs.harvard.edu/abs/2001MNRAS.323....1S, 2001
     """
+
+    references: ClassVar[tuple[str, ...]] = (refs.SMT01,)
 
     pair_hmf = (ff.SMT,)
     _defaults = {"a": 0.707, "b": 0.5, "c": 0.6}
@@ -381,6 +391,8 @@ class Seljak04(Bias):
     .. [1] Seljak, U. and Warren M. S., "Large-scale bias and stochasticity of haloes
            and dark matter", https://ui.adsabs.harvard.edu/abs/2004MNRAS.355..129S, 2004.
     """
+
+    references: ClassVar[tuple[str, ...]] = (refs.SELJAK04,)
 
     _defaults = {
         "a": 0.53,
@@ -439,6 +451,8 @@ class Seljak04Cosmo(Seljak04):
            and dark matter", https://ui.adsabs.harvard.edu/abs/2004MNRAS.355..129S, 2004.
     """
 
+    references: ClassVar[tuple[str, ...]] = (refs.SELJAK04,)
+
     _defaults = {
         "a": 0.53,
         "b": 0.39,
@@ -480,6 +494,8 @@ class Tinker05(SMT01):
            https://ui.adsabs.harvard.edu/abs/2005ApJ...631...41T, 2005
     """
 
+    references: ClassVar[tuple[str, ...]] = (refs.TINKER05,)
+
     _defaults = {"a": 0.707, "b": 0.35, "c": 0.8}
 
 
@@ -502,6 +518,8 @@ class Mandelbaum05(ST99):
     .. [2] Mandelbaum, R. et al., "Galaxy-galaxy lensing: dissipationless simulations
            versus the halo model", https://ui.adsabs.harvard.edu/abs/2005MNRAS.362.1451M, 2005.
     """
+
+    references: ClassVar[tuple[str, ...]] = (refs.SELJAK04, refs.MANDELBAUM05)
 
     _defaults = {"q": 0.73, "p": 0.15}
 
@@ -534,6 +552,8 @@ class Pillepich10(Bias):
             scale-dependent bias from N-body simulations with non-Gaussian initial
             conditions", https://ui.adsabs.harvard.edu/abs/2010MNRAS.402..191P, 2010
     """
+
+    references: ClassVar[tuple[str, ...]] = (refs.PILLEPICH10,)
 
     _defaults = {"B0": 0.647, "B1": -0.320, "B2": 0.568}
 
@@ -568,6 +588,8 @@ class Manera10(ST99):
             inaccuracy of the peak-background split ",
             https://ui.adsabs.harvard.edu/abs/2010MNRAS.402..589M, 2010
     """
+
+    references: ClassVar[tuple[str, ...]] = (refs.MANERA10,)
 
     pair_hmf = (ff.Manera,)
     _defaults = {"q": 0.709, "p": 0.248}
@@ -621,6 +643,8 @@ class Tinker10(Bias):
         Bias from the same study but with the constraint of the peak-background
         split formalism.
     """
+
+    references: ClassVar[tuple[str, ...]] = (refs.TINKER10,)
 
     _defaults = {"B": 0.183, "b": 1.5, "c": 2.4}
 
@@ -676,6 +700,8 @@ class Tinker10PBSplit(Bias):
         Bias from the same study but without the constraint of the peak-background
         split formalism.
     """
+
+    references: ClassVar[tuple[str, ...]] = (refs.TINKER10,)
 
     _defaults = {  # --- alpha
         "alpha_200": 0.368,
@@ -811,6 +837,8 @@ class TinkerSD05(ScaleDepBias):
            https://ui.adsabs.harvard.edu/abs/2005ApJ...631...41T, 2005
     """
 
+    references: ClassVar[tuple[str, ...]] = (refs.TINKER05,)
+
     _defaults = {"a": 1.17, "b": 1.49, "c": 0.69, "d": 2.09}
 
     def bias_scale(self):
@@ -830,6 +858,7 @@ def make_colossus_bias(model="comparat17", mdef=SO_MEAN, **defaults):
     """
 
     class CustomColossusBias(Bias):
+        references: ClassVar[tuple[str, ...]] = (refs.DIEMER18,)
         _model_name = model
         _defaults = defaults
         _mdef = mdef
