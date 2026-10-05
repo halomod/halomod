@@ -51,6 +51,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && success()
         with:
           files: ./coverage.xml # optional
-          fail_ci_if_error: true
+          # Coverage is informational: a Codecov outage must not fail the tests.
+          fail_ci_if_error: false
           verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
