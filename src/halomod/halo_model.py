@@ -105,6 +105,7 @@ class DMHaloModel(MassFunction):
         Mmax=18,
         force_1halo_turnover=True,
         force_unity_dm_bias: bool = True,
+        hmf_model: str | type | None = None,
         **hmf_kwargs,
     ):
         """
@@ -135,7 +136,8 @@ class DMHaloModel(MassFunction):
         halo_concentration_params : dict, optional
             Parameters for the concentration-mass relation (see its docstring for details)
         bias_model : str or :class:`~bias.Bias` subclass, optional
-            The model of halo bias.
+            The model of halo bias. Unless ``hmf_model`` is set explicitly, this also
+            sets the mass function (see ``hmf_model``).
         bias_params : dict, optional
             Parameters for the bias model (see its docstring for details)
         sd_bias_model : str, None, or :class:`~bias.ScaleDepBias` subclass, optional
@@ -157,6 +159,16 @@ class DMHaloModel(MassFunction):
             integral that computes this bias is not in fact infinite, and may come short
             of unity (or, indeed, an unnormalized HMF/bias pair may be used). If this is
             set to true, the matter bias is forcibly renormalized to unity.
+        hmf_model : str, None or :class:`~hmf.mass_function.fitting_functions.FittingFunction`
+            The mass function fit. If None (the default), it is paired with
+            ``bias_model``: the first model in ``bias_model.pair_hmf`` is used, or
+            ``Tinker10`` if that is empty. The pairing is kept when ``bias_model`` is
+            changed later with :meth:`update`, so that updating ``bias_model`` gives
+            the same model as passing it to the constructor. An explicitly set
+            ``hmf_model`` is kept when ``bias_model`` changes; set it to None again to
+            go back to the paired model. Reading the ``hmf_model`` attribute always
+            gives the model in use (never None), so a config written from this
+            object names that model explicitly.
 
         Other Parameters
         ----------------
@@ -166,17 +178,10 @@ class DMHaloModel(MassFunction):
         ``transfer_params={"matter_species": "tot"}`` for total matter. See
         :attr:`transfer`.
         """
+        # bias_model must be set before hmf_model, which may be paired with it.
         self.bias_model, self.bias_params = bias_model, bias_params or {}
 
-        try:
-            hmf_model = self.bias_model.pair_hmf[0]
-        except IndexError:
-            hmf_model = "Tinker10"
-
-        if "hmf_model" not in hmf_kwargs:
-            hmf_kwargs["hmf_model"] = hmf_model
-
-        super().__init__(Mmin=Mmin, Mmax=Mmax, **hmf_kwargs)
+        super().__init__(Mmin=Mmin, Mmax=Mmax, hmf_model=hmf_model, **hmf_kwargs)
 
         # Initially save parameters to the class.
         self.halo_profile_model, self.halo_profile_params = (
@@ -214,6 +219,50 @@ class DMHaloModel(MassFunction):
         self.force_unity_dm_bias = force_unity_dm_bias
         self.colossus_params = colossus_params or {}
 
+    #: Whether ``hmf_model`` is paired with ``bias_model`` rather than set explicitly.
+    #: This is False until ``hmf_model`` is first set (``bias_model`` is set first).
+    _hmf_model_paired: bool = False
+
+    def update(self, **kwargs: object) -> None:
+        """Update parameters of the framework with kwargs.
+
+        Parameters
+        ----------
+        **kwargs
+            New values of parameters of the framework. Setting ``hmf_model`` to None
+            pairs it with ``bias_model`` (see :class:`DMHaloModel`).
+        """
+        paired = self._hmf_model_paired
+        try:
+            super().update(**kwargs)
+        except BaseException:
+            # A failed update in hmf>=3.7 restores the old parameter values, which sets
+            # hmf_model to the class it resolved to and so would mark it as explicit.
+            # Keep it paired if it still holds the model paired with bias_model.
+            if paired and self.hmf_model is self._paired_hmf_model(self.bias_model):
+                self._hmf_model_paired = True
+            raise
+
+    @staticmethod
+    def _paired_hmf_model(bias_model: type) -> type:
+        """Return the mass function model paired with a bias model.
+
+        Parameters
+        ----------
+        bias_model : :class:`~bias.Bias` subclass
+            The bias model.
+
+        Returns
+        -------
+        hmf_model : :class:`hmf.mass_function.fitting_functions.FittingFunction` subclass
+            The first model in ``bias_model.pair_hmf``, or ``Tinker10`` if that is empty.
+        """
+        try:
+            hmf_model = bias_model.pair_hmf[0]
+        except IndexError:
+            hmf_model = "Tinker10"
+        return get_mdl(hmf_model, "BaseFittingFunction")
+
     # ===============================================================================
     # Parameters
     # ===============================================================================
@@ -231,9 +280,41 @@ class DMHaloModel(MassFunction):
         )
 
     @parameter("model")
-    def bias_model(self, val):
-        """Bias Model."""
-        return get_mdl(val, "Bias")
+    def hmf_model(self, val: str | type | None) -> type:
+        r"""
+        A model to use as the fitting function :math:`f(\sigma)`.
+
+        If set to None, the model paired with ``bias_model`` is used, and it follows
+        later changes of ``bias_model``. The value read back is always the model in use.
+
+        :type: str, None or `hmf.fitting_functions.FittingFunction` subclass
+        """
+        if val is None:
+            self._hmf_model_paired = True
+            return self._paired_hmf_model(self.bias_model)
+
+        self._hmf_model_paired = False
+        return get_mdl(val, "BaseFittingFunction")
+
+    @parameter("model")
+    def bias_model(self, val: str | type) -> type:
+        """Bias Model.
+
+        If ``hmf_model`` is paired with the bias model (i.e. it was not set
+        explicitly), changing the bias model also changes ``hmf_model``.
+        """
+        val = get_mdl(val, "Bias")
+        if self._hmf_model_paired:
+            # Set the paired hmf_model as a side effect, without the warning and
+            # validation of setting a parameter directly (the caller does those).
+            validate = self._validate
+            self._validate = False
+            try:
+                self.hmf_model = self._paired_hmf_model(val)
+            finally:
+                self._validate = validate
+            self._hmf_model_paired = True
+        return val
 
     @parameter("param")
     def bias_params(self, val):
