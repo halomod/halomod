@@ -24,16 +24,68 @@ Cross-correlating the same galaxy samples in different redshifts::
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
+from functools import update_wrapper
+from typing import Any
 
 import numpy as np
 from hmf import Component, Framework
-from hmf._internals._cache import cached_quantity, parameter, subframework
+from hmf._internals._cache import cached_quantity, hidden_loc, parameter, subframework
 from hmf._internals._framework import get_mdl, pluggable
 from scipy import integrate as intg
 from scipy.interpolate import InterpolatedUnivariateSpline as _IUS
 
 from . import _references, tools
 from .halo_model import TracerHaloModel
+
+
+def _forward_subframework_dependencies(fmwork: Framework, name: str) -> None:
+    """Make every quantity currently being computed depend on what ``name`` depends on.
+
+    hmf records which sub-framework parameters a quantity depends on only while that
+    quantity is being computed. When a quantity reads another quantity that is already
+    cached, it inherits that quantity's own parameters but not its sub-framework
+    parameters, so it would not be invalidated when e.g. ``halo_model_1`` is updated.
+    This copies the sub-framework dependencies of ``name`` to every quantity that is
+    currently being computed.
+    """
+    active = [q for q in getattr(fmwork, hidden_loc(fmwork, "active_q")) if q != name]
+    if not active:
+        return
+
+    for sub_name in getattr(fmwork, hidden_loc(fmwork, "subframeworks"), set()):
+        # Read the stored sub-framework directly: going through the property would
+        # itself register indexes.
+        sub = getattr(fmwork, hidden_loc(fmwork, sub_name), None)
+        if sub is None:
+            continue
+        sub_prpa = getattr(sub, hidden_loc(sub, "recalc_prop_par"))
+        deps = sub_prpa.get(":" + name)
+        if not deps:
+            continue
+        for q in active:
+            sub_prpa.setdefault(":" + q, set()).update(deps)
+
+
+def _cross_cached_quantity(f: Callable[[Any], Any]) -> property:
+    """Like :func:`hmf.cached_quantity`, but also tracks sub-framework dependencies.
+
+    The quantity's sub-framework dependencies are passed on to any quantity that reads it
+    (see :func:`_forward_subframework_dependencies`), so a cached cross-correlation
+    quantity is recomputed whenever a parameter of either halo model changes, however
+    its intermediate quantities happened to be cached.
+    """
+    prop = cached_quantity(f)
+    name = f.__name__
+
+    def _get_property(self):
+        value = prop.fget(self)
+        _forward_subframework_dependencies(self, name)
+        return value
+
+    # This also copies the marker hmf uses to list the quantity in quantities_available().
+    update_wrapper(_get_property, prop.fget)
+    return property(_get_property, None, prop.fdel, prop.__doc__)
 
 
 @pluggable
@@ -179,8 +231,8 @@ class CrossCorrelations(Framework):
 
     Parameters
     ----------
-    cross_hod_model : class
-        Model for the HOD of cross correlation.
+    cross_hod_model : str or :class:`_HODCross` subclass, optional
+        Model for the HOD of cross correlation. Default is :class:`ConstantCorr`.
     cross_hod_params : dict
         Parameters for HOD used in cross-correlation.
     halo_model_1_params,halo_model_2_params : dict
@@ -190,7 +242,7 @@ class CrossCorrelations(Framework):
 
     def __init__(
         self,
-        cross_hod_model,
+        cross_hod_model: str | type[_HODCross] = ConstantCorr,
         cross_hod_params: dict | None = None,
         halo_model_1_params: dict | None = None,
         halo_model_2_params: dict | None = None,
@@ -252,14 +304,14 @@ class CrossCorrelations(Framework):
     # ===========================================================================
     # Cross-correlations
     # ===========================================================================
-    @cached_quantity
+    @_cross_cached_quantity
     def cross_hod(self):
         """HOD model of the cross-correlation."""
         return self.cross_hod_model(
             [self.halo_model_1.hod, self.halo_model_2.hod], **self.cross_hod_params
         )
 
-    @cached_quantity
+    @_cross_cached_quantity
     def power_1h_cross_fnc(self):
         """Total 1-halo cross-power."""
         hm1, hm2 = self.halo_model_1, self.halo_model_2
@@ -286,12 +338,12 @@ class CrossCorrelations(Framework):
         p /= hm1.mean_tracer_den * hm2.mean_tracer_den
         return tools.ExtendedSpline(hm1.k, p, lower_func="power_law", upper_func="power_law")
 
-    @property
+    @_cross_cached_quantity
     def power_1h_cross(self):
         """Total 1-halo cross-power."""
         return self.power_1h_cross_fnc(self.halo_model_1.k_hm)
 
-    @cached_quantity
+    @_cross_cached_quantity
     def corr_1h_cross_fnc(self):
         """The 1-halo term of the cross correlation."""
         corr = tools.hankel_transform(self.power_1h_cross_fnc, self.halo_model_1._r_table, "r")
@@ -302,12 +354,12 @@ class CrossCorrelations(Framework):
             upper_func=tools._zero,
         )
 
-    @cached_quantity
+    @_cross_cached_quantity
     def corr_1h_cross(self):
         """The 1-halo term of the cross correlation."""
         return self.corr_1h_cross_fnc(self.halo_model_1.r)
 
-    @cached_quantity
+    @_cross_cached_quantity
     def power_2h_cross_fnc(self):
         """The 2-halo term of the cross-power spectrum.
 
@@ -364,12 +416,12 @@ class CrossCorrelations(Framework):
             upper_func="power_law",
         )
 
-    @property
+    @_cross_cached_quantity
     def power_2h_cross(self):
         """The 2-halo term of the cross-power spectrum."""
         return self.power_2h_cross_fnc(self.halo_model_1.k_hm)
 
-    @cached_quantity
+    @_cross_cached_quantity
     def corr_2h_cross_fnc(self):
         """The 2-halo term of the cross-correlation."""
         corr = tools.hankel_transform(
@@ -382,7 +434,7 @@ class CrossCorrelations(Framework):
             upper_func=tools._zero,
         )
 
-    @cached_quantity
+    @_cross_cached_quantity
     def corr_2h_cross(self):
         """The 2-halo term of the cross-correlation."""
         return self.corr_2h_cross_fnc(self.halo_model_1.r)
@@ -391,7 +443,7 @@ class CrossCorrelations(Framework):
         """Total tracer cross power spectrum."""
         return self.power_1h_cross_fnc(k) + self.power_2h_cross_fnc(k)
 
-    @property
+    @_cross_cached_quantity
     def power_cross(self):
         """Total tracer cross power spectrum."""
         return self.power_cross_fnc(self.halo_model_1.k_hm)
@@ -400,7 +452,7 @@ class CrossCorrelations(Framework):
         """The tracer cross correlation function."""
         return self.corr_1h_cross_fnc(r) + self.corr_2h_cross_fnc(r) + 1
 
-    @property
+    @_cross_cached_quantity
     def corr_cross(self):
         """The tracer cross correlation function."""
         return self.corr_cross_fnc(self.halo_model_1.r)
