@@ -439,6 +439,168 @@ def test_pickle_after_computation(thm):
     assert np.allclose(thm.corr_auto_matter, thm2.corr_auto_matter)
 
 
+# ---------------------------------------------------------------------------------------
+# Pairing of hmf_model with bias_model (#275)
+# ---------------------------------------------------------------------------------------
+#: The hmf_model that ``TracerHaloModel(bias_model=X)`` resolved to before #275 was fixed
+#: (recorded on the commit before the fix). The fix must not change these.
+PAIRED_HMF_BEFORE_275 = {
+    "Jing98": "Tinker10",
+    "Mandelbaum05": "SMT",
+    "Manera10": "Manera",
+    "Mo96": "PS",
+    "SMT01": "SMT",
+    "ST99": "SMT",
+    "Tinker05": "SMT",
+    "Tinker10": "Tinker10",
+    "Tinker10PBSplit": "Tinker10",
+    "UnityBias": "PS",
+}
+
+BIAS_WITH_PAIR = sorted(name for name, mdl in Bias.get_models().items() if mdl.pair_hmf)
+
+
+def _assert_same_model(a: TracerHaloModel, b: TracerHaloModel, rtol: float) -> None:
+    assert a.hmf_model is b.hmf_model
+    assert a.bias_model is b.bias_model
+    np.testing.assert_allclose(a.dndm, b.dndm, rtol=rtol, atol=0)
+    np.testing.assert_allclose(a.mean_tracer_den, b.mean_tracer_den, rtol=rtol, atol=0)
+    np.testing.assert_allclose(a.power_auto_tracer, b.power_auto_tracer, rtol=rtol, atol=0)
+
+
+def test_bias_models_with_pair_are_covered():
+    """The models checked below must include the ones the issue is about."""
+    assert {"ST99", "SMT01", "Mo96", "Manera10", "Tinker10PBSplit"} <= set(BIAS_WITH_PAIR)
+
+
+@pytest.mark.filterwarnings("ignore:You are using an un-normalized mass function")
+@pytest.mark.filterwarnings("ignore:Requested mass definition 'FoF")
+@pytest.mark.parametrize("bias_model", BIAS_WITH_PAIR)
+def test_update_bias_model_matches_constructor(bias_model):
+    """Updating bias_model must give the same model as passing it to the constructor."""
+    fresh = TracerHaloModel(transfer_model="EH", bias_model=bias_model)
+    updated = TracerHaloModel(transfer_model="EH")
+    updated.update(bias_model=bias_model)
+
+    assert updated.hmf_model is fresh.bias_model.pair_hmf[0]
+    _assert_same_model(updated, fresh, rtol=1e-10)
+
+
+@pytest.mark.filterwarnings("ignore:Requested mass definition 'FoF")
+@pytest.mark.parametrize("bias_model", sorted(PAIRED_HMF_BEFORE_275))
+def test_constructor_pairing_unchanged(bias_model):
+    """The constructor must pick the same hmf_model as before #275 was fixed."""
+    hm = TracerHaloModel(transfer_model="EH", bias_model=bias_model)
+    assert hm.hmf_model.__name__ == PAIRED_HMF_BEFORE_275[bias_model]
+
+
+@pytest.mark.filterwarnings("ignore:You are using an un-normalized mass function")
+@pytest.mark.parametrize("bias_model", ["ST99", "Mo96", "Tinker10"])
+def test_paired_constructor_equals_explicit_constructor(bias_model):
+    """A paired hmf_model gives exactly the model with that hmf_model set explicitly."""
+    paired = TracerHaloModel(transfer_model="EH", bias_model=bias_model)
+    explicit = TracerHaloModel(
+        transfer_model="EH",
+        bias_model=bias_model,
+        hmf_model=PAIRED_HMF_BEFORE_275[bias_model],
+    )
+    _assert_same_model(paired, explicit, rtol=1e-12)
+
+
+def test_update_bias_model_gives_consistent_pbs_pair():
+    """After updating to a peak-background-split bias, the HMF/bias pair is consistent.
+
+    Before #275 was fixed, the HMF stayed at Tinker10, which is not a pair of ST99, so
+    the matter power spectrum warned that the pair is not normalized.
+    """
+    hm = DMHaloModel(transfer_model="EH")
+    hm.update(bias_model="ST99")
+    assert hm.hmf_model in hm.bias_model.pair_hmf
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
+        assert np.all(np.isfinite(hm.power_auto_matter))
+
+
+@pytest.mark.filterwarnings(r"ignore:You are using an un-normalized mass function \(Tinker08\)")
+def test_explicit_hmf_model_kept_on_bias_update():
+    """An explicitly set hmf_model is not changed by updating bias_model."""
+    hm = TracerHaloModel(transfer_model="EH", hmf_model="Tinker08")
+    dndm = hm.dndm
+
+    hm.update(bias_model="ST99")
+    assert hm.hmf_model.__name__ == "Tinker08"
+    # The mass function does not depend on the bias, so it is not recomputed.
+    assert hm.dndm is dndm
+    # Tinker08 is not a pair of ST99, and the existing warning still says so.
+    with pytest.warns(UserWarning, match="un-normalized mass function and bias function pair"):
+        _ = hm.power_auto_matter
+
+    # The explicit choice also survives an update to the paired default bias.
+    hm.update(bias_model="Tinker10PBSplit")
+    assert hm.hmf_model.__name__ == "Tinker08"
+
+
+@pytest.mark.filterwarnings("ignore:You are using an un-normalized mass function")
+def test_explicit_hmf_model_reset_to_paired():
+    """Setting hmf_model back to None pairs it with bias_model again."""
+    hm = TracerHaloModel(transfer_model="EH", hmf_model="Tinker08", bias_model="ST99")
+    hm.update(hmf_model=None)
+    _assert_same_model(hm, TracerHaloModel(transfer_model="EH", bias_model="ST99"), rtol=1e-10)
+
+    # ...and it follows bias_model from then on.
+    hm.update(bias_model="Mo96")
+    _assert_same_model(hm, TracerHaloModel(transfer_model="EH", bias_model="Mo96"), rtol=1e-10)
+
+
+def test_paired_hmf_model_dependency_tracking():
+    """dndm is recomputed on a bias update only if hmf_model is paired with the bias."""
+    hm = DMHaloModel(transfer_model="EH", bias_model="ST99")
+    dndm = hm.dndm
+
+    # Same paired hmf (SMT): the mass function is not recomputed.
+    hm.update(bias_model="SMT01")
+    assert hm.dndm is dndm
+
+    # A different paired hmf (PS): it is.
+    hm.update(bias_model="Mo96")
+    assert hm.hmf_model.__name__ == "PS"
+    assert hm.dndm is not dndm
+
+
+@pytest.mark.filterwarnings("ignore:You are using an un-normalized mass function")
+@pytest.mark.parametrize("hmf_model", [None, "Tinker08"])
+@pytest.mark.parametrize("copier", ["clone", "pickle"])
+def test_copy_preserves_hmf_pairing(hmf_model, copier):
+    """Copies keep whether hmf_model is paired with bias_model or set explicitly."""
+    import pickle
+
+    hm = TracerHaloModel(transfer_model="EH", bias_model="ST99", hmf_model=hmf_model)
+    _ = hm.dndm
+    copied = hm.clone() if copier == "clone" else pickle.loads(pickle.dumps(hm))
+    assert copied.hmf_model is hm.hmf_model
+
+    copied.update(bias_model="Mo96")
+    expected = "PS" if hmf_model is None else "Tinker08"
+    assert copied.hmf_model.__name__ == expected
+    # The original is not affected.
+    assert hm.hmf_model.__name__ == ("SMT" if hmf_model is None else "Tinker08")
+
+
+@pytest.mark.filterwarnings("ignore:You are using an un-normalized mass function")
+def test_failed_update_keeps_hmf_pairing():
+    """A rolled-back update must not turn a paired hmf_model into an explicit one."""
+    hm = TracerHaloModel(transfer_model="EH", bias_model="ST99")
+    with pytest.raises(AssertionError, match="hm_logk_min >= hm_logk_max"):
+        hm.update(hmf_model="Tinker08", hm_logk_min=3.0, hm_logk_max=1.0)
+
+    if hm.hmf_model.__name__ != "SMT":
+        pytest.skip("This version of hmf does not roll back a failed update.")
+
+    hm.update(bias_model="Mo96")
+    assert hm.hmf_model.__name__ == "PS"
+
+
 _COLOSSUS_NU_WARNING = "Astropy cosmology class contains massive neutrinos"
 
 
