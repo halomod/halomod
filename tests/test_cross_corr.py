@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from halomod.cross_correlations import ConstantCorr, CrossCorrelations
 
@@ -39,3 +40,81 @@ def test_cross_same():
         atol=1e-6,
         rtol=1e-1,
     )
+
+
+CROSS_OUTPUTS = ["power_cross", "power_1h_cross", "power_2h_cross", "corr_cross"]
+
+FAST_KW = {"transfer_model": "EH", "hm_logk_min": -2, "hm_logk_max": 1, "hm_dlog10k": 0.05}
+
+
+def test_cross_outputs_in_quantities_available():
+    """The cross-correlation outputs must be discoverable via quantities_available()."""
+    available = set(CrossCorrelations.quantities_available())
+    missing = [name for name in CROSS_OUTPUTS if name not in available]
+    assert not missing
+
+
+def test_cross_hod_model_default():
+    """CrossCorrelations constructs without arguments, defaulting to ConstantCorr."""
+    cross = CrossCorrelations()
+    assert cross.cross_hod_model is ConstantCorr
+
+
+def test_cross_get_all_parameter_defaults():
+    defaults = CrossCorrelations.get_all_parameter_defaults()
+    assert isinstance(defaults, dict)
+    assert defaults["cross_hod_model"] is ConstantCorr
+
+
+# Every cached quantity of CrossCorrelations, intermediates first.
+CROSS_QUANTITIES = [
+    "cross_hod",
+    "power_1h_cross_fnc",
+    "power_2h_cross_fnc",
+    "corr_1h_cross_fnc",
+    "corr_2h_cross_fnc",
+    "power_1h_cross",
+    "power_2h_cross",
+    "corr_1h_cross",
+    "corr_2h_cross",
+    "power_cross",
+    "corr_cross",
+]
+
+
+@pytest.mark.filterwarnings("ignore:You are using an un-normalized mass function")
+@pytest.mark.parametrize("via", ["cross", "sub"])
+@pytest.mark.parametrize("order", [1, -1], ids=["leaves_first", "outputs_first"])
+def test_cross_outputs_invalidate_on_subframework_update(via, order):
+    """Cross outputs recomputed after a halo-model update match those of a fresh model.
+
+    This must hold whether the halo model is updated through ``CrossCorrelations.update``
+    or directly, and whichever cached intermediates were computed first.
+    """
+    cross = CrossCorrelations(halo_model_1_params=FAST_KW, halo_model_2_params=FAST_KW)
+    for name in CROSS_QUANTITIES[::order]:
+        getattr(cross, name)
+    before = {name: getattr(cross, name).copy() for name in CROSS_OUTPUTS}
+
+    if via == "cross":
+        cross.update(halo_model_1_params={"z": 1.0})
+    else:
+        cross.halo_model_1.update(z=1.0)
+
+    fresh = CrossCorrelations(
+        halo_model_1_params={**FAST_KW, "z": 1.0}, halo_model_2_params=FAST_KW
+    )
+    for name in CROSS_OUTPUTS + ["corr_1h_cross", "corr_2h_cross"]:
+        np.testing.assert_allclose(
+            getattr(cross, name), getattr(fresh, name), rtol=1e-10, atol=0, err_msg=name
+        )
+    for name in CROSS_OUTPUTS:
+        assert not np.allclose(getattr(cross, name), before[name], rtol=1e-6, atol=0)
+
+    # A second update, now of the other halo model, is also picked up.
+    cross.update(halo_model_2_params={"hod_params": {"M_min": 12.5}})
+    fresh.update(halo_model_2_params={"hod_params": {"M_min": 12.5}})
+    for name in CROSS_OUTPUTS:
+        np.testing.assert_allclose(
+            getattr(cross, name), getattr(fresh, name), rtol=1e-10, atol=0, err_msg=name
+        )

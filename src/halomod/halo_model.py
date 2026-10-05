@@ -851,7 +851,7 @@ class DMHaloModel(MassFunction):
             upper_func="power_law",
         )
 
-    @property
+    @cached_quantity
     def power_1h_auto_matter(self):
         """The halo model-derived nonlinear 1-halo dark matter auto-power spectrum."""
         return self.power_1h_auto_matter_fnc(self.k_hm)
@@ -876,7 +876,7 @@ class DMHaloModel(MassFunction):
             upper_func=tools._zero,
         )
 
-    @property
+    @cached_quantity
     def corr_1h_auto_matter(self):
         """The halo model 1-halo dark matter auto-correlation function."""
         return self.corr_1h_auto_matter_fnc(self.r)
@@ -987,7 +987,7 @@ class DMHaloModel(MassFunction):
             debias=self.force_unity_dm_bias,
         )
 
-    @property
+    @cached_quantity
     def corr_2h_auto_matter(
         self,
     ) -> Callable[[float | np.ndarray], float | np.ndarray]:
@@ -1027,7 +1027,7 @@ class DMHaloModel(MassFunction):
             debias=self.force_unity_dm_bias,
         )
 
-    @property
+    @cached_quantity
     def power_2h_auto_matter(self) -> np.ndarray:
         """The halo model 2-halo matter auto-power spectrum at :attr:`k_hm`."""
         return self.power_2h_auto_matter_fnc(self.k_hm)
@@ -1039,7 +1039,7 @@ class DMHaloModel(MassFunction):
             self.corr_1h_auto_matter_fnc, self.corr_2h_auto_matter_fnc, offset=1
         )
 
-    @property
+    @cached_quantity
     def corr_auto_matter(self):
         """The halo-model-derived nonlinear dark matter auto-correlation function."""
         return self.corr_auto_matter_fnc(self.r)
@@ -1049,7 +1049,7 @@ class DMHaloModel(MassFunction):
         """A callable returning the halo-model DM auto-power spectrum."""
         return tools._SumCallable(self.power_1h_auto_matter_fnc, self.power_2h_auto_matter_fnc)
 
-    @property
+    @cached_quantity
     def power_auto_matter(self):
         """The halo-model-derived nonlinear dark power auto-power spectrum."""
         return self.power_auto_matter_fnc(self.k_hm)
@@ -1397,14 +1397,14 @@ class TracerHaloModel(DMHaloModel):
         """
         return self._central_occupation + self.satellite_occupation
 
-    @property
+    @cached_quantity
     def tracer_mmin(self):
         """The minimum halo mass of integrals over the tracer population.
 
         This is a little tricky, because HOD's which don't enforce the central condition,
         even if they have a sharp cut at mmin, should not stop the integral at the
         central's Mmin, but should rather continue to pick up the satellites in lower
-        mass haloes.
+        mass haloes. In that case this is ``None``, i.e. no lower limit is imposed.
         """
         if self.hod.sharp_cut and (self.hod._central or self.hod.central_condition_inherent):
             return 10**self.hod.mmin
@@ -1523,7 +1523,7 @@ class TracerHaloModel(DMHaloModel):
             upper_func="power_law",
         )
 
-    @property
+    @cached_quantity
     def power_1h_ss_auto_tracer(self):
         """The satellite-satellite part of the 1-halo term of the tracer auto-power spectrum.
 
@@ -1554,7 +1554,7 @@ class TracerHaloModel(DMHaloModel):
             self._r_table, c, lower_func="power_law", upper_func=tools._zero
         )
 
-    @property
+    @cached_quantity
     def corr_1h_ss_auto_tracer(self):
         """
         The satellite-satellite part of the 1-halo term of the tracer auto-correlation function.
@@ -1584,7 +1584,7 @@ class TracerHaloModel(DMHaloModel):
             upper_func="power_law" if np.all(p[-10:] > 0) else tools._zero,
         )
 
-    @property
+    @cached_quantity
     def power_1h_cs_auto_tracer(self):
         """The cen-sat part of the 1-halo term of the tracer auto-power spectrum.
 
@@ -1612,7 +1612,7 @@ class TracerHaloModel(DMHaloModel):
             self._r_table, c, lower_func="power_law", upper_func=tools._zero
         )
 
-    @property
+    @cached_quantity
     def corr_1h_cs_auto_tracer(self):
         """The cen-sat part of the 1-halo term of the tracer auto-correlation function.
 
@@ -1627,7 +1627,7 @@ class TracerHaloModel(DMHaloModel):
             self.power_1h_cs_auto_tracer_fnc, self.power_1h_ss_auto_tracer_fnc
         )
 
-    @property
+    @cached_quantity
     def power_1h_auto_tracer(self):
         """The total 1-halo term of the tracer auto power spectrum."""
         return self.power_1h_auto_tracer_fnc(self.k_hm)
@@ -1665,7 +1665,7 @@ class TracerHaloModel(DMHaloModel):
             self._r_table, c, lower_func="power_law", upper_func=tools._zero
         )
 
-    @property
+    @cached_quantity
     def corr_1h_auto_tracer(self):
         """The 1-halo term of the tracer auto correlations."""
         return self.corr_1h_auto_tracer_fnc(self.r)
@@ -1703,7 +1703,7 @@ class TracerHaloModel(DMHaloModel):
             debias=False,
         )
 
-    @property
+    @cached_quantity
     def power_2h_auto_tracer(self):
         """The 2-halo term of the tracer auto-power spectrum."""
         return self.power_2h_auto_tracer_fnc(self.k_hm)
@@ -1715,26 +1715,29 @@ class TracerHaloModel(DMHaloModel):
             self._tracer_exclusion, self.bias_effective_tracer, debias=False
         )
 
-    @property
+    @cached_quantity
     def corr_2h_auto_tracer(self):
         """The 2-halo term of the tracer auto-correlation."""
         return self.corr_2h_auto_tracer_fnc(self.r)
 
-    @property
+    @cached_quantity
     def power_auto_tracer_fnc(self):
-        return lambda k: self.power_1h_auto_tracer_fnc(k) + self.power_2h_auto_tracer_fnc(k)
+        """A callable returning the tracer auto-power spectrum."""
+        # Bind the component callables now (rather than via a lambda over ``self``) so
+        # that the dependency tracking of this cached quantity sees them.
+        return tools._SumCallable(self.power_1h_auto_tracer_fnc, self.power_2h_auto_tracer_fnc)
 
-    @property
+    @cached_quantity
     def power_auto_tracer(self):
         """Auto-power spectrum of the tracer."""
         return self.power_auto_tracer_fnc(self.k_hm)
 
-    @property
+    @cached_quantity
     def corr_auto_tracer_fnc(self):
         """A callable returning the tracer auto correlation function."""
-        return lambda r: self.corr_1h_auto_tracer_fnc(r) + self.corr_2h_auto_tracer_fnc(r)
+        return tools._SumCallable(self.corr_1h_auto_tracer_fnc, self.corr_2h_auto_tracer_fnc)
 
-    @property
+    @cached_quantity
     def corr_auto_tracer(self):
         """The tracer auto correlation function."""
         return self.corr_auto_tracer_fnc(self.r)
@@ -1762,7 +1765,7 @@ class TracerHaloModel(DMHaloModel):
         p /= self.mean_tracer_den * self.mean_density0
         return tools.ExtendedSpline(self.k, p, lower_func="power_law", upper_func="power_law")
 
-    @property
+    @cached_quantity
     def power_1h_cross_tracer_matter(self):
         """The total 1-halo cross-power spectrum between tracer and matter."""
         return self.power_1h_cross_tracer_matter_fnc(self.k_hm)
@@ -1775,7 +1778,7 @@ class TracerHaloModel(DMHaloModel):
             self._r_table, corr, lower_func="power_law", upper_func=tools._zero
         )
 
-    @property
+    @cached_quantity
     def corr_1h_cross_tracer_matter(self):
         """The 1-halo term of the cross correlation between tracer and matter."""
         return self.corr_1h_cross_tracer_matter_fnc(self.r)
@@ -1810,7 +1813,7 @@ class TracerHaloModel(DMHaloModel):
             upper_func="power_law" if "filtered" not in self.hc_spectrum else tools._zero,
         )
 
-    @property
+    @cached_quantity
     def power_2h_cross_tracer_matter(self):
         """The 2-halo term of the cross-power spectrum between tracer and matter."""
         return self.power_2h_cross_tracer_matter_fnc(self.k_hm)
@@ -1823,7 +1826,7 @@ class TracerHaloModel(DMHaloModel):
             self._r_table, corr, lower_func="power_law", upper_func=tools._zero
         )
 
-    @property
+    @cached_quantity
     def corr_2h_cross_tracer_matter(self):
         """The 2-halo term of the cross-correlation between tracer and matter."""
         return self.corr_2h_cross_tracer_matter_fnc(self.r)
@@ -1835,7 +1838,7 @@ class TracerHaloModel(DMHaloModel):
             self.power_1h_cross_tracer_matter_fnc, self.power_2h_cross_tracer_matter_fnc
         )
 
-    @property
+    @cached_quantity
     def power_cross_tracer_matter(self):
         """Cross-power spectrum between tracer and matter."""
         return self.power_cross_tracer_matter_fnc(self.k_hm)
@@ -1849,7 +1852,7 @@ class TracerHaloModel(DMHaloModel):
             offset=1,
         )
 
-    @property
+    @cached_quantity
     def corr_cross_tracer_matter(self):
         """Cross-correlation of tracer with matter."""
         return self.corr_cross_tracer_matter_fnc(self.r)

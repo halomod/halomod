@@ -439,6 +439,143 @@ def test_pickle_after_computation(thm):
     assert np.allclose(thm.corr_auto_matter, thm2.corr_auto_matter)
 
 
+# ---------------------------------------------------------------------------
+# Main outputs are cached quantities (issue #267)
+# ---------------------------------------------------------------------------
+DM_OUTPUTS = [
+    "power_auto_matter",
+    "power_1h_auto_matter",
+    "power_2h_auto_matter",
+    "corr_auto_matter",
+    "corr_1h_auto_matter",
+    "corr_2h_auto_matter",
+]
+
+TRACER_OUTPUTS = [
+    "power_auto_tracer",
+    "power_1h_auto_tracer",
+    "power_1h_ss_auto_tracer",
+    "power_1h_cs_auto_tracer",
+    "power_2h_auto_tracer",
+    "corr_auto_tracer",
+    "corr_1h_auto_tracer",
+    "corr_1h_ss_auto_tracer",
+    "corr_1h_cs_auto_tracer",
+    "corr_2h_auto_tracer",
+    "power_auto_tracer_fnc",
+    "corr_auto_tracer_fnc",
+    "power_cross_tracer_matter",
+    "power_1h_cross_tracer_matter",
+    "power_2h_cross_tracer_matter",
+    "corr_cross_tracer_matter",
+    "corr_1h_cross_tracer_matter",
+    "corr_2h_cross_tracer_matter",
+    "tracer_mmin",
+]
+
+# A small, fast model setup shared by the caching tests below.
+FAST_KW = {
+    "transfer_model": "EH",
+    "hm_logk_min": -2,
+    "hm_logk_max": 1,
+    "hm_dlog10k": 0.05,
+    "rnum": 100,
+}
+
+
+@pytest.mark.parametrize(
+    ("model", "names"),
+    [(DMHaloModel, DM_OUTPUTS), (TracerHaloModel, DM_OUTPUTS + TRACER_OUTPUTS)],
+)
+def test_main_outputs_in_quantities_available(model, names):
+    """The documented outputs must be discoverable via quantities_available()."""
+    available = set(model.quantities_available())
+    missing = [name for name in names if name not in available]
+    assert not missing
+
+
+@pytest.mark.filterwarnings("ignore:You are using an un-normalized mass function")
+@pytest.mark.parametrize(
+    "update",
+    [{"z": 1.0}, {"hod_params": {"M_min": 12.5}}],
+    ids=["z", "M_min"],
+)
+def test_cached_outputs_invalidate_on_update(update):
+    """Cached outputs recomputed after update() must equal those of a fresh model."""
+    names = ["power_auto_tracer", "corr_auto_tracer", "power_auto_matter"]
+
+    hm = TracerHaloModel(**FAST_KW)
+    before = {name: getattr(hm, name).copy() for name in names}
+
+    hm.update(**update)
+    fresh = TracerHaloModel(**FAST_KW, **update)
+
+    for name in names:
+        updated = getattr(hm, name)
+        np.testing.assert_allclose(updated, getattr(fresh, name), rtol=1e-10, atol=0)
+
+        # The update must actually have changed the output (so that the comparison above
+        # is a real test of invalidation), except that the matter power spectrum does
+        # not depend on the HOD.
+        if name == "power_auto_matter" and "hod_params" in update:
+            np.testing.assert_allclose(updated, before[name], rtol=1e-12, atol=0)
+        else:
+            assert not np.allclose(updated, before[name], rtol=1e-6, atol=0)
+
+
+@pytest.mark.filterwarnings("ignore:You are using an un-normalized mass function")
+def test_successive_updates_match_fresh():
+    """Chained updates (z, then HOD) still give the same outputs as a fresh model."""
+    names = ["power_auto_tracer", "corr_auto_tracer", "power_auto_matter"]
+
+    hm = TracerHaloModel(**FAST_KW)
+    for name in names:
+        getattr(hm, name)
+
+    hm.update(z=1.0)
+    for name in names:
+        getattr(hm, name)
+    hm.update(hod_params={"M_min": 12.5})
+
+    fresh = TracerHaloModel(**FAST_KW, z=1.0, hod_params={"M_min": 12.5})
+    for name in names:
+        np.testing.assert_allclose(getattr(hm, name), getattr(fresh, name), rtol=1e-10, atol=0)
+
+
+@pytest.mark.filterwarnings("ignore:You are using an un-normalized mass function")
+def test_tracer_mmin_follows_hod():
+    """tracer_mmin is 10**M_min for a sharp-cut central HOD, and tracks updates to it."""
+    # Tinker05 has a sharp cut at M_min and inherently enforces the central condition.
+    hm = TracerHaloModel(**FAST_KW, hod_model="Tinker05", hod_params={"M_min": 12.0})
+    np.testing.assert_allclose(hm.tracer_mmin, 1e12, rtol=1e-12)
+
+    hm.update(hod_params={"M_min": 12.5})
+    np.testing.assert_allclose(hm.tracer_mmin, 10**12.5, rtol=1e-12)
+
+    # Zheng05 has a smooth central occupation, so no lower mass limit is imposed.
+    hm.update(hod_model="Zheng05")
+    assert hm.tracer_mmin is None
+
+
+@pytest.mark.filterwarnings("ignore:You are using an un-normalized mass function")
+@pytest.mark.parametrize(
+    ("name", "fnc", "grid"),
+    [
+        ("power_auto_matter", "power_auto_matter_fnc", "k_hm"),
+        ("corr_auto_matter", "corr_auto_matter_fnc", "r"),
+        ("power_auto_tracer", "power_auto_tracer_fnc", "k_hm"),
+        ("corr_auto_tracer", "corr_auto_tracer_fnc", "r"),
+        ("power_cross_tracer_matter", "power_cross_tracer_matter_fnc", "k_hm"),
+        ("corr_cross_tracer_matter", "corr_cross_tracer_matter_fnc", "r"),
+    ],
+)
+def test_cached_output_is_fnc_on_grid(name, fnc, grid):
+    """Each array output equals its callable evaluated on the model's grid."""
+    hm = TracerHaloModel(**FAST_KW)
+    x = getattr(hm, grid)
+    np.testing.assert_allclose(getattr(hm, name), getattr(hm, fnc)(x), rtol=1e-12, atol=0)
+
+
 # ---------------------------------------------------------------------------------------
 # Pairing of hmf_model with bias_model (#275)
 # ---------------------------------------------------------------------------------------
